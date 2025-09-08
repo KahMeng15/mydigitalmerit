@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - Digital Merit System</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container flex justify-between items-center">
+            <a href="dashboard.html" class="navbar-brand">Digital Merit System</a>
+            <ul class="navbar-nav">
+                <li><a href="dashboard.html" class="nav-link active">Dashboard</a></li>
+                <li><a href="merits.html" class="nav-link">My Merits</a></li>
+                <li><span id="userDisplayName" class="nav-link"></span></li>
+                <li><button id="signOutBtn" class="btn btn-outline btn-sm">Sign Out</button></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            <!-- Welcome Section -->
+            <div class="mb-6">
+                <h1 class="text-2xl font-bold mb-2">Welcome back, <span id="studentName">Student</span>!</h1>
+                <p class="text-secondary">Track your merit points and achievements</p>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-4 mb-6">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="text-3xl font-bold text-primary mb-2" id="totalMerits">0</div>
+                        <div class="text-sm text-secondary">Total Merit Points</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="text-3xl font-bold text-success mb-2" id="totalEvents">0</div>
+                        <div class="text-sm text-secondary">Events Participated</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="text-3xl font-bold text-warning mb-2" id="averageMerit">0</div>
+                        <div class="text-sm text-secondary">Average per Event</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="text-3xl font-bold text-info mb-2" id="currentRank">-</div>
+                        <div class="text-sm text-secondary">Current Rank</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Merit Breakdown -->
+            <div class="grid grid-cols-2 mb-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Merit Breakdown by Level</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="meritBreakdown">
+                            <div class="text-center text-secondary">Loading merit breakdown...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Merit Breakdown by Role</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="roleBreakdown">
+                            <div class="text-center text-secondary">Loading role breakdown...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Merit Activities -->
+            <div class="card mb-6">
+                <div class="card-header flex justify-between items-center">
+                    <h3 class="card-title">Recent Merit Activities</h3>
+                    <a href="merits.html" class="btn btn-outline btn-sm">View All</a>
+                </div>
+                <div class="card-body">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Event</th>
+                                    <th>Date</th>
+                                    <th>Role</th>
+                                    <th>Merit Points</th>
+                                    <th>Achievement</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentMeritsTable">
+                                <tr>
+                                    <td colspan="5" class="text-center text-secondary">Loading recent activities...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Achievement Highlights -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Achievement Highlights</h3>
+                </div>
+                <div class="card-body">
+                    <div id="achievementHighlights">
+                        <div class="text-center text-secondary">Loading achievements...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="d-none">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- App Scripts -->
+    <script src="../assets/js/firebase-config.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    <script src="../assets/js/student-dashboard.js"></script>
+
+    <style>
+        .progress-bar {
+            background-color: var(--light-color);
+            border-radius: 0.5rem;
+            height: 1.5rem;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--info-color));
+            border-radius: 0.5rem;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .achievement-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 1rem;
+            background: linear-gradient(45deg, var(--success-color), var(--primary-color));
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin: 0.25rem;
+        }
+        
+        .achievement-icon {
+            width: 1.5rem;
+            height: 1.5rem;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+        }
+    </style>
+</body>
+</html>

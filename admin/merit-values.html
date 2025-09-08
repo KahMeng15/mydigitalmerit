@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merit Values Configuration - Digital Merit System</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container flex justify-between items-center">
+            <a href="dashboard.html" class="navbar-brand">Merit System Admin</a>
+            <ul class="navbar-nav">
+                <li><a href="dashboard.html" class="nav-link">Dashboard</a></li>
+                <li><a href="events.html" class="nav-link">Events</a></li>
+                <li><a href="merit-values.html" class="nav-link active">Merit Values</a></li>
+                <li><a href="users.html" class="nav-link">Users</a></li>
+                <li><span id="userDisplayName" class="nav-link"></span></li>
+                <li><button id="signOutBtn" class="btn btn-outline btn-sm">Sign Out</button></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            <!-- Header -->
+            <div class="mb-6">
+                <h1 class="text-2xl font-bold mb-2">Merit Values Configuration</h1>
+                <p class="text-secondary">Define merit points for different roles and achievements across event levels</p>
+            </div>
+
+            <!-- Configuration Tabs -->
+            <div class="mb-6">
+                <div class="flex border-b border-gray-200">
+                    <button class="tab-btn active" data-tab="roles">Roles</button>
+                    <button class="tab-btn" data-tab="achievements">Achievements</button>
+                    <button class="tab-btn" data-tab="import-export">Import/Export</button>
+                </div>
+            </div>
+
+            <!-- Roles Configuration -->
+            <div id="rolesTab" class="tab-content active">
+                <div class="card">
+                    <div class="card-header flex justify-between items-center">
+                        <h3 class="card-title">Role Merit Points</h3>
+                        <button id="addRoleBtn" class="btn btn-primary btn-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                            </svg>
+                            Add Role
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Role</th>
+                                        <th>College (Block/Club)</th>
+                                        <th>College (CRC)</th>
+                                        <th>Student Rep Council</th>
+                                        <th>National</th>
+                                        <th>International</th>
+                                        <th>University Club</th>
+                                        <th>Faculty Club</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rolesTableBody">
+                                    <tr>
+                                        <td colspan="9" class="text-center text-secondary">Loading roles...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Achievements Configuration -->
+            <div id="achievementsTab" class="tab-content d-none">
+                <div class="card">
+                    <div class="card-header flex justify-between items-center">
+                        <h3 class="card-title">Achievement Bonus Points</h3>
+                        <button id="addAchievementBtn" class="btn btn-primary btn-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                            </svg>
+                            Add Achievement
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Achievement</th>
+                                        <th>University</th>
+                                        <th>Faculty</th>
+                                        <th>College</th>
+                                        <th>Club</th>
+                                        <th>External</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="achievementsTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center text-secondary">Loading achievements...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Import/Export Configuration -->
+            <div id="importExportTab" class="tab-content d-none">
+                <div class="grid grid-cols-2 gap-6">
+                    <!-- Export -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Export Configuration</h3>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-secondary mb-4">Download current merit values configuration as JSON or CSV file.</p>
+                            <div class="flex gap-2">
+                                <button id="exportJsonBtn" class="btn btn-primary">Export as JSON</button>
+                                <button id="exportCsvBtn" class="btn btn-outline">Export as CSV</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Import -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Import Configuration</h3>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-secondary mb-4">Upload a JSON file to import merit values configuration.</p>
+                            <div class="form-group">
+                                <input type="file" id="importFile" class="form-control" accept=".json">
+                            </div>
+                            <button id="importBtn" class="btn btn-success">Import Configuration</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Default Templates -->
+                <div class="card mt-6">
+                    <div class="card-header">
+                        <h3 class="card-title">Default Templates</h3>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-secondary mb-4">Load predefined merit value templates.</p>
+                        <div class="flex gap-2">
+                            <button id="loadDefaultBtn" class="btn btn-warning">Load Default Values</button>
+                            <button id="resetAllBtn" class="btn btn-danger">Reset All Values</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Changes -->
+            <div class="card mt-6">
+                <div class="card-body">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="font-medium">Save Changes</p>
+                            <p class="text-sm text-secondary">Make sure to save your changes before leaving this page.</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button id="previewBtn" class="btn btn-outline">Preview Changes</button>
+                            <button id="saveChangesBtn" class="btn btn-success">Save All Changes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Role Modal -->
+    <div id="roleModal" class="modal d-none">
+        <div class="modal-overlay" onclick="closeRoleModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="roleModalTitle">Add Role</h3>
+                <button onclick="closeRoleModal()" class="btn btn-outline btn-sm">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="roleForm">
+                    <div class="form-group">
+                        <label for="roleName" class="form-label">Role Name *</label>
+                        <input type="text" id="roleName" class="form-control" required 
+                               placeholder="e.g., Peserta, AJK, Penonton, Sukarelawanan">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="form-group">
+                            <label for="roleCollegeBlock" class="form-label">College (Block/Club)</label>
+                            <input type="number" id="roleCollegeBlock" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="roleCollegeCRC" class="form-label">College (CRC)</label>
+                            <input type="number" id="roleCollegeCRC" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="roleStudentRep" class="form-label">Student Rep Council</label>
+                            <input type="number" id="roleStudentRep" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="roleNational" class="form-label">National</label>
+                            <input type="number" id="roleNational" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="roleInternational" class="form-label">International</label>
+                            <input type="number" id="roleInternational" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="roleUniversityClub" class="form-label">University Club</label>
+                            <input type="number" id="roleUniversityClub" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="roleFacultyClub" class="form-label">Faculty Club</label>
+                            <input type="number" id="roleFacultyClub" class="form-control" min="0" placeholder="0">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeRoleModal()" class="btn btn-outline">Cancel</button>
+                <button id="saveRoleBtn" class="btn btn-primary">Save Role</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Achievement Modal -->
+    <div id="achievementModal" class="modal d-none">
+        <div class="modal-overlay" onclick="closeAchievementModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="achievementModalTitle">Add Achievement</h3>
+                <button onclick="closeAchievementModal()" class="btn btn-outline btn-sm">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="achievementForm">
+                    <div class="form-group">
+                        <label for="achievementName" class="form-label">Achievement Name *</label>
+                        <input type="text" id="achievementName" class="form-control" required 
+                               placeholder="e.g., Champion, Second Place, Third Place">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="form-group">
+                            <label for="achievementCollegeBlock" class="form-label">College (Block/Club)</label>
+                            <input type="number" id="achievementCollegeBlock" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="achievementCollegeCRC" class="form-label">College (CRC)</label>
+                            <input type="number" id="achievementCollegeCRC" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="achievementStudentRep" class="form-label">Student Rep Council</label>
+                            <input type="number" id="achievementStudentRep" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="achievementNational" class="form-label">National</label>
+                            <input type="number" id="achievementNational" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="achievementInternational" class="form-label">International</label>
+                            <input type="number" id="achievementInternational" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="achievementUniversityClub" class="form-label">University Club</label>
+                            <input type="number" id="achievementUniversityClub" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="achievementFacultyClub" class="form-label">Faculty Club</label>
+                            <input type="number" id="achievementFacultyClub" class="form-control" min="0" placeholder="0">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeAchievementModal()" class="btn btn-outline">Cancel</button>
+                <button id="saveAchievementBtn" class="btn btn-primary">Save Achievement</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="d-none">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- App Scripts -->
+    <script src="../assets/js/firebase-config.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    <script src="../assets/js/merit-values.js"></script>
+
+    <style>
+        .tab-btn {
+            padding: 1rem 2rem;
+            border: none;
+            background: none;
+            color: var(--secondary-color);
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .tab-btn.active,
+        .tab-btn:hover {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        
+        .tab-content {
+            margin-top: 2rem;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: var(--shadow-lg);
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-body {
+            padding: 1.5rem;
+        }
+        
+        .modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+    </style>
+</body>
+</html>

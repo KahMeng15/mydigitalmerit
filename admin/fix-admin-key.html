@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Fix Admin Key</title>
+  <style>
+    body { font-family: system-ui; padding: 2rem; max-width: 600px; margin: 0 auto; }
+    .status { margin: 1rem 0; padding: 1rem; border-radius: 4px; }
+    .ok { background: #d4edda; color: #155724; }
+    .bad { background: #f8d7da; color: #721c24; }
+    button { padding: 0.5rem 1rem; margin: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Fix Admin Key</h1>
+  <p>This will fix the admin key format in your database.</p>
+  
+  <button id="fixBtn">Fix Admin Key for kmeng.development@gmail.com</button>
+  <button id="checkBtn">Check Current Keys</button>
+  
+  <div id="status"></div>
+
+  <!-- Firebase v9 compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+  <script src="../assets/js/firebase-config.js"></script>
+  <script src="../assets/js/utils.js"></script>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const fixBtn = document.getElementById('fixBtn');
+    const checkBtn = document.getElementById('checkBtn');
+
+    function showStatus(msg, type = 'ok') {
+      statusEl.innerHTML = `<div class="status ${type}">${msg}</div>`;
+    }
+
+    checkBtn.addEventListener('click', async function() {
+      try {
+        const snapshot = await database.ref('admins').once('value');
+        const admins = snapshot.val() || {};
+        showStatus('Current admin keys: ' + JSON.stringify(admins, null, 2));
+      } catch (error) {
+        showStatus('Error: ' + error.message, 'bad');
+      }
+    });
+
+    fixBtn.addEventListener('click', async function() {
+      try {
+        const email = 'kmeng.development@gmail.com';
+        const oldKey = 'kmeng,development@gmail,com';
+        const newKey = sanitizeEmailForKey(email);
+        
+        showStatus(`Fixing: ${oldKey} → ${newKey}`);
+        
+        // Remove old key and add new key
+        const updates = {};
+        updates[`admins/${oldKey}`] = null; // Remove old
+        updates[`admins/${newKey}`] = true; // Add new
+        
+        await database.ref().update(updates);
+        showStatus(`✅ Fixed! Admin key updated to: ${newKey}`);
+        
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, 'bad');
+      }
+    });
+  </script>
+</body>
+</html>
