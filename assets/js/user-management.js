@@ -38,34 +38,32 @@ function initializeEventListeners() {
 // Load user statistics
 async function loadUserStats() {
     try {
-        const usersRef = firebase.database().ref('users');
-        const userMeritsRef = firebase.database().ref('userMerits');
-        
         const [usersSnapshot, userMeritsSnapshot] = await Promise.all([
-            usersRef.once('value'),
-            userMeritsRef.once('value')
+            db.collection('users').get(),
+            db.collection('userMerits').get()
         ]);
-        
-        const users = usersSnapshot.val() || {};
-        const userMerits = userMeritsSnapshot.val() || {};
-        
+        const users = {};
+        usersSnapshot.forEach(doc => {
+            users[doc.id] = doc.data();
+        });
+        const userMerits = {};
+        userMeritsSnapshot.forEach(doc => {
+            userMerits[doc.id] = doc.data();
+        });
         // Calculate statistics
         const totalUsers = Object.keys(users).length;
         const totalStudents = Object.values(users).filter(user => user.role === 'student').length;
         const totalAdmins = Object.values(users).filter(user => user.role === 'admin').length;
-        
         // Calculate active users (users with activity in the last 30 days)
         const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
         const activeUsers = Object.values(users).filter(user => 
             user.lastActivity && user.lastActivity > thirtyDaysAgo
         ).length;
-        
         // Update UI
         document.getElementById('totalUsers').textContent = totalUsers;
         document.getElementById('totalStudents').textContent = totalStudents;
         document.getElementById('totalAdmins').textContent = totalAdmins;
         document.getElementById('activeUsers').textContent = activeUsers;
-        
     } catch (error) {
         console.error('Error loading user stats:', error);
         showToast('Error loading statistics', 'error');
@@ -76,30 +74,28 @@ async function loadUserStats() {
 async function loadUsers() {
     try {
         showLoading();
-        
-        const usersRef = firebase.database().ref('users');
-        const userMeritsRef = firebase.database().ref('userMerits');
-        
         const [usersSnapshot, userMeritsSnapshot] = await Promise.all([
-            usersRef.once('value'),
-            userMeritsRef.once('value')
+            db.collection('users').get(),
+            db.collection('userMerits').get()
         ]);
-        
-        const users = usersSnapshot.val() || {};
-        const userMerits = userMeritsSnapshot.val() || {};
-        
+        const users = {};
+        usersSnapshot.forEach(doc => {
+            users[doc.id] = doc.data();
+        });
+        const userMerits = {};
+        userMeritsSnapshot.forEach(doc => {
+            userMerits[doc.id] = doc.data();
+        });
         // Process users with merit counts
         allUsers = Object.entries(users).map(([uid, user]) => {
             const userMeritData = userMerits[uid] || {};
             let totalMerits = 0;
-            
             // Calculate total merits for this user
             Object.values(userMeritData).forEach(eventMerits => {
                 Object.values(eventMerits).forEach(merit => {
-                    totalMerits += merit.points || 0;
+                    totalMerits += merit.meritPoints || merit.points || 0;
                 });
             });
-            
             return {
                 uid,
                 ...user,
@@ -108,10 +104,8 @@ async function loadUsers() {
                 lastActivityDate: user.lastActivity ? new Date(user.lastActivity) : null
             };
         });
-        
         filteredUsers = [...allUsers];
         filterUsers();
-        
     } catch (error) {
         console.error('Error loading users:', error);
         showToast('Error loading users', 'error');
@@ -349,16 +343,13 @@ async function viewUser(uid) {
         const body = document.getElementById('userDetailBody');
         
         // Get user's merit details
-        const userMeritsRef = firebase.database().ref(`userMerits/${uid}`);
-        const userMeritsSnapshot = await userMeritsRef.once('value');
-        const userMerits = userMeritsSnapshot.val() || {};
-        
+        const userMeritsDoc = await db.collection('userMerits').doc(uid).get();
+        const userMerits = userMeritsDoc.exists ? userMeritsDoc.data() : {};
         let meritsByEvent = {};
         let totalEvents = 0;
         let totalMerits = 0;
-        
         Object.entries(userMerits).forEach(([eventId, eventMerits]) => {
-            const eventTotal = Object.values(eventMerits).reduce((sum, merit) => sum + (merit.points || 0), 0);
+            const eventTotal = Object.values(eventMerits).reduce((sum, merit) => sum + (merit.meritPoints || merit.points || 0), 0);
             meritsByEvent[eventId] = {
                 count: Object.keys(eventMerits).length,
                 total: eventTotal
@@ -491,7 +482,7 @@ async function saveUserChanges() {
             updates.matricNumber = matricNumber;
         }
         
-        await firebase.database().ref(`users/${uid}`).update(updates);
+    await db.collection('users').doc(uid).update(updates);
         
         showToast('User updated successfully', 'success');
         closeEditUserModal();
@@ -535,12 +526,10 @@ async function deleteUser() {
         showLoading();
         
         // Delete user data and associated merits
-        const updates = {};
-        updates[`users/${uid}`] = null;
-        updates[`userMerits/${uid}`] = null;
-        
-        await firebase.database().ref().update(updates);
-        
+        await Promise.all([
+            db.collection('users').doc(uid).delete(),
+            db.collection('userMerits').doc(uid).delete()
+        ]);
         showToast('User deleted successfully', 'success');
         closeDeleteUserModal();
         loadUsers(); // Reload to reflect changes

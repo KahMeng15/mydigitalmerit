@@ -53,11 +53,10 @@ function displayUserInfo() {
 async function loadStudentMerits() {
     try {
         const user = getCurrentUser();
-        const meritsRef = database.ref(`userMerits/${user.uid}`);
-        const snapshot = await meritsRef.once('value');
-        const meritsData = snapshot.val() || {};
-        
-        // Flatten merit records with event info
+        const meritsRef = db.collection('userMerits').doc(user.uid);
+        const doc = await meritsRef.get();
+        const meritsData = doc.exists ? doc.data() : {};
+        // Firestore: meritsData is an object where keys are eventIds, values are eventMerits objects
         studentMerits = [];
         for (const eventId in meritsData) {
             const eventMerits = meritsData[eventId];
@@ -69,10 +68,7 @@ async function loadStudentMerits() {
                 });
             }
         }
-        
-        // Sort by creation date (newest first)
         studentMerits.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-        
     } catch (error) {
         console.error('Error loading student merits:', error);
         studentMerits = [];
@@ -81,9 +77,11 @@ async function loadStudentMerits() {
 
 async function loadEvents() {
     try {
-        const eventsRef = database.ref('events');
-        const snapshot = await eventsRef.once('value');
-        events = snapshot.val() || {};
+        const eventsSnapshot = await db.collection('events').get();
+        events = {};
+        eventsSnapshot.forEach(doc => {
+            events[doc.id] = doc.data();
+        });
     } catch (error) {
         console.error('Error loading events:', error);
         events = {};
@@ -93,48 +91,42 @@ async function loadEvents() {
 async function loadRankingInfo() {
     try {
         // Load all users' merit totals for ranking
-        const usersRef = database.ref('users');
-        const userMeritsRef = database.ref('userMerits');
-        
         const [usersSnapshot, meritsSnapshot] = await Promise.all([
-            usersRef.once('value'),
-            userMeritsRef.once('value')
+            db.collection('users').get(),
+            db.collection('userMerits').get()
         ]);
-        
-        const users = usersSnapshot.val() || {};
-        const allMerits = meritsSnapshot.val() || {};
-        
+        const users = {};
+        usersSnapshot.forEach(doc => {
+            users[doc.id] = doc.data();
+        });
+        const allMerits = {};
+        meritsSnapshot.forEach(doc => {
+            allMerits[doc.id] = doc.data();
+        });
         // Calculate total points for each user
         const userTotals = [];
         const currentUser = getCurrentUser();
-        
         for (const userId in users) {
             if (users[userId].role === 'admin') continue; // Skip admins
-            
             let totalPoints = 0;
             const userMerits = allMerits[userId] || {};
-            
             for (const eventId in userMerits) {
                 const eventMerits = userMerits[eventId];
                 for (const meritId in eventMerits) {
                     totalPoints += eventMerits[meritId].meritPoints || 0;
                 }
             }
-            
             userTotals.push({
                 userId,
                 totalPoints,
                 isCurrentUser: userId === currentUser.uid
             });
         }
-        
         // Sort by total points (descending)
         userTotals.sort((a, b) => b.totalPoints - a.totalPoints);
-        
         // Find current user's rank
         const currentUserRank = userTotals.findIndex(user => user.isCurrentUser) + 1;
         document.getElementById('currentRank').textContent = currentUserRank > 0 ? `#${currentUserRank}` : '-';
-        
     } catch (error) {
         console.error('Error loading ranking info:', error);
         document.getElementById('currentRank').textContent = '-';

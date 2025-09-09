@@ -67,11 +67,10 @@ async function loadMeritsData() {
 async function loadStudentMerits() {
     try {
         const user = getCurrentUser();
-        const meritsRef = database.ref(`userMerits/${user.uid}`);
-        const snapshot = await meritsRef.once('value');
-        const meritsData = snapshot.val() || {};
-        
-        // Flatten merit records
+        const meritsRef = db.collection('userMerits').doc(user.uid);
+        const doc = await meritsRef.get();
+        const meritsData = doc.exists ? doc.data() : {};
+        // Firestore: meritsData is an object where keys are eventIds, values are eventMerits objects
         allMerits = [];
         for (const eventId in meritsData) {
             const eventMerits = meritsData[eventId];
@@ -83,7 +82,6 @@ async function loadStudentMerits() {
                 });
             }
         }
-        
     } catch (error) {
         console.error('Error loading student merits:', error);
         allMerits = [];
@@ -92,9 +90,11 @@ async function loadStudentMerits() {
 
 async function loadEvents() {
     try {
-        const eventsRef = database.ref('events');
-        const snapshot = await eventsRef.once('value');
-        events = snapshot.val() || {};
+        const eventsSnapshot = await db.collection('events').get();
+        events = {};
+        eventsSnapshot.forEach(doc => {
+            events[doc.id] = doc.data();
+        });
     } catch (error) {
         console.error('Error loading events:', error);
         events = {};

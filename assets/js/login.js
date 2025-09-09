@@ -58,17 +58,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 // Check if student record exists using matric number as key
-                const studentRef = database.ref(`students/${matric}`);
-                const snapshot = await studentRef.once('value');
-                const studentData = snapshot.val();
-                
-                if (studentData) {
+                const studentDoc = await firestore.collection('students').doc(matric).get();
+                if (studentDoc.exists) {
                     // Existing student - update last login and redirect
-                    await studentRef.update({
-                        lastLogin: firebase.database.ServerValue.TIMESTAMP,
+                    await firestore.collection('students').doc(matric).update({
+                        lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
                         uid: user.uid // Update UID in case it changed
                     });
-                    
+                    const studentData = studentDoc.data();
                     sessionStorage.setItem('userData', JSON.stringify({
                         uid: user.uid,
                         email: user.email,
@@ -119,8 +116,8 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             // Use sanitized email key (all dots replaced with commas)
             const adminKey = (typeof sanitizeEmailForKey === 'function') ? sanitizeEmailForKey(email) : email.toLowerCase().replace(/\./g, ',');
-            const adminSnapshot = await database.ref(`admins/${adminKey}`).once('value');
-            return adminSnapshot.exists() && adminSnapshot.val() === true;
+            const adminDoc = await firestore.collection('admins').doc(adminKey).get();
+            return adminDoc.exists && adminDoc.data().active === true;
         } catch (error) {
             console.error('Error checking admin status:', error);
             return false;
@@ -138,11 +135,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 matricNumber: cleanedMatric,
                 displayName: cleanDisplayName(user.displayName),
                 role: 'student',
-                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 totalMerits: 0
             };
-            
-            await database.ref(`students/${cleanedMatric}`).set(studentData);
+            await firestore.collection('students').doc(cleanedMatric).set(studentData);
             
             showToast('Welcome! Your student profile has been created.', 'success');
             redirectUser('student');
@@ -243,12 +239,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             // Check if student record already exists with this matric
-            const studentSnapshot = await database.ref(`students/${matric}`).once('value');
-            
-            if (studentSnapshot.exists()) {
+            const studentDoc = await firestore.collection('students').doc(matric).get();
+            if (studentDoc.exists) {
                 // Student record exists - sign them in
-                const studentData = studentSnapshot.val();
-                
+                const studentData = studentDoc.data();
                 // Update session storage
                 sessionStorage.setItem('userData', JSON.stringify({
                     uid: user.uid,
@@ -257,10 +251,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     matricNumber: matric,
                     role: 'student'
                 }));
-                
                 // Update last login
-                await database.ref(`students/${matric}/lastLogin`).set(firebase.database.ServerValue.TIMESTAMP);
-                
+                await firestore.collection('students').doc(matric).update({
+                    lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                });
                 showToast('Welcome back!', 'success');
                 redirectUser('student');
             } else {

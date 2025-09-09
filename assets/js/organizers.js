@@ -43,25 +43,13 @@ async function loadOrganizers() {
     try {
         showLoading();
         
-        const organizersRef = database.ref('organizers');
-        const snapshot = await organizersRef.once('value');
-        const organizersData = snapshot.val();
-        
+        const snapshot = await firestore.collection('organizers').get();
         allOrganizers = [];
-        if (organizersData) {
-            Object.keys(organizersData).forEach(id => {
-                allOrganizers.push({
-                    id: id,
-                    ...organizersData[id]
-                });
-            });
-        }
-        
-        // Sort by name
+        snapshot.forEach(doc => {
+            allOrganizers.push({ id: doc.id, ...doc.data() });
+        });
         allOrganizers.sort((a, b) => a.name.localeCompare(b.name));
-        
         displayOrganizers(allOrganizers);
-        
     } catch (error) {
         console.error('Error loading organizers:', error);
         showToast('Error loading organizers: ' + error.message, 'error');
@@ -196,12 +184,11 @@ async function handleAddOrganizer(e) {
         const organizerData = {
             ...formData,
             id: organizerId,
-            createdAt: firebase.database.ServerValue.TIMESTAMP,
-            updatedAt: firebase.database.ServerValue.TIMESTAMP
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
-        
-        // Save to database
-        await database.ref(`organizers/${organizerId}`).set(organizerData);
+        // Save to Firestore
+        await firestore.collection('organizers').doc(String(organizerId)).set(organizerData);
         
         showToast('Organizer added successfully!', 'success');
         clearForm();
@@ -270,10 +257,9 @@ async function handleSaveEdit() {
         // Update in database
         const updates = {
             ...formData,
-            updatedAt: firebase.database.ServerValue.TIMESTAMP
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
-        
-        await database.ref(`organizers/${editingOrganizerId}`).update(updates);
+        await firestore.collection('organizers').doc(String(editingOrganizerId)).update(updates);
         
         showToast('Organizer updated successfully!', 'success');
         closeModal();
@@ -301,9 +287,9 @@ async function toggleOrganizerStatus(organizerId) {
     try {
         showLoading();
         
-        await database.ref(`organizers/${organizerId}`).update({
+        await firestore.collection('organizers').doc(String(organizerId)).update({
             status: newStatus,
-            updatedAt: firebase.database.ServerValue.TIMESTAMP
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         
         showToast(`Organizer ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully!`, 'success');
@@ -328,7 +314,7 @@ async function deleteOrganizer(organizerId) {
     try {
         showLoading();
         
-        await database.ref(`organizers/${organizerId}`).remove();
+    await firestore.collection('organizers').doc(String(organizerId)).delete();
         
         showToast('Organizer deleted successfully!', 'success');
         loadOrganizers(); // Refresh the list
@@ -343,20 +329,15 @@ async function deleteOrganizer(organizerId) {
 
 // Generate numeric organizer ID using counter
 async function generateNumericOrganizerId() {
-    try {
-        const counterRef = database.ref('counters/organizerId');
-        
-        // Use transaction to safely increment counter
-        const result = await counterRef.transaction((currentValue) => {
-            return (currentValue || 0) + 1;
-        });
-        
-        return result.snapshot.val();
-    } catch (error) {
-        console.error('Error generating organizer ID:', error);
-        // Fallback to timestamp-based ID if counter fails
-        return Date.now();
-    }
+    const counterDocRef = firestore.collection('counters').doc('organizerId');
+    let newId = null;
+    await firestore.runTransaction(async (transaction) => {
+        const doc = await transaction.get(counterDocRef);
+        const current = doc.exists ? doc.data().value : 0;
+        newId = current + 1;
+        transaction.set(counterDocRef, { value: newId });
+    });
+    return newId;
 }
 
 function formatDate(timestamp) {

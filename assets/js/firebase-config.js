@@ -3,7 +3,7 @@
 const firebaseConfig = {
   apiKey: "AIzaSyDd9r8u2fr9pboTbV2DGNbmhBj20Ma5zTI",
   authDomain: "mydigitalmerit.firebaseapp.com",
-  databaseURL: "https://mydigitalmerit-default-rtdb.asia-southeast1.firebasedatabase.app",
+    // databaseURL: "https://mydigitalmerit-default-rtdb.asia-southeast1.firebasedatabase.app", // Not needed for Firestore
   projectId: "mydigitalmerit",
   storageBucket: "mydigitalmerit.firebasestorage.app",
   messagingSenderId: "69229862912",
@@ -15,9 +15,11 @@ const firebaseConfig = {
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 
+
 // Initialize Firebase services
 const auth = firebase.auth();
-const database = firebase.database();
+const firestore = firebase.firestore();
+
 
 // Configure Google Auth Provider
 const googleProvider = new firebase.auth.GoogleAuthProvider();
@@ -48,8 +50,8 @@ async function checkUserRole(user) {
         // First check if admin
         if (typeof sanitizeEmailForKey === 'function') {
             const adminKey = sanitizeEmailForKey(user.email);
-            const adminSnapshot = await database.ref(`admins/${adminKey}`).once('value');
-            if (adminSnapshot.exists() && adminSnapshot.val() === true) {
+            const adminDoc = await firestore.collection('admins').doc(adminKey).get();
+            if (adminDoc.exists && adminDoc.data().active === true) {
                 // Store admin data in session
                 sessionStorage.setItem('userData', JSON.stringify({
                     uid: user.uid,
@@ -73,11 +75,9 @@ async function checkUserRole(user) {
         }
         
         if (matric) {
-            const studentRef = database.ref(`students/${matric}`);
-            const snapshot = await studentRef.once('value');
-            const studentData = snapshot.val();
-            
-            if (studentData) {
+            const studentDoc = await firestore.collection('students').doc(matric).get();
+            if (studentDoc.exists) {
+                const studentData = studentDoc.data();
                 // Store student data in session
                 sessionStorage.setItem('userData', JSON.stringify({
                     uid: user.uid,

@@ -75,21 +75,16 @@ async function loadMeritCounts() {
     for (let event of allEvents) {
         try {
             // Count merits for this event across all users
-            const userMeritsRef = database.ref('userMerits');
-            const snapshot = await userMeritsRef.once('value');
-            const allUserMerits = snapshot.val() || {};
-            
-            let meritCount = 0;
-            for (const userId in allUserMerits) {
-                const userMerits = allUserMerits[userId];
+            let count = 0;
+            const userMeritsSnapshot = await firestore.collection('userMerits').get();
+            userMeritsSnapshot.forEach(userDoc => {
+                const userMerits = userDoc.data();
                 if (userMerits[event.id]) {
-                    meritCount += Object.keys(userMerits[event.id]).length;
+                    count += Object.keys(userMerits[event.id]).length;
                 }
-            }
-            
-            event.meritCount = meritCount;
+            });
+            event.meritCount = count;
         } catch (error) {
-            console.error(`Error loading merit count for event ${event.id}:`, error);
             event.meritCount = 0;
         }
     }
@@ -349,25 +344,23 @@ async function confirmDelete() {
     
     try {
         showLoading();
-        
         // Delete event
-        await database.ref(`events/${eventToDelete}`).remove();
-        
+        await firestore.collection('events').doc(String(eventToDelete)).delete();
         // Delete associated merits
-        const userMeritsRef = database.ref('userMerits');
-        const snapshot = await userMeritsRef.once('value');
-        const allUserMerits = snapshot.val() || {};
-        
-        for (const userId in allUserMerits) {
-            if (allUserMerits[userId][eventToDelete]) {
-                await database.ref(`userMerits/${userId}/${eventToDelete}`).remove();
+        const userMeritsSnapshot = await firestore.collection('userMerits').get();
+        for (const userDoc of userMeritsSnapshot.docs) {
+            const userId = userDoc.id;
+            const userMerits = userDoc.data();
+            if (userMerits[eventToDelete]) {
+                // Remove the event merits from the user's document
+                const updated = { ...userMerits };
+                delete updated[eventToDelete];
+                await firestore.collection('userMerits').doc(userId).set(updated);
             }
         }
-        
         showToast('Event deleted successfully', 'success');
         closeDeleteModal();
         loadEvents(); // Reload events
-        
     } catch (error) {
         console.error('Error deleting event:', error);
         showToast('Error deleting event: ' + error.message, 'error');

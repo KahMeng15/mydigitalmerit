@@ -47,12 +47,11 @@ function initializePage() {
 
 let meritValues = null;
 
+
 async function loadMeritValues() {
     try {
-        const meritValuesRef = database.ref('meritValues');
-        const snapshot = await meritValuesRef.once('value');
-        meritValues = snapshot.val();
-        
+        const doc = await firestore.collection('meritValues').doc('main').get();
+        meritValues = doc.exists ? doc.data() : null;
         if (meritValues) {
             updateMeritPreview();
         }
@@ -61,41 +60,28 @@ async function loadMeritValues() {
     }
 }
 
+
 async function loadOrganizers() {
     try {
-        const organizersRef = database.ref('organizers');
-        const snapshot = await organizersRef.once('value');
-        const organizersData = snapshot.val();
-        
+        const snapshot = await firestore.collection('organizers').where('status', '==', 'active').get();
         const organizerSelect = document.getElementById('eventOrganizer');
-        
-        // Clear existing options except the first one
         organizerSelect.innerHTML = '<option value="">Select organizer</option>';
-        
-        if (organizersData) {
-            // Convert to array and sort by name
-            const organizers = Object.values(organizersData)
-                .filter(org => org.status === 'active')
-                .sort((a, b) => a.name.localeCompare(b.name));
-            
-            // Add organizers to dropdown
-            organizers.forEach(organizer => {
-                const option = document.createElement('option');
-                option.value = organizer.name;
-                option.textContent = organizer.name;
-                organizerSelect.appendChild(option);
-            });
-        }
-        
+        const organizers = [];
+        snapshot.forEach(doc => organizers.push(doc.data()));
+        organizers.sort((a, b) => a.name.localeCompare(b.name));
+        organizers.forEach(organizer => {
+            const option = document.createElement('option');
+            option.value = organizer.name;
+            option.textContent = organizer.name;
+            organizerSelect.appendChild(option);
+        });
         // Add "Others" option at the end
         const othersOption = document.createElement('option');
         othersOption.value = 'Others';
         othersOption.textContent = 'Others';
         organizerSelect.appendChild(othersOption);
-        
     } catch (error) {
         console.error('Error loading organizers:', error);
-        // If error loading organizers, still add "Others" option
         const organizerSelect = document.getElementById('eventOrganizer');
         const othersOption = document.createElement('option');
         othersOption.value = 'Others';
@@ -181,13 +167,11 @@ async function saveEvent(status) {
         const eventData = {
             ...formData,
             id: eventId,
-            createdAt: firebase.database.ServerValue.TIMESTAMP,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             createdBy: getCurrentUser().uid
         };
-        
-        // Save to database
-        const eventRef = database.ref(`events/${eventData.id}`);
-        await eventRef.set(eventData);
+        // Save to Firestore
+        await firestore.collection('events').doc(String(eventData.id)).set(eventData);
         
         showToast(`Event ${status === 'draft' ? 'saved as draft' : 'created'} successfully!`, 'success');
         
@@ -271,20 +255,16 @@ function validateRequiredFields(formData) {
     return true;
 }
 
-// Generate numeric event ID using counter
+
+// Generate numeric event ID using Firestore transaction
 async function generateNumericEventId() {
-    try {
-        const counterRef = database.ref('counters/eventId');
-        
-        // Use transaction to safely increment counter
-        const result = await counterRef.transaction((currentValue) => {
-            return (currentValue || 0) + 1;
-        });
-        
-        return result.snapshot.val();
-    } catch (error) {
-        console.error('Error generating event ID:', error);
-        // Fallback to timestamp-based ID if counter fails
-        return Date.now();
-    }
+    const counterDocRef = firestore.collection('counters').doc('eventId');
+    let newId = null;
+    await firestore.runTransaction(async (transaction) => {
+        const doc = await transaction.get(counterDocRef);
+        const current = doc.exists ? doc.data().value : 0;
+        newId = current + 1;
+        transaction.set(counterDocRef, { value: newId });
+    });
+    return newId;
 }

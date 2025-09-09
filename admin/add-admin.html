@@ -42,6 +42,7 @@
   <!-- Firebase v9 compat SDKs (matching index.html) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
   <script>
@@ -89,8 +90,8 @@
 
       const key = sanitizeEmailForKey(email);
       try {
-        // Write to /admins/{sanitizedEmail} = true
-        await database.ref(`admins/${key}`).set(true);
+        // Write to Firestore: admins/{sanitizedEmail} = {active:true}
+  await firestore.collection('admins').doc(key).set({active: true});
         showStatus('Admin added: ' + email);
         renderTableForEmail(key, true);
       } catch (err) {
@@ -105,7 +106,7 @@
 
       const key = sanitizeEmailForKey(email);
       try {
-        await database.ref(`admins/${key}`).remove();
+  await firestore.collection('admins').doc(key).delete();
         showStatus('Admin removed: ' + email);
         renderTableForEmail(key, null);
       } catch (err) {

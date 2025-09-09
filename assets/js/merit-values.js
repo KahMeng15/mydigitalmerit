@@ -71,21 +71,28 @@ function switchTab(e) {
 async function loadMeritValues() {
     try {
         showLoading();
-        
-        const meritValuesRef = database.ref('meritValues');
-        const snapshot = await meritValuesRef.once('value');
-        const data = snapshot.val();
-        
-        if (data) {
-            currentMeritValues = data;
-        } else {
-            // Initialize with default values if none exist
-            currentMeritValues = getDefaultMeritValues();
-        }
-        
+
+        const snapshot = await firestore.collection('meritvalue').get();
+        const roles = {};
+        const levels = [];
+
+        snapshot.forEach(doc => {
+            const level = doc.id;
+            levels.push(level);
+            const data = doc.data();
+            for (const role in data) {
+                if (!roles[role]) {
+                    roles[role] = {};
+                }
+                roles[role][level] = data[role];
+            }
+        });
+
+        currentMeritValues = { roles: roles, levels: levels, achievements: {} }; // achievements are not in scope of the request, but the rest of the script might need it.
+
         displayRoles();
         displayAchievements();
-        
+
     } catch (error) {
         console.error('Error loading merit values:', error);
         showToast('Error loading merit values', 'error');
@@ -95,26 +102,27 @@ async function loadMeritValues() {
 }
 
 function displayRoles() {
+    const tableHeader = document.getElementById('rolesTableHeader');
     const tableBody = document.getElementById('rolesTableBody');
     const roles = currentMeritValues.roles || {};
-    
+    const levels = currentMeritValues.levels || [];
+
+    // Update header
+    tableHeader.innerHTML = `<th>Role</th>` + levels.map(level => `<th>${sanitizeHTML(level)}</th>`).join('') + `<th>Actions</th>`;
+
     if (Object.keys(roles).length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center text-secondary">No roles configured. Click "Add Role" to start.</td>
+                <td colspan="${levels.length + 2}" class="text-center text-secondary">No roles configured. Click "Add Role" to start.</td>
             </tr>
         `;
         return;
     }
-    
-    tableBody.innerHTML = Object.entries(roles).map(([roleName, levels]) => `
+
+    tableBody.innerHTML = Object.entries(roles).map(([roleName, roleLevels]) => `
         <tr>
             <td class="font-medium">${sanitizeHTML(roleName)}</td>
-            <td>${levels.University || 0}</td>
-            <td>${levels.Faculty || 0}</td>
-            <td>${levels.College || 0}</td>
-            <td>${levels.Club || 0}</td>
-            <td>${levels.External || 0}</td>
+            ${levels.map(level => `<td>${roleLevels[level] || 0}</td>`).join('')}
             <td>
                 <div class="flex gap-1">
                     <button onclick="editRole('${roleName}')" class="btn btn-outline btn-sm">Edit</button>
@@ -318,7 +326,7 @@ async function saveAllChanges() {
     try {
         showLoading();
         
-        await database.ref('meritValues').set(currentMeritValues);
+    await firestore.collection('meritValues').doc('main').set(currentMeritValues);
         
         showToast('All changes saved successfully!', 'success');
         

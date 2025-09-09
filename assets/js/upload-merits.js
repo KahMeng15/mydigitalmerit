@@ -64,13 +64,13 @@ function setupEventListeners() {
 
 async function loadEvents() {
     try {
-        const eventsRef = database.ref('events');
-        const snapshot = await eventsRef.once('value');
-        const events = snapshot.val() || {};
-        
+        const eventsSnapshot = await db.collection('events').get();
+        const events = {};
+        eventsSnapshot.forEach(doc => {
+            events[doc.id] = doc.data();
+        });
         const eventSelect = document.getElementById('eventSelect');
         eventSelect.innerHTML = '<option value="">Select an event...</option>';
-        
         Object.entries(events)
             .sort(([,a], [,b]) => new Date(b.date) - new Date(a.date))
             .forEach(([id, event]) => {
@@ -79,7 +79,6 @@ async function loadEvents() {
                 option.textContent = `${event.name} (${formatDate(event.date)})`;
                 eventSelect.appendChild(option);
             });
-            
     } catch (error) {
         console.error('Error loading events:', error);
         showToast('Error loading events', 'error');
@@ -88,9 +87,8 @@ async function loadEvents() {
 
 async function loadMeritValues() {
     try {
-        const meritValuesRef = database.ref('meritValues');
-        const snapshot = await meritValuesRef.once('value');
-        meritValues = snapshot.val();
+        const meritValuesDoc = await db.collection('meritValues').doc('main').get();
+        meritValues = meritValuesDoc.exists ? meritValuesDoc.data() : {};
     } catch (error) {
         console.error('Error loading merit values:', error);
     }
@@ -106,14 +104,11 @@ async function handleEventSelect() {
     
     try {
         // Load event details
-        const eventRef = database.ref(`events/${eventId}`);
-        const snapshot = await eventRef.once('value');
-        selectedEvent = { id: eventId, ...snapshot.val() };
-        
+        const eventDoc = await db.collection('events').doc(eventId).get();
+        selectedEvent = { id: eventId, ...eventDoc.data() };
         // Display event info
         displayEventInfo();
         showStep(2);
-        
     } catch (error) {
         console.error('Error loading event:', error);
         showToast('Error loading event details', 'error');
@@ -462,7 +457,6 @@ async function uploadMeritRecords() {
         try {
             // Find or create user
             const userId = await findOrCreateUser(record);
-            
             // Create merit record
             const meritId = generateId();
             const meritData = {
@@ -475,20 +469,22 @@ async function uploadMeritRecords() {
                 linkProof: record.linkProof,
                 meritType: getMeritType(),
                 eventLevel: selectedEvent.level,
-                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 createdBy: getCurrentUser().uid
             };
-            
-            // Save merit record
-            await database.ref(`userMerits/${userId}/${selectedEvent.id}/${meritId}`).set(meritData);
-            
+            // Save merit record in Firestore (nested structure)
+            const userMeritsDoc = db.collection('userMerits').doc(userId);
+            // Get current merits for this user
+            const userMeritsSnap = await userMeritsDoc.get();
+            let userMerits = userMeritsSnap.exists ? userMeritsSnap.data() : {};
+            if (!userMerits[selectedEvent.id]) userMerits[selectedEvent.id] = {};
+            userMerits[selectedEvent.id][meritId] = meritData;
+            await userMeritsDoc.set(userMerits);
             uploaded++;
-            
             // Update progress
             const percentage = (uploaded / total) * 100;
             progressBar.style.width = `${percentage}%`;
             progressText.textContent = `${uploaded} of ${total} records uploaded`;
-            
         } catch (error) {
             console.error(`Error uploading record for ${record.name}:`, error);
             // Continue with next record
@@ -499,13 +495,10 @@ async function uploadMeritRecords() {
 async function findOrCreateUser(record) {
     try {
         // Search for existing user by matric number
-        const usersRef = database.ref('users');
-        const snapshot = await usersRef.orderByChild('matricNumber').equalTo(record.matricNumber.toUpperCase()).once('value');
-        
-        if (snapshot.exists()) {
+        const usersSnapshot = await db.collection('users').where('matricNumber', '==', record.matricNumber.toUpperCase()).get();
+        if (!usersSnapshot.empty) {
             // User exists, return the first match
-            const userData = snapshot.val();
-            return Object.keys(userData)[0];
+            return usersSnapshot.docs[0].id;
         } else {
             // Create new user record
             const userId = generateId();
@@ -513,12 +506,11 @@ async function findOrCreateUser(record) {
                 matricNumber: record.matricNumber.toUpperCase(),
                 displayName: record.name,
                 role: 'student',
-                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 createdBy: getCurrentUser().uid,
                 isImported: true
             };
-            
-            await database.ref(`users/${userId}`).set(userData);
+            await db.collection('users').doc(userId).set(userData);
             return userId;
         }
     } catch (error) {
