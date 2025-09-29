@@ -40,9 +40,13 @@ function initializePage() {
     
     // Load organizers for dropdown
     loadOrganizers();
+    
+    // Check if editing an existing event
+    checkForEditMode();
 }
 
 let meritValues = null;
+let editingEventId = null;
 
 
 async function loadMeritValues() {
@@ -94,10 +98,22 @@ async function loadOrganizers() {
     subSelect.disabled = true;
 
     try {
-        const snapshot = await firestore.collection('organizers').where('status', '==', 'active').orderBy('name_en').get();
-        mainSelect.innerHTML = '<option value="">Select main organizer</option>';
+        const snapshot = await firestore.collection('organizers').get();
+        const activeOrganizers = [];
+        
         snapshot.forEach(doc => {
             const organizer = { id: doc.id, ...doc.data() };
+            if (organizer.status === 'active') {
+                activeOrganizers.push(organizer);
+            }
+        });
+        
+        // Sort by name_en
+        activeOrganizers.sort((a, b) => a.name_en.localeCompare(b.name_en));
+        
+        // Populate dropdown
+        mainSelect.innerHTML = '<option value="">Select main organizer</option>';
+        activeOrganizers.forEach(organizer => {
             const option = document.createElement('option');
             option.value = organizer.id;
             option.textContent = `${organizer.name_en} / ${organizer.name_bm}`;
@@ -121,13 +137,23 @@ async function loadSubOrganizers(mainOrganizerId) {
     subSelect.disabled = false;
 
     try {
-        const snapshot = await firestore.collection('organizers').doc(mainOrganizerId).collection('sub_organizers').where('status', '==', 'active').orderBy('name_en').get();
-        subSelect.innerHTML = '<option value="">None (select if main body is organizer)</option>';
-        if (snapshot.empty) {
-            return;
-        }
+        const snapshot = await firestore.collection('organizers').doc(mainOrganizerId).collection('subOrganizers').get();
+        const subOrganizers = [];
+        
         snapshot.forEach(doc => {
             const subOrganizer = { id: doc.id, ...doc.data() };
+            // Filter active ones (if status field exists) or include all
+            if (!subOrganizer.status || subOrganizer.status === 'active') {
+                subOrganizers.push(subOrganizer);
+            }
+        });
+        
+        // Sort by name_en
+        subOrganizers.sort((a, b) => a.name_en.localeCompare(b.name_en));
+        
+        // Populate dropdown
+        subSelect.innerHTML = '<option value="">None (select if main body is organizer)</option>';
+        subOrganizers.forEach(subOrganizer => {
             const option = document.createElement('option');
             option.value = subOrganizer.id;
             option.textContent = `${subOrganizer.name_en} / ${subOrganizer.name_bm}`;
@@ -186,15 +212,25 @@ function updateMeritPreview() {
     // Base roles preview
     if (meritValues.roles) {
         previewHTML += '<div><h4 class="font-semibold mb-3">Base Roles</h4><div class="space-y-2">';
-        for (const [role, levels] of Object.entries(meritValues.roles)) {
-            const points = levels[eventLevel] || 0;
+        
+        // Create array of roles with their points for sorting
+        const rolesWithPoints = Object.entries(meritValues.roles).map(([role, levels]) => ({
+            role: role,
+            points: levels[eventLevel] || 0
+        }));
+        
+        // Sort by points from highest to lowest
+        rolesWithPoints.sort((a, b) => b.points - a.points);
+        
+        // Display sorted roles
+        rolesWithPoints.forEach(({ role, points }) => {
             previewHTML += `
                 <div class="flex justify-between">
                     <span>${sanitizeHTML(role)}</span>
                     <span class="font-medium">${points} points</span>
                 </div>
             `;
-        }
+        });
         previewHTML += '</div></div>';
     }
     
@@ -202,15 +238,18 @@ function updateMeritPreview() {
     const customRoles = getCustomRolesFromForm();
     previewHTML += '<div><h4 class="font-semibold mb-3">Custom Roles</h4><div class="space-y-2">';
     if (customRoles.length > 0) {
-        customRoles.forEach(role => {
-            if (role.name && role.value) { // Only show if both name and value are entered
-                previewHTML += `
-                    <div class="flex justify-between">
-                        <span>${sanitizeHTML(role.name)}</span>
-                        <span class="font-medium">${role.value} points</span>
-                    </div>
-                `;
-            }
+        // Filter and sort custom roles by value from highest to lowest
+        const validCustomRoles = customRoles
+            .filter(role => role.name && role.value) // Only include roles with both name and value
+            .sort((a, b) => parseFloat(b.value) - parseFloat(a.value)); // Sort by value descending
+        
+        validCustomRoles.forEach(role => {
+            previewHTML += `
+                <div class="flex justify-between">
+                    <span>${sanitizeHTML(role.name)}</span>
+                    <span class="font-medium">${role.value} points</span>
+                </div>
+            `;
         });
     } else {
         previewHTML += '<p class="text-secondary">No custom roles added.</p>';
@@ -219,6 +258,108 @@ function updateMeritPreview() {
     
     previewHTML += '</div>';
     previewContainer.innerHTML = previewHTML;
+}
+
+async function checkForEditMode() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('id');
+    
+    if (eventId) {
+        editingEventId = eventId;
+        await loadEventForEditing(eventId);
+        // Update page title to indicate editing
+        document.title = 'Edit Event - Digital Merit System';
+        const pageTitle = document.querySelector('h1');
+        if (pageTitle) {
+            pageTitle.textContent = 'Edit Event';
+        }
+    }
+}
+
+async function loadEventForEditing(eventId) {
+    try {
+        showLoading();
+        
+        const eventDoc = await firestore.collection('events').doc(eventId).get();
+        if (!eventDoc.exists) {
+            showToast('Event not found', 'error');
+            window.location.href = 'events.html';
+            return;
+        }
+        
+        const eventData = eventDoc.data();
+        
+        // Populate form fields
+        document.getElementById('eventName').value = eventData.name || '';
+        document.getElementById('eventLevel').value = eventData.level || '';
+        document.getElementById('eventDescription').value = eventData.description || '';
+        document.getElementById('eventLocation').value = eventData.location || '';
+        
+        // Handle date and time
+        if (eventData.date) {
+            if (eventData.date.includes('T')) {
+                const [datePart, timePart] = eventData.date.split('T');
+                document.getElementById('eventDate').value = datePart;
+                document.getElementById('eventTime').value = timePart;
+            } else {
+                document.getElementById('eventDate').value = eventData.date;
+            }
+        }
+        
+        if (eventData.endDate) {
+            document.getElementById('eventEndDate').value = eventData.endDate;
+        }
+        
+        // Set status radio button
+        if (eventData.status) {
+            const statusRadio = document.querySelector(`input[name="eventStatus"][value="${eventData.status}"]`);
+            if (statusRadio) {
+                statusRadio.checked = true;
+            }
+        }
+        
+        // Handle organizer selection - wait for organizers to load first
+        setTimeout(() => {
+            if (eventData.organizer) {
+                if (eventData.organizer.main_id) {
+                    document.getElementById('organizerMain').value = eventData.organizer.main_id;
+                    // Trigger change event to load sub-organizers
+                    if (eventData.organizer.sub_id) {
+                        loadSubOrganizers(eventData.organizer.main_id).then(() => {
+                            document.getElementById('organizerSub').value = eventData.organizer.sub_id;
+                        });
+                    }
+                }
+            }
+        }, 1000);
+        
+        // Handle custom roles
+        if (eventData.customRoles && eventData.customRoles.length > 0) {
+            // Clear existing custom roles
+            document.getElementById('customRolesContainer').innerHTML = '';
+            
+            // Add each custom role
+            eventData.customRoles.forEach(role => {
+                addCustomRole();
+                const roleRows = document.querySelectorAll('#customRolesContainer .custom-role-row');
+                const lastRow = roleRows[roleRows.length - 1];
+                lastRow.querySelector('.custom-role-name').value = role.name;
+                lastRow.querySelector('.custom-role-value').value = role.value;
+            });
+        }
+        
+        // Update merit preview after all data is loaded
+        setTimeout(updateMeritPreview, 1200);
+        
+        showToast('Event loaded for editing', 'success');
+        
+    } catch (error) {
+        console.error('Error loading event for editing:', error);
+        showToast('Error loading event: ' + error.message, 'error');
+        window.location.href = 'events.html';
+    } finally {
+        hideLoading();
+    }
 }
 
 
@@ -247,20 +388,36 @@ async function saveEvent(status) {
             return;
         }
         
-        // Generate numeric event ID
-        const eventId = await generateNumericEventId();
+        let eventData;
+        let eventId;
         
-        // Create event object
-        const eventData = {
-            ...formData,
-            id: eventId,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            createdBy: getCurrentUser().uid
-        };
-        // Save to Firestore
-        await firestore.collection('events').doc(String(eventData.id)).set(eventData);
-        
-        showToast(`Event ${status === 'draft' ? 'saved as draft' : 'created'} successfully!`, 'success');
+        if (editingEventId) {
+            // Editing existing event
+            eventId = editingEventId;
+            eventData = {
+                ...formData,
+                id: eventId,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedBy: getCurrentUser().uid
+            };
+            
+            // Merge with existing data to preserve createdAt and createdBy
+            await firestore.collection('events').doc(String(eventId)).update(eventData);
+            showToast(`Event ${status === 'draft' ? 'saved as draft' : 'updated'} successfully!`, 'success');
+        } else {
+            // Creating new event
+            eventId = await generateNumericEventId();
+            eventData = {
+                ...formData,
+                id: eventId,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdBy: getCurrentUser().uid
+            };
+            
+            // Save to Firestore
+            await firestore.collection('events').doc(String(eventId)).set(eventData);
+            showToast(`Event ${status === 'draft' ? 'saved as draft' : 'created'} successfully!`, 'success');
+        }
         
         // Redirect to events page
         setTimeout(() => {

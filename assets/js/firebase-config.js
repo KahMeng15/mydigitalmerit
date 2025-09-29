@@ -3,7 +3,7 @@
 const firebaseConfig = {
   apiKey: "AIzaSyDd9r8u2fr9pboTbV2DGNbmhBj20Ma5zTI",
   authDomain: "mydigitalmerit.firebaseapp.com",
-    // databaseURL: "https://mydigitalmerit-default-rtdb.asia-southeast1.firebasedatabase.app", // Not needed for Firestore
+  databaseURL: "https://mydigitalmerit-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "mydigitalmerit",
   storageBucket: "mydigitalmerit.firebasestorage.app",
   messagingSenderId: "69229862912",
@@ -17,8 +17,14 @@ firebase.initializeApp(firebaseConfig);
 
 
 // Initialize Firebase services
-const auth = firebase.auth();
-const firestore = firebase.firestore();
+window.auth = firebase.auth();
+window.firestore = firebase.firestore();
+window.database = firebase.database();
+
+// Also create const variables for backward compatibility
+const auth = window.auth;
+const firestore = window.firestore;
+const database = window.database;
 
 
 // Configure Google Auth Provider

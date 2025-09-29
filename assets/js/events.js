@@ -21,12 +21,12 @@ function initializePage() {
     if (user) {
         document.getElementById('userDisplayName').textContent = user.displayName || user.email;
     }
-
-    // Load events
-    loadEvents();
-}
-
-function setupEventListeners() {
+    
+    // Add a small delay to ensure Firebase is fully initialized
+    setTimeout(() => {
+        loadEvents();
+    }, 100);
+}function setupEventListeners() {
     // Sign out
     document.getElementById('signOutBtn').addEventListener('click', signOut);
     
@@ -39,22 +39,32 @@ function setupEventListeners() {
     
     // Export
     document.getElementById('exportBtn').addEventListener('click', exportEvents);
-    
-    // Delete confirmation
-    document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
 }
 
 async function loadEvents() {
     try {
         showLoading();
         
-        const eventsRef = database.ref('events');
-        const snapshot = await eventsRef.once('value');
-        const eventsData = snapshot.val() || {};
+        // Check if firestore is available
+        if (!window.firebase || !window.firestore) {
+            console.error('Firebase or Firestore not initialized');
+            throw new Error('Firebase not properly initialized');
+        }
         
-        allEvents = Object.entries(eventsData)
-            .map(([id, event]) => ({ id, ...event }))
+        const eventsSnapshot = await firestore.collection('events').get();
+        allEvents = eventsSnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
             .sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        console.log('Loaded events:', allEvents.length);
+        
+        if (allEvents.length === 0) {
+            displayNoEvents('No events found. Create your first event using the "Create Event" button.');
+            return;
+        }
+        
+        // Load organizer details for each event
+        await loadAllOrganizerDetails();
         
         // Load merit counts for each event
         await loadMeritCounts();
@@ -64,10 +74,40 @@ async function loadEvents() {
         
     } catch (error) {
         console.error('Error loading events:', error);
-        showToast('Error loading events', 'error');
+        showToast('Error loading events: ' + error.message, 'error');
         displayNoEvents('Error loading events');
     } finally {
         hideLoading();
+    }
+}
+
+async function loadAllOrganizerDetails() {
+    for (let event of allEvents) {
+        if (event.organizer && typeof event.organizer === 'object') {
+            try {
+                // Load main organizer details
+                if (event.organizer.main_id) {
+                    const mainOrgDoc = await firestore.collection('organizers').doc(event.organizer.main_id).get();
+                    if (mainOrgDoc.exists) {
+                        const mainOrgData = mainOrgDoc.data();
+                        event.organizer.main_name_en = mainOrgData.name_en;
+                        event.organizer.main_name_bm = mainOrgData.name_bm;
+                    }
+                }
+                
+                // Load sub organizer details
+                if (event.organizer.sub_id) {
+                    const subOrgDoc = await firestore.collection('subOrganizers').doc(event.organizer.sub_id).get();
+                    if (subOrgDoc.exists) {
+                        const subOrgData = subOrgDoc.data();
+                        event.organizer.sub_name_en = subOrgData.name_en;
+                        event.organizer.sub_name_bm = subOrgData.name_bm;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading organizer details for event:', event.id, error);
+            }
+        }
     }
 }
 
@@ -178,35 +218,19 @@ function displayEvents() {
                     ${event.date.includes('T') ? `<div class="text-sm text-secondary">${new Date(event.date).toLocaleTimeString('en-MY', {hour: '2-digit', minute: '2-digit'})}</div>` : ''}
                 </td>
                 <td>${sanitizeHTML(event.location || '-')}</td>
-                <td>${sanitizeHTML(event.organizer || '-')}</td>
+                <td>${getOrganizerDisplay(event.organizer)}</td>
                 <td><span class="badge ${statusClass}">${statusText}</span></td>
                 <td class="text-center">
                     <span class="font-medium">${event.meritCount || 0}</span>
                 </td>
                 <td>
-                    <div class="flex gap-1">
-                        <button onclick="viewEvent('${event.id}')" class="btn btn-outline btn-sm" title="View Details">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                            </svg>
-                        </button>
-                        <a href="upload-merits.html?eventId=${event.id}" class="btn btn-success btn-sm" title="Add Merits">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-                            </svg>
-                        </a>
-                        <button onclick="editEvent('${event.id}')" class="btn btn-warning btn-sm" title="Edit Event">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                            </svg>
-                        </button>
-                        <button onclick="deleteEvent('${event.id}')" class="btn btn-danger btn-sm" title="Delete Event">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                            </svg>
-                        </button>
-                    </div>
+                    <button onclick="viewEvent('${event.id}')" class="btn btn-primary btn-sm" title="View Details">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                        View More
+                    </button>
                 </td>
             </tr>
         `;
@@ -234,6 +258,39 @@ function getStatusText(status, isUpcoming) {
     if (status === 'active' && isUpcoming) return 'Upcoming';
     if (status === 'active' && !isUpcoming) return 'Completed';
     return status;
+}
+
+function getOrganizerDisplay(organizer) {
+    if (!organizer) return '-';
+    
+    // If organizer is a string (old format), return as is
+    if (typeof organizer === 'string') {
+        return sanitizeHTML(organizer);
+    }
+    
+    // If organizer is an object (new format), extract the names with EN/BM format
+    if (typeof organizer === 'object') {
+        let display = '';
+        
+        // Main organizer with EN/BM format
+        if (organizer.main_name_en && organizer.main_name_bm) {
+            display = `${sanitizeHTML(organizer.main_name_en)} / ${sanitizeHTML(organizer.main_name_bm)}`;
+        } else if (organizer.main_name) {
+            display = sanitizeHTML(organizer.main_name);
+        }
+        
+        // Sub organizer with EN/BM format
+        if (organizer.sub_name_en && organizer.sub_name_bm) {
+            const subDisplay = `${sanitizeHTML(organizer.sub_name_en)} / ${sanitizeHTML(organizer.sub_name_bm)}`;
+            display += display ? `<br><small>${subDisplay}</small>` : subDisplay;
+        } else if (organizer.sub_name) {
+            display += display ? `<br><small>${sanitizeHTML(organizer.sub_name)}</small>` : sanitizeHTML(organizer.sub_name);
+        }
+        
+        return display || '-';
+    }
+    
+    return '-';
 }
 
 function updatePagination() {
@@ -277,97 +334,13 @@ function changePage(page) {
     updatePagination();
 }
 
-async function viewEvent(eventId) {
-    try {
-        const event = allEvents.find(e => e.id === eventId);
-        if (!event) return;
-        
-        const modalBody = document.getElementById('eventModalBody');
-        modalBody.innerHTML = `
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <h4 class="font-semibold mb-2">Event Information</h4>
-                    <div class="space-y-2">
-                        <div><strong>Name:</strong> ${sanitizeHTML(event.name)}</div>
-                        <div><strong>Level:</strong> ${sanitizeHTML(event.level)}</div>
-                        <div><strong>Date:</strong> ${formatDateTime(event.date)}</div>
-                        <div><strong>Location:</strong> ${sanitizeHTML(event.location || 'Not specified')}</div>
-                        <div><strong>Organizer:</strong> ${sanitizeHTML(event.organizer || 'Not specified')}</div>
-                        <div><strong>Status:</strong> ${getStatusText(event.status, new Date(event.date).getTime() > Date.now())}</div>
-                    </div>
-                </div>
-                <div>
-                    <h4 class="font-semibold mb-2">Statistics</h4>
-                    <div class="space-y-2">
-                        <div><strong>Total Merits:</strong> ${event.meritCount || 0}</div>
-                        <div><strong>Created:</strong> ${formatDateTime(event.createdAt)}</div>
-                    </div>
-                    ${event.description ? `
-                        <h4 class="font-semibold mt-4 mb-2">Description</h4>
-                        <p class="text-sm">${sanitizeHTML(event.description)}</p>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-        
-        document.getElementById('editEventBtn').onclick = () => editEvent(eventId);
-        document.getElementById('eventModal').classList.remove('d-none');
-        
-    } catch (error) {
-        console.error('Error viewing event:', error);
-        showToast('Error loading event details', 'error');
-    }
+function viewEvent(eventId) {
+    window.location.href = `event-details.html?id=${eventId}`;
 }
 
-function closeEventModal() {
-    document.getElementById('eventModal').classList.add('d-none');
-}
 
-function editEvent(eventId) {
-    window.location.href = `edit-event.html?id=${eventId}`;
-}
 
-let eventToDelete = null;
 
-function deleteEvent(eventId) {
-    eventToDelete = eventId;
-    document.getElementById('deleteModal').classList.remove('d-none');
-}
-
-function closeDeleteModal() {
-    eventToDelete = null;
-    document.getElementById('deleteModal').classList.add('d-none');
-}
-
-async function confirmDelete() {
-    if (!eventToDelete) return;
-    
-    try {
-        showLoading();
-        // Delete event
-        await firestore.collection('events').doc(String(eventToDelete)).delete();
-        // Delete associated merits
-        const userMeritsSnapshot = await firestore.collection('userMerits').get();
-        for (const userDoc of userMeritsSnapshot.docs) {
-            const userId = userDoc.id;
-            const userMerits = userDoc.data();
-            if (userMerits[eventToDelete]) {
-                // Remove the event merits from the user's document
-                const updated = { ...userMerits };
-                delete updated[eventToDelete];
-                await firestore.collection('userMerits').doc(userId).set(updated);
-            }
-        }
-        showToast('Event deleted successfully', 'success');
-        closeDeleteModal();
-        loadEvents(); // Reload events
-    } catch (error) {
-        console.error('Error deleting event:', error);
-        showToast('Error deleting event: ' + error.message, 'error');
-    } finally {
-        hideLoading();
-    }
-}
 
 function exportEvents() {
     if (filteredEvents.length === 0) {

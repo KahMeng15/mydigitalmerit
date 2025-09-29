@@ -21,9 +21,11 @@ function initializePage() {
         document.getElementById('userDisplayName').textContent = user.displayName || user.email;
     }
 
-    // Load events and merit values
-    loadEvents();
-    loadMeritValues();
+    // Add a small delay to ensure Firebase is fully initialized
+    setTimeout(() => {
+        loadEvents();
+        loadMeritValues();
+    }, 100);
     
     // Check for eventId in URL params
     const urlParams = new URLSearchParams(window.location.search);
@@ -64,7 +66,13 @@ function setupEventListeners() {
 
 async function loadEvents() {
     try {
-        const eventsSnapshot = await db.collection('events').get();
+        // Check if firestore is available
+        if (!window.firebase || !window.firestore) {
+            console.error('Firebase or Firestore not initialized');
+            throw new Error('Firebase not properly initialized');
+        }
+        
+        const eventsSnapshot = await firestore.collection('events').get();
         const events = {};
         eventsSnapshot.forEach(doc => {
             events[doc.id] = doc.data();
@@ -87,8 +95,26 @@ async function loadEvents() {
 
 async function loadMeritValues() {
     try {
-        const meritValuesDoc = await db.collection('meritValues').doc('main').get();
-        meritValues = meritValuesDoc.exists ? meritValuesDoc.data() : {};
+        // Check if firestore is available
+        if (!window.firebase || !window.firestore) {
+            console.error('Firebase or Firestore not initialized');
+            throw new Error('Firebase not properly initialized');
+        }
+        
+        const snapshot = await firestore.collection('meritvalue').get();
+        const roles = {};
+        const levels = {};
+        
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.type === 'role') {
+                roles[data.name] = data.values;
+            } else if (data.type === 'level') {
+                Object.assign(levels, data.values);
+            }
+        });
+        
+        meritValues = { roles: roles, levels: levels };
     } catch (error) {
         console.error('Error loading merit values:', error);
     }
@@ -104,7 +130,7 @@ async function handleEventSelect() {
     
     try {
         // Load event details
-        const eventDoc = await db.collection('events').doc(eventId).get();
+        const eventDoc = await firestore.collection('events').doc(eventId).get();
         selectedEvent = { id: eventId, ...eventDoc.data() };
         // Display event info
         displayEventInfo();
@@ -473,7 +499,7 @@ async function uploadMeritRecords() {
                 createdBy: getCurrentUser().uid
             };
             // Save merit record in Firestore (nested structure)
-            const userMeritsDoc = db.collection('userMerits').doc(userId);
+            const userMeritsDoc = firestore.collection('userMerits').doc(userId);
             // Get current merits for this user
             const userMeritsSnap = await userMeritsDoc.get();
             let userMerits = userMeritsSnap.exists ? userMeritsSnap.data() : {};
@@ -495,7 +521,7 @@ async function uploadMeritRecords() {
 async function findOrCreateUser(record) {
     try {
         // Search for existing user by matric number
-        const usersSnapshot = await db.collection('users').where('matricNumber', '==', record.matricNumber.toUpperCase()).get();
+        const usersSnapshot = await firestore.collection('users').where('matricNumber', '==', record.matricNumber.toUpperCase()).get();
         if (!usersSnapshot.empty) {
             // User exists, return the first match
             return usersSnapshot.docs[0].id;
@@ -510,7 +536,7 @@ async function findOrCreateUser(record) {
                 createdBy: getCurrentUser().uid,
                 isImported: true
             };
-            await db.collection('users').doc(userId).set(userData);
+            await firestore.collection('users').doc(userId).set(userData);
             return userId;
         }
     } catch (error) {
