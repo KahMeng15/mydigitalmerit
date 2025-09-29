@@ -3,174 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Organizers - Digital Merit System</title>
+    <title>Organizers Management - Digital Merit System</title>
     <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container-fluid">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-content">
-                <div class="brand">
-                    <h1>Digital Merit System</h1>
-                    <span class="subtitle">Admin Dashboard - Manage Organizers</span>
-                </div>
-                <div class="user-info">
-                    <span id="userDisplayName">Admin User</span>
-                    <button id="signOutBtn" class="btn btn-outline">Sign Out</button>
-                </div>
-            </div>
-        </header>
-
-        <!-- Navigation -->
-        <nav class="sidebar">
-            <div class="nav-brand">
-                <h3>Admin Panel</h3>
-            </div>
-            <ul class="nav-menu">
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container flex justify-between items-center">
+            <a href="dashboard.html" class="navbar-brand">Merit System Admin</a>
+            <ul class="navbar-nav">
                 <li><a href="dashboard.html" class="nav-link">Dashboard</a></li>
                 <li><a href="events.html" class="nav-link">Events</a></li>
-                <li><a href="create-event.html" class="nav-link">Create Event</a></li>
-                <li><a href="organizers.html" class="nav-link active">Manage Organizers</a></li>
                 <li><a href="merit-values.html" class="nav-link">Merit Values</a></li>
-                <li><a href="upload-merits.html" class="nav-link">Upload Merits</a></li>
                 <li><a href="users.html" class="nav-link">Users</a></li>
-                <li><a href="add-admin.html" class="nav-link">Add Admin</a></li>
+                <li><a href="organizers.html" class="nav-link active">Organizers</a></li>
+                <li><span id="userDisplayName" class="nav-link"></span></li>
+                <li><button id="signOutBtn" class="btn btn-outline btn-sm">Sign Out</button></li>
             </ul>
-        </nav>
+        </div>
+    </nav>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Page Header -->
-            <div class="page-header">
-                <h2>Manage Event Organizers</h2>
-                <p class="text-muted">Add, edit, or remove event organizers for the dropdown list</p>
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            <!-- Header -->
+            <div class="mb-6 flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold mb-2">Organizers Management</h1>
+                    <p class="text-secondary">Define main organizing bodies and their sub-secretariats/excos.</p>
+                </div>
+                <a href="add-organizer.html" class="btn btn-primary">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    Add Main Organizer
+                </a>
             </div>
 
-            <!-- Add New Organizer -->
-            <div class="card mb-6">
-                <div class="card-header">
-                    <h3 class="card-title">Add New Organizer</h3>
-                </div>
-                <div class="card-body">
-                    <form id="organizerForm" class="grid grid-cols-2 gap-4">
-                        <div class="form-group">
-                            <label for="organizerName" class="form-label">Organizer Name *</label>
-                            <input type="text" id="organizerName" class="form-control" required 
-                                   placeholder="Enter organizer name">
-                        </div>
-                        <div class="form-group">
-                            <label for="organizerType" class="form-label">Type</label>
-                            <select id="organizerType" class="form-control form-select">
-                                <option value="College">College</option>
-                                <option value="Faculty">Faculty</option>
-                                <option value="University">University</option>
-                                <option value="Club">Club</option>
-                                <option value="External">External</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="organizerDescription" class="form-label">Description (Optional)</label>
-                            <input type="text" id="organizerDescription" class="form-control" 
-                                   placeholder="Brief description">
-                        </div>
-                        <div class="form-group">
-                            <label for="organizerStatus" class="form-label">Status</label>
-                            <select id="organizerStatus" class="form-control form-select">
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
-                            </select>
-                        </div>
-                        <div class="form-actions grid-col-span-2">
-                            <button type="submit" class="btn btn-primary">Add Organizer</button>
-                            <button type="button" id="clearFormBtn" class="btn btn-secondary">Clear Form</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Existing Organizers -->
+            <!-- Organizers List -->
             <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Existing Organizers</h3>
-                    <div class="header-actions">
-                        <input type="text" id="searchOrganizers" class="form-control" 
-                               placeholder="Search organizers..." style="width: 250px;">
-                    </div>
-                </div>
                 <div class="card-body">
-                    <div id="organizersTable" class="table-responsive">
-                        <!-- Table will be populated by JavaScript -->
+                    <div id="organizersListContainer">
+                        <p class="text-secondary">Loading organizers...</p>
                     </div>
                 </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Loading Spinner -->
-    <div id="loadingSpinner" class="loading-spinner d-none">
-        <div class="spinner"></div>
-        <div class="loading-text">Loading...</div>
-    </div>
-
-    <!-- Toast Container -->
-    <div id="toastContainer" class="toast-container"></div>
-
-    <!-- Edit Organizer Modal -->
-    <div id="editModal" class="modal d-none">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Edit Organizer</h3>
-                <button type="button" id="closeModalBtn" class="btn btn-text">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="editOrganizerForm">
-                    <div class="form-group">
-                        <label for="editOrganizerName" class="form-label">Organizer Name *</label>
-                        <input type="text" id="editOrganizerName" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="editOrganizerType" class="form-label">Type</label>
-                        <select id="editOrganizerType" class="form-control form-select">
-                            <option value="College">College</option>
-                            <option value="Faculty">Faculty</option>
-                            <option value="University">University</option>
-                            <option value="Club">Club</option>
-                            <option value="External">External</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="editOrganizerDescription" class="form-label">Description</label>
-                        <input type="text" id="editOrganizerDescription" class="form-control">
-                    </div>
-                    <div class="form-group">
-                        <label for="editOrganizerStatus" class="form-label">Status</label>
-                        <select id="editOrganizerStatus" class="form-control form-select">
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                        </select>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" id="cancelEditBtn" class="btn btn-secondary">Cancel</button>
-                <button type="button" id="saveEditBtn" class="btn btn-primary">Save Changes</button>
             </div>
         </div>
     </div>
 
-    <!-- Firebase Scripts -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-compat-app.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-compat-database.js"></script>
+    <!-- Main Organizer Modal -->
+    
+
+
+
+    <!-- Loading Spinner & Toast -->
+    <div id="loadingSpinner" class="d-none"><div class="spinner"></div></div>
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     
     <!-- App Scripts -->
     <script src="../assets/js/firebase-config.js"></script>
     <script src="../assets/js/utils.js"></script>
     <script src="../assets/js/organizers.js"></script>
-    <script src="../assets/js/mobile-enhancements.js"></script>
+
+
 </body>
 </html>

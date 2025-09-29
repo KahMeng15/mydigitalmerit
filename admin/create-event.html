@@ -63,13 +63,7 @@
                                 <label for="eventLevel" class="form-label">Event Level *</label>
                                 <select id="eventLevel" class="form-control form-select" required>
                                     <option value="">Select event level</option>
-                                    <option value="College (Block/Club)">1. College (Block/Club)</option>
-                                    <option value="College (College Representative Council)">2. College (College Representative Council)</option>
-                                    <option value="Student Representative Council">3. Student Representative Council</option>
-                                    <option value="National">4. National</option>
-                                    <option value="International">5. International</option>
-                                    <option value="University Club">6. University Club</option>
-                                    <option value="Faculty Club">7. Faculty Club</option>
+                                    <!-- Options will be populated by JavaScript -->
                                 </select>
                             </div>
 
@@ -99,10 +93,16 @@
                             </div>
 
                             <div class="form-group">
-                                <label for="eventOrganizer" class="form-label">Organizer</label>
-                                <select id="eventOrganizer" class="form-control form-select">
-                                    <option value="">Select organizer</option>
-                                    <!-- Options will be populated by JavaScript -->
+                                <label for="organizerMain" class="form-label">Main Organizer *</label>
+                                <select id="organizerMain" class="form-control form-select" required>
+                                    <option value="">Loading organizers...</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="organizerSub" class="form-label">Sub-Secretariat / Exco</label>
+                                <select id="organizerSub" class="form-control form-select">
+                                    <option value="">Select main organizer first</option>
                                 </select>
                             </div>
 
@@ -148,6 +148,28 @@
                 <div class="card-body">
                     <div id="meritPreview">
                         <p class="text-secondary">Select an event level to see merit points preview</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Roles Configuration -->
+            <div class="card mt-6">
+                <div class="card-header flex justify-between items-center">
+                    <div>
+                        <h3 class="card-title">Custom Event Roles</h3>
+                        <p class="text-sm text-secondary">Add roles and merit points specific to this event.</p>
+                    </div>
+                    <button type="button" id="addCustomRoleBtn" class="btn btn-primary btn-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        Add Role
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="customRolesContainer" class="space-y-4">
+                        <!-- Custom role rows will be inserted here by JavaScript -->
+                        <p id="noCustomRolesText" class="text-secondary">No custom roles added yet.</p>
                     </div>
                 </div>
             </div>

@@ -1,359 +1,93 @@
 // Organizers Management functionality
+console.log("organizers.js loaded");
+
 document.addEventListener('DOMContentLoaded', function() {
-    // Check admin authentication
+    console.log("DOMContentLoaded fired");
     if (!requireAdmin()) return;
-
-    // Initialize page
     initializePage();
-
-    // Event listeners
-    document.getElementById('organizerForm').addEventListener('submit', handleAddOrganizer);
-    document.getElementById('clearFormBtn').addEventListener('click', clearForm);
-    document.getElementById('searchOrganizers').addEventListener('input', filterOrganizers);
-    document.getElementById('signOutBtn').addEventListener('click', signOut);
-    
-    // Modal event listeners
-    document.getElementById('closeModalBtn').addEventListener('click', closeModal);
-    document.getElementById('cancelEditBtn').addEventListener('click', closeModal);
-    document.getElementById('saveEditBtn').addEventListener('click', handleSaveEdit);
-    
-    // Close modal when clicking outside
-    document.getElementById('editModal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeModal();
-        }
-    });
+    setupEventListeners();
 });
 
-let allOrganizers = [];
-let editingOrganizerId = null;
+let organizersCache = [];
+let currentEditingOrganizer = null;
+let currentEditingSubOrganizer = null;
 
 function initializePage() {
-    // Display user info
+    console.log("initializePage called");
     const user = getCurrentUser();
     if (user) {
         document.getElementById('userDisplayName').textContent = user.displayName || user.email;
     }
-    
-    // Load organizers
     loadOrganizers();
+}
+
+function setupEventListeners() {
+    console.log("setupEventListeners called");
+    
+    document.getElementById('signOutBtn').addEventListener('click', signOut);
 }
 
 async function loadOrganizers() {
     try {
         showLoading();
-        
-        const snapshot = await firestore.collection('organizers').get();
-        allOrganizers = [];
-        snapshot.forEach(doc => {
-            allOrganizers.push({ id: doc.id, ...doc.data() });
-        });
-        allOrganizers.sort((a, b) => a.name.localeCompare(b.name));
-        displayOrganizers(allOrganizers);
+        const snapshot = await firestore.collection('organizers').orderBy('name_en').get();
+        organizersCache = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        displayOrganizers();
     } catch (error) {
-        console.error('Error loading organizers:', error);
-        showToast('Error loading organizers: ' + error.message, 'error');
+        console.error("Error loading organizers: ", error);
+        showToast("Error loading organizers.", 'error');
     } finally {
         hideLoading();
     }
 }
 
-function displayOrganizers(organizers) {
-    const tableContainer = document.getElementById('organizersTable');
-    
-    if (organizers.length === 0) {
-        tableContainer.innerHTML = `
-            <div class="empty-state">
-                <p>No organizers found.</p>
-                <p class="text-muted">Add your first organizer using the form above.</p>
-            </div>
-        `;
+function displayOrganizers() {
+    const container = document.getElementById('organizersListContainer');
+    if (organizersCache.length === 0) {
+        container.innerHTML = '<p class="text-secondary">No organizers defined yet. Click "Add Main Organizer" to start.</p>';
         return;
     }
-    
-    const tableHTML = `
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Description</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${organizers.map(organizer => `
-                    <tr data-organizer-id="${organizer.id}">
-                        <td>
-                            <strong>${escapeHtml(organizer.name)}</strong>
-                        </td>
-                        <td>
-                            <span class="badge badge-${getBadgeColor(organizer.type)}">${organizer.type}</span>
-                        </td>
-                        <td>${escapeHtml(organizer.description || '')}</td>
-                        <td>
-                            <span class="badge badge-${organizer.status === 'active' ? 'success' : 'warning'}">
-                                ${organizer.status}
-                            </span>
-                        </td>
-                        <td>${formatDate(organizer.createdAt)}</td>
-                        <td>
-                            <div class="action-buttons">
-                                <button onclick="editOrganizer('${organizer.id}')" class="btn btn-sm btn-outline">
-                                    Edit
-                                </button>
-                                <button onclick="toggleOrganizerStatus('${organizer.id}')" class="btn btn-sm ${organizer.status === 'active' ? 'btn-warning' : 'btn-success'}">
-                                    ${organizer.status === 'active' ? 'Deactivate' : 'Activate'}
-                                </button>
-                                <button onclick="deleteOrganizer('${organizer.id}')" class="btn btn-sm btn-danger">
-                                    Delete
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
+
+    container.innerHTML = `
+        <div class="space-y-4">
+            ${organizersCache.map(org => `
+                <div class="card p-4 flex justify-between items-center">
+                    <div>
+                        <h4 class="font-bold text-lg">${sanitizeHTML(org.name_en)}</h4>
+                        <p class="text-secondary">${sanitizeHTML(org.name_bm)}</p>
+                        <span class="badge ${org.status === 'active' ? 'badge-success' : 'badge-danger'}">${org.status}</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <a href="manage-sub-organizers.html?parentId=${org.id}" class="btn btn-outline btn-sm">Manage Sub-Organizers</a>
+                        <button class="btn btn-secondary btn-sm" onclick="editOrganizer('${org.id}')">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteOrganizer('${org.id}')">Delete</button>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
     `;
-    
-    tableContainer.innerHTML = tableHTML;
 }
 
-function getBadgeColor(type) {
-    const colors = {
-        'College': 'primary',
-        'Faculty': 'info',
-        'University': 'success',
-        'Club': 'warning',
-        'External': 'secondary',
-        'Other': 'light'
-    };
-    return colors[type] || 'light';
+// Main Organizer Functions
+function editOrganizer(id) {
+    window.location.href = `add-organizer.html?id=${id}`;
 }
 
-function filterOrganizers() {
-    const searchTerm = document.getElementById('searchOrganizers').value.toLowerCase();
-    
-    if (!searchTerm) {
-        displayOrganizers(allOrganizers);
-        return;
-    }
-    
-    const filteredOrganizers = allOrganizers.filter(organizer => 
-        organizer.name.toLowerCase().includes(searchTerm) ||
-        organizer.type.toLowerCase().includes(searchTerm) ||
-        (organizer.description && organizer.description.toLowerCase().includes(searchTerm))
-    );
-    
-    displayOrganizers(filteredOrganizers);
-}
-
-async function handleAddOrganizer(e) {
-    e.preventDefault();
-    
-    try {
-        showLoading();
-        
-        const formData = {
-            name: document.getElementById('organizerName').value.trim(),
-            type: document.getElementById('organizerType').value,
-            description: document.getElementById('organizerDescription').value.trim(),
-            status: document.getElementById('organizerStatus').value
-        };
-        
-        // Validate required fields
-        if (!formData.name) {
-            showToast('Please enter organizer name', 'error');
-            return;
+async function deleteOrganizer(id) {
+    if (confirm('Are you sure you want to delete this organizer and all its sub-organizers? This action cannot be undone.')) {
+        try {
+            showLoading();
+            // Note: Deleting sub-collections is complex on the client-side.
+            // A better approach is a Firebase Function. For now, we delete the main doc.
+            await firestore.collection('organizers').doc(id).delete();
+            showToast('Organizer deleted. Note: Sub-organizers may not be deleted without a Firebase Function.', 'warning');
+            loadOrganizers();
+        } catch (error) {
+            console.error("Error deleting organizer: ", error);
+            showToast('Error deleting organizer.', 'error');
+        } finally {
+            hideLoading();
         }
-        
-        // Check for duplicate names
-        const nameExists = allOrganizers.some(org => 
-            org.name.toLowerCase() === formData.name.toLowerCase()
-        );
-        
-        if (nameExists) {
-            showToast('An organizer with this name already exists', 'error');
-            return;
-        }
-        
-        // Generate ID and add timestamps
-        const organizerId = await generateNumericOrganizerId();
-        const organizerData = {
-            ...formData,
-            id: organizerId,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        // Save to Firestore
-        await firestore.collection('organizers').doc(String(organizerId)).set(organizerData);
-        
-        showToast('Organizer added successfully!', 'success');
-        clearForm();
-        loadOrganizers(); // Refresh the list
-        
-    } catch (error) {
-        console.error('Error adding organizer:', error);
-        showToast('Error adding organizer: ' + error.message, 'error');
-    } finally {
-        hideLoading();
     }
 }
 
-function clearForm() {
-    document.getElementById('organizerForm').reset();
-    document.getElementById('organizerType').value = 'College';
-    document.getElementById('organizerStatus').value = 'active';
-}
-
-function editOrganizer(organizerId) {
-    const organizer = allOrganizers.find(org => org.id === organizerId);
-    if (!organizer) return;
-    
-    editingOrganizerId = organizerId;
-    
-    // Populate edit form
-    document.getElementById('editOrganizerName').value = organizer.name;
-    document.getElementById('editOrganizerType').value = organizer.type;
-    document.getElementById('editOrganizerDescription').value = organizer.description || '';
-    document.getElementById('editOrganizerStatus').value = organizer.status;
-    
-    // Show modal
-    document.getElementById('editModal').classList.remove('d-none');
-}
-
-async function handleSaveEdit() {
-    if (!editingOrganizerId) return;
-    
-    try {
-        showLoading();
-        
-        const formData = {
-            name: document.getElementById('editOrganizerName').value.trim(),
-            type: document.getElementById('editOrganizerType').value,
-            description: document.getElementById('editOrganizerDescription').value.trim(),
-            status: document.getElementById('editOrganizerStatus').value
-        };
-        
-        // Validate required fields
-        if (!formData.name) {
-            showToast('Please enter organizer name', 'error');
-            return;
-        }
-        
-        // Check for duplicate names (excluding current organizer)
-        const nameExists = allOrganizers.some(org => 
-            org.name.toLowerCase() === formData.name.toLowerCase() && 
-            org.id !== editingOrganizerId
-        );
-        
-        if (nameExists) {
-            showToast('An organizer with this name already exists', 'error');
-            return;
-        }
-        
-        // Update in database
-        const updates = {
-            ...formData,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        await firestore.collection('organizers').doc(String(editingOrganizerId)).update(updates);
-        
-        showToast('Organizer updated successfully!', 'success');
-        closeModal();
-        loadOrganizers(); // Refresh the list
-        
-    } catch (error) {
-        console.error('Error updating organizer:', error);
-        showToast('Error updating organizer: ' + error.message, 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-function closeModal() {
-    document.getElementById('editModal').classList.add('d-none');
-    editingOrganizerId = null;
-}
-
-async function toggleOrganizerStatus(organizerId) {
-    const organizer = allOrganizers.find(org => org.id === organizerId);
-    if (!organizer) return;
-    
-    const newStatus = organizer.status === 'active' ? 'inactive' : 'active';
-    
-    try {
-        showLoading();
-        
-        await firestore.collection('organizers').doc(String(organizerId)).update({
-            status: newStatus,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        
-        showToast(`Organizer ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully!`, 'success');
-        loadOrganizers(); // Refresh the list
-        
-    } catch (error) {
-        console.error('Error updating organizer status:', error);
-        showToast('Error updating status: ' + error.message, 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-async function deleteOrganizer(organizerId) {
-    const organizer = allOrganizers.find(org => org.id === organizerId);
-    if (!organizer) return;
-    
-    if (!confirm(`Are you sure you want to delete "${organizer.name}"? This action cannot be undone.`)) {
-        return;
-    }
-    
-    try {
-        showLoading();
-        
-    await firestore.collection('organizers').doc(String(organizerId)).delete();
-        
-        showToast('Organizer deleted successfully!', 'success');
-        loadOrganizers(); // Refresh the list
-        
-    } catch (error) {
-        console.error('Error deleting organizer:', error);
-        showToast('Error deleting organizer: ' + error.message, 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-// Generate numeric organizer ID using counter
-async function generateNumericOrganizerId() {
-    const counterDocRef = firestore.collection('counters').doc('organizerId');
-    let newId = null;
-    await firestore.runTransaction(async (transaction) => {
-        const doc = await transaction.get(counterDocRef);
-        const current = doc.exists ? doc.data().value : 0;
-        newId = current + 1;
-        transaction.set(counterDocRef, { value: newId });
-    });
-    return newId;
-}
-
-function formatDate(timestamp) {
-    if (!timestamp) return 'N/A';
-    
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-    });
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
