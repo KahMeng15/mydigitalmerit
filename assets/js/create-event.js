@@ -48,42 +48,51 @@ function initializePage() {
 let meritValues = null;
 let editingEventId = null;
 
+// Map event levels to database level names
+function mapEventLevelToDbLevel(eventLevel) {
+    const levelMapping = {
+        'University': 'University',
+        'Faculty': 'National', // Faculty level maps to National level
+        'College': 'College',
+        'Club': 'Block', // Club level maps to Block level
+        'External': 'International'
+    };
+    return levelMapping[eventLevel] || eventLevel;
+}
+
 
 async function loadMeritValues() {
     try {
         const snapshot = await firestore.collection('meritvalue').get();
         const roles = {};
-        const levels = [];
-
+        const levels = {};
+        
+        // Process each level document
         snapshot.forEach(doc => {
-            const level = doc.id;
-            levels.push(level);
-            const data = doc.data();
-            for (const role in data) {
-                if (!roles[role]) {
-                    roles[role] = {};
+            const levelName = doc.id; // e.g., "Block Level", "University Level"
+            const levelData = doc.data();
+            
+            // Convert level name to match event levels (remove " Level" suffix)
+            const eventLevelName = levelName.replace(' Level', '');
+            levels[eventLevelName] = levelData;
+            
+            // For each role in this level, add to roles object
+            Object.entries(levelData).forEach(([roleName, points]) => {
+                if (!roles[roleName]) {
+                    roles[roleName] = {};
                 }
-                roles[role][level] = data[role];
-            }
+                roles[roleName][eventLevelName] = points;
+            });
         });
-
+        
         meritValues = { roles: roles, levels: levels, achievements: {} };
-
-        // Populate the eventLevel dropdown
-        const eventLevelSelect = document.getElementById('eventLevel');
-        eventLevelSelect.innerHTML = '<option value="">Select event level</option>'; // Clear existing options
-        levels.sort(); // Sort levels alphabetically
-        levels.forEach(level => {
-            const option = document.createElement('option');
-            option.value = level;
-            option.textContent = level;
-            eventLevelSelect.appendChild(option);
-        });
-
-
+        console.log('Loaded merit values:', meritValues);
+        
+        // Update preview after loading
         if (meritValues) {
             updateMeritPreview();
         }
+        
     } catch (error) {
         console.error('Error loading merit values:', error);
     }
@@ -214,9 +223,10 @@ function updateMeritPreview() {
         previewHTML += '<div><h4 class="font-semibold mb-3">Base Roles</h4><div class="space-y-2">';
         
         // Create array of roles with their points for sorting
+        const dbLevel = mapEventLevelToDbLevel(eventLevel);
         const rolesWithPoints = Object.entries(meritValues.roles).map(([role, levels]) => ({
             role: role,
-            points: levels[eventLevel] || 0
+            points: levels[dbLevel] || 0
         }));
         
         // Sort by points from highest to lowest

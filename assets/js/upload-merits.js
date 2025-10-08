@@ -22,9 +22,14 @@ function initializePage() {
     }
 
     // Add a small delay to ensure Firebase is fully initialized
-    setTimeout(() => {
-        loadEvents();
-        loadMeritValues();
+    setTimeout(async () => {
+        await loadEvents();
+        await loadMeritValues();
+        
+        // If event is pre-selected and merit values are loaded, populate merit types
+        if (selectedEvent && meritValues) {
+            await populateMeritTypes();
+        }
     }, 100);
     
     // Check for eventId in URL params
@@ -60,7 +65,7 @@ function setupEventListeners() {
     
     // Preview actions
     document.getElementById('exportPreviewBtn').addEventListener('click', exportPreview);
-    document.getElementById('confirmUploadBtn').addEventListener('click', confirmUpload);
+    document.getElementById('confirmUploadBtn').addEventListener('click', finalizeUpload);
     document.getElementById('backToPreviewBtn').addEventListener('click', backToPreview);
 }
 
@@ -105,16 +110,26 @@ async function loadMeritValues() {
         const roles = {};
         const levels = {};
         
+        // Process each level document
         snapshot.forEach(doc => {
-            const data = doc.data();
-            if (data.type === 'role') {
-                roles[data.name] = data.values;
-            } else if (data.type === 'level') {
-                Object.assign(levels, data.values);
-            }
+            const levelName = doc.id; // e.g., "Block Level", "University Level"
+            const levelData = doc.data();
+            
+            // Convert level name to match event levels (remove " Level" suffix)
+            const eventLevelName = levelName.replace(' Level', '');
+            levels[eventLevelName] = levelData;
+            
+            // For each role in this level, add to roles object
+            Object.entries(levelData).forEach(([roleName, points]) => {
+                if (!roles[roleName]) {
+                    roles[roleName] = {};
+                }
+                roles[roleName][eventLevelName] = points;
+            });
         });
         
         meritValues = { roles: roles, levels: levels };
+        console.log('Loaded merit values:', meritValues);
     } catch (error) {
         console.error('Error loading merit values:', error);
     }
@@ -125,6 +140,9 @@ async function handleEventSelect() {
     
     if (!eventId) {
         hideSteps([2, 3, 4, 5]);
+        // Reset merit type dropdown
+        const meritTypeSelect = document.getElementById('meritType');
+        meritTypeSelect.innerHTML = '<option value="">Select an event first...</option>';
         return;
     }
     
@@ -132,6 +150,10 @@ async function handleEventSelect() {
         // Load event details
         const eventDoc = await firestore.collection('events').doc(eventId).get();
         selectedEvent = { id: eventId, ...eventDoc.data() };
+        
+        // Populate merit types dropdown
+        await populateMeritTypes();
+        
         // Display event info
         displayEventInfo();
         showStep(2);
@@ -141,9 +163,175 @@ async function handleEventSelect() {
     }
 }
 
+async function populateMeritTypes() {
+    const meritTypeSelect = document.getElementById('meritType');
+    meritTypeSelect.innerHTML = '<option value="">Select merit type...</option>';
+    
+    try {
+        // Committee Member option (groups all committee roles)
+        const committeeOption = document.createElement('option');
+        committeeOption.value = 'committee';
+        committeeOption.textContent = 'Committee Member (Assign specific roles during upload)';
+        committeeOption.setAttribute('data-type', 'committee');
+        meritTypeSelect.appendChild(committeeOption);
+        
+        // Add non-committee base roles
+        if (meritValues && meritValues.roles) {
+            // Define committee member roles (roles that are typically committee positions)
+            const committeeRoles = ['Committee Member', 'Program Director', 'Deputy Program Director', 
+                                  'Secretary', 'Deputy Secretary', 'Treasurer', 'Deputy Treasurer'];
+            
+            const nonCommitteeRoles = Object.keys(meritValues.roles)
+                .filter(role => !committeeRoles.includes(role))
+                .sort();
+            
+            if (nonCommitteeRoles.length > 0) {
+                // Add separator
+                const separator = document.createElement('option');
+                separator.disabled = true;
+                separator.textContent = '--- Other Roles ---';
+                meritTypeSelect.appendChild(separator);
+                
+                nonCommitteeRoles.forEach(role => {
+                    const option = document.createElement('option');
+                    option.value = role;
+                    option.textContent = role;
+                    option.setAttribute('data-type', 'base');
+                    meritTypeSelect.appendChild(option);
+                });
+            }
+        }
+        
+        // Add custom roles from selected event
+        if (selectedEvent && selectedEvent.customRoles && selectedEvent.customRoles.length > 0) {
+            // Add separator
+            const separator = document.createElement('option');
+            separator.disabled = true;
+            separator.textContent = '--- Custom Roles for this Event ---';
+            meritTypeSelect.appendChild(separator);
+            
+            // Sort custom roles by name
+            const sortedCustomRoles = [...selectedEvent.customRoles].sort((a, b) => a.name.localeCompare(b.name));
+            
+            sortedCustomRoles.forEach(customRole => {
+                const option = document.createElement('option');
+                option.value = customRole.name;
+                option.textContent = `${customRole.name} (${customRole.value} points)`;
+                option.setAttribute('data-type', 'custom');
+                option.setAttribute('data-value', customRole.value);
+                meritTypeSelect.appendChild(option);
+            });
+        }
+        
+        // Add "Other (Custom)" option at the end
+        const customOption = document.createElement('option');
+        customOption.value = 'custom';
+        customOption.textContent = 'Other (Custom)';
+        meritTypeSelect.appendChild(customOption);
+        
+    } catch (error) {
+        console.error('Error populating merit types:', error);
+        showToast('Error loading merit types', 'error');
+    }
+}
+
+// Map event levels to database level names
+function mapEventLevelToDbLevel(eventLevel) {
+    const levelMapping = {
+        'University': 'University',
+        'Faculty': 'National', // Faculty level maps to National level
+        'College': 'College',
+        'Club': 'Block', // Club level maps to Block level
+        'External': 'International'
+    };
+    return levelMapping[eventLevel] || eventLevel;
+}
+
+function calculateMeritPointsForUpload(role, eventLevel, additionalNotes = '', meritValues, event) {
+    if (!meritValues) return 0;
+    
+    let basePoints = 0;
+    
+    // First, check if this is a custom role from the event
+    if (event && event.customRoles && event.customRoles.length > 0) {
+        const customRole = event.customRoles.find(cr => cr.name === role);
+        if (customRole) {
+            return customRole.value; // Custom roles have fixed values
+        }
+    }
+    
+    // Check for override from merit type selection
+    const meritTypeSelect = document.getElementById('meritType');
+    const selectedOption = meritTypeSelect.selectedOptions[0];
+    if (selectedOption && selectedOption.getAttribute('data-type') === 'custom') {
+        const customValue = selectedOption.getAttribute('data-value');
+        if (customValue) {
+            return parseInt(customValue);
+        }
+    }
+    
+    // Check override value
+    if (document.getElementById('overrideMeritValue').checked) {
+        const customValue = parseInt(document.getElementById('customMeritValue').value);
+        if (!isNaN(customValue)) {
+            return customValue;
+        }
+    }
+    
+    // Map event level to database level
+    const dbLevel = mapEventLevelToDbLevel(eventLevel);
+    
+    // Fall back to base role calculation
+    if (meritValues.roles && meritValues.roles[role] && meritValues.roles[role][dbLevel]) {
+        basePoints = meritValues.roles[role][dbLevel];
+    }
+    
+    // Add bonus points for achievements (if implemented)
+    let bonusPoints = 0;
+    if (additionalNotes && meritValues.achievements) {
+        const notes = additionalNotes.toLowerCase();
+        for (const [achievement, values] of Object.entries(meritValues.achievements)) {
+            if (notes.includes(achievement.toLowerCase()) && values[dbLevel]) {
+                bonusPoints = Math.max(bonusPoints, values[dbLevel]);
+            }
+        }
+    }
+    
+    return basePoints + bonusPoints;
+}
+
 function displayEventInfo() {
     const eventInfo = document.getElementById('eventInfo');
     const eventDetails = document.getElementById('eventDetails');
+    
+    // Build merit types preview
+    let meritTypesHtml = '<div class="mt-4"><h5 class="font-semibold mb-2">Available Merit Types:</h5><div class="grid grid-cols-2 gap-2">';
+    
+    // Base roles
+    if (meritValues && meritValues.roles) {
+        const dbLevel = mapEventLevelToDbLevel(selectedEvent.level);
+        Object.entries(meritValues.roles).forEach(([role, levels]) => {
+            const points = levels[dbLevel] || 0;
+            meritTypesHtml += `
+                <div class="bg-gray-100 p-2 rounded text-sm">
+                    <strong>${sanitizeHTML(role)}:</strong> ${points} points
+                </div>
+            `;
+        });
+    }
+    
+    // Custom roles
+    if (selectedEvent.customRoles && selectedEvent.customRoles.length > 0) {
+        selectedEvent.customRoles.forEach(role => {
+            meritTypesHtml += `
+                <div class="bg-blue-100 p-2 rounded text-sm border border-blue-200">
+                    <strong>${sanitizeHTML(role.name)}:</strong> ${role.value} points <span class="text-xs text-blue-600">(Custom)</span>
+                </div>
+            `;
+        });
+    }
+    
+    meritTypesHtml += '</div></div>';
     
     eventDetails.innerHTML = `
         <div class="grid grid-cols-2 gap-4">
@@ -152,6 +340,7 @@ function displayEventInfo() {
             <div><strong>Date:</strong> ${formatDate(selectedEvent.date)}</div>
             <div><strong>Location:</strong> ${sanitizeHTML(selectedEvent.location || 'Not specified')}</div>
         </div>
+        ${meritTypesHtml}
     `;
     
     eventInfo.classList.remove('d-none');
@@ -229,7 +418,7 @@ async function processExcelData(excelData) {
     }
     
     const headers = excelData[0];
-    const requiredColumns = ['Name', 'Matric Number', 'Role'];
+    const requiredColumns = ['Name', 'Matric Number'];
     
     // Check for required columns
     const missingColumns = requiredColumns.filter(col => 
@@ -245,12 +434,12 @@ async function processExcelData(excelData) {
     headers.forEach((header, index) => {
         if (header) {
             const lowerHeader = header.toLowerCase();
-            if (lowerHeader.includes('name')) columnMap.name = index;
+            if (lowerHeader.includes('name') && !lowerHeader.includes('matric')) columnMap.name = index;
             if (lowerHeader.includes('matric')) columnMap.matricNumber = index;
             if (lowerHeader.includes('role')) columnMap.role = index;
-            if (lowerHeader.includes('note') || lowerHeader.includes('additional')) columnMap.additionalNotes = index;
-            if (lowerHeader.includes('link') || lowerHeader.includes('proof')) columnMap.linkProof = index;
-            if (lowerHeader.includes('date') || lowerHeader.includes('time')) columnMap.dateTime = index;
+            if (lowerHeader.includes('note')) columnMap.notes = index;
+            if (lowerHeader.includes('proof')) columnMap.proof = index;
+            if (lowerHeader.includes('timestamp') || lowerHeader.includes('time')) columnMap.timestamp = index;
         }
     });
     
@@ -266,10 +455,10 @@ async function processExcelData(excelData) {
             rowNumber: i + 1,
             name: row[columnMap.name] || '',
             matricNumber: row[columnMap.matricNumber] || '',
-            role: row[columnMap.role] || '',
-            additionalNotes: row[columnMap.additionalNotes] || '',
-            linkProof: row[columnMap.linkProof] || '',
-            dateTime: row[columnMap.dateTime] || '',
+            role: row[columnMap.role] || '', // Specific committee role if provided
+            notes: row[columnMap.notes] || '',
+            proof: row[columnMap.proof] || '',
+            timestamp: row[columnMap.timestamp] || '',
             issues: []
         };
         
@@ -297,14 +486,23 @@ function validateRecords() {
             issues.push('Invalid matric number format (expected: A12345678)');
         }
         
-        if (!record.role.trim()) {
+        // For committee member type, role validation will be handled in preview
+        const selectedMeritType = document.getElementById('meritType').value;
+        if (selectedMeritType !== 'committee' && !record.role.trim()) {
             issues.push('Role is required');
         }
         
         // Calculate merit points
         const meritType = getMeritType();
-        const roleToUse = meritType || record.role;
-        record.meritPoints = calculateMeritPoints(roleToUse, selectedEvent.level, record.additionalNotes, meritValues);
+        
+        if (selectedMeritType === 'committee') {
+            // For committee members, use their specific role if provided, otherwise default to 0
+            const roleToUse = record.role || 'Committee Member';
+            record.meritPoints = calculateMeritPointsForUpload(roleToUse, selectedEvent.level, record.additionalNotes, meritValues, selectedEvent);
+        } else {
+            const roleToUse = meritType || record.role;
+            record.meritPoints = calculateMeritPointsForUpload(roleToUse, selectedEvent.level, record.additionalNotes, meritValues, selectedEvent);
+        }
         
         // Apply override if set
         if (document.getElementById('overrideMeritValue').checked) {
@@ -328,6 +526,8 @@ function getMeritType() {
     const meritType = document.getElementById('meritType').value;
     if (meritType === 'custom') {
         return document.getElementById('customMeritType').value.trim();
+    } else if (meritType === 'committee') {
+        return 'Committee Member (Roles assigned individually)';
     }
     return meritType;
 }
@@ -370,10 +570,24 @@ function displayPreviewTable() {
     
     // Combine valid and invalid records for display
     const allRecords = [...validRecords, ...invalidRecords];
+    const selectedMeritType = document.getElementById('meritType').value;
     
-    tableBody.innerHTML = allRecords.map(record => {
+    tableBody.innerHTML = allRecords.map((record, index) => {
         const statusClass = record.issues.length === 0 ? 'status-valid' : 'status-error';
         const statusIcon = record.issues.length === 0 ? '✓' : '✗';
+        
+        // For committee member selection, show role dropdown
+        let roleCell = '';
+        if (selectedMeritType === 'committee') {
+            roleCell = `
+                <select class="form-select form-select-sm role-select" data-record-index="${index}" onchange="updateRecordRole(${index}, this.value)">
+                    <option value="">Select Role...</option>
+                    ${getCommitteeRoleOptions(record.role)}
+                </select>
+            `;
+        } else {
+            roleCell = sanitizeHTML(record.role);
+        }
         
         return `
             <tr class="${record.issues.length > 0 ? 'bg-red-50' : ''}">
@@ -382,7 +596,7 @@ function displayPreviewTable() {
                 </td>
                 <td>${sanitizeHTML(record.name)}</td>
                 <td>${sanitizeHTML(record.matricNumber)}</td>
-                <td>${sanitizeHTML(record.role)}</td>
+                <td>${roleCell}</td>
                 <td class="font-medium">${record.meritPoints}</td>
                 <td>${sanitizeHTML(record.additionalNotes)}</td>
                 <td>
@@ -394,6 +608,90 @@ function displayPreviewTable() {
             </tr>
         `;
     }).join('');
+}
+
+// Helper function to get committee role options
+function getCommitteeRoleOptions(selectedRole = '') {
+    const committeeRoles = [];
+    
+    // Get committee roles from database
+    if (meritValues && meritValues.roles) {
+        const roles = ['Committee Member', 'Program Director', 'Deputy Program Director', 
+                      'Secretary', 'Deputy Secretary', 'Treasurer', 'Deputy Treasurer'];
+        
+        roles.forEach(role => {
+            if (meritValues.roles[role]) {
+                const isSelected = role === selectedRole ? 'selected' : '';
+                committeeRoles.push(`<option value="${role}" ${isSelected}>${role}</option>`);
+            }
+        });
+    }
+    
+    return committeeRoles.join('');
+}
+
+// Function to update record role and recalculate merit points
+function updateRecordRole(recordIndex, newRole) {
+    const allRecords = [...validRecords, ...invalidRecords];
+    if (recordIndex < 0 || recordIndex >= allRecords.length) return;
+    
+    const record = allRecords[recordIndex];
+    record.role = newRole;
+    
+    // Recalculate merit points
+    if (newRole) {
+        record.meritPoints = calculateMeritPointsForUpload(newRole, selectedEvent.level, record.additionalNotes, meritValues, selectedEvent);
+    } else {
+        record.meritPoints = 0;
+    }
+    
+    // Re-validate the record
+    const issues = [];
+    if (!record.name.trim()) issues.push('Name is required');
+    if (!record.matricNumber.trim()) issues.push('Matric number is required');
+    else if (!validateMatricNumber(record.matricNumber.trim().toUpperCase())) {
+        issues.push('Invalid matric number format (expected: A12345678)');
+    }
+    if (!record.role.trim()) issues.push('Role is required');
+    
+    record.issues = issues;
+    
+    // Move between valid/invalid arrays
+    const wasValid = validRecords.includes(record);
+    const isValid = issues.length === 0;
+    
+    if (wasValid && !isValid) {
+        // Move from valid to invalid
+        validRecords.splice(validRecords.indexOf(record), 1);
+        invalidRecords.push(record);
+    } else if (!wasValid && isValid) {
+        // Move from invalid to valid
+        invalidRecords.splice(invalidRecords.indexOf(record), 1);
+        validRecords.push(record);
+    }
+    
+    // Update the display
+    displayPreviewTable();
+    updateUploadSummary();
+}
+
+// Function to update upload summary
+function updateUploadSummary() {
+    const summaryElement = document.getElementById('uploadSummary');
+    if (summaryElement && selectedEvent) {
+        summaryElement.innerHTML = `
+            <div class="bg-light p-4 rounded">
+                <h4 class="font-semibold mb-2">Upload Summary</h4>
+                <ul class="space-y-1">
+                    <li><strong>Event:</strong> ${sanitizeHTML(selectedEvent.name)}</li>
+                    <li><strong>Merit Type:</strong> ${sanitizeHTML(getMeritType())}</li>
+                    <li><strong>Records to upload:</strong> ${validRecords.length}</li>
+                    <li><strong>Total merit points:</strong> ${validRecords.reduce((sum, record) => sum + record.meritPoints, 0)}</li>
+                    ${invalidRecords.length > 0 ? `<li class="text-warning"><strong>Records with issues (will be skipped):</strong> ${invalidRecords.length}</li>` : ''}
+                </ul>
+            </div>
+        `;
+    }
 }
 
 function exportPreview() {
@@ -413,35 +711,22 @@ function exportPreview() {
     showToast('Preview exported successfully', 'success');
 }
 
-function confirmUpload() {
-    if (validRecords.length === 0) {
-        showToast('No valid records to upload', 'error');
-        return;
-    }
-    
-    // Display upload summary
-    const summaryContainer = document.getElementById('uploadSummary');
-    summaryContainer.innerHTML = `
-        <div class="bg-light p-4 rounded">
-            <h4 class="font-semibold mb-2">Upload Summary</h4>
-            <ul class="space-y-1">
-                <li><strong>Event:</strong> ${sanitizeHTML(selectedEvent.name)}</li>
-                <li><strong>Merit Type:</strong> ${sanitizeHTML(getMeritType())}</li>
-                <li><strong>Records to upload:</strong> ${validRecords.length}</li>
-                <li><strong>Total merit points:</strong> ${validRecords.reduce((sum, record) => sum + record.meritPoints, 0)}</li>
-                ${invalidRecords.length > 0 ? `<li class="text-warning"><strong>Records with issues (will be skipped):</strong> ${invalidRecords.length}</li>` : ''}
-            </ul>
-        </div>
-    `;
-    
-    showStep(5);
-}
-
 function backToPreview() {
     showStep(4);
 }
 
 async function confirmUpload() {
+    if (validRecords.length === 0) {
+        showToast('No valid records to upload', 'error');
+        return;
+    }
+    
+    // Display upload summary first
+    updateUploadSummary();
+    showStep(5);
+}
+
+async function finalizeUpload() {
     if (validRecords.length === 0) {
         showToast('No valid records to upload', 'error');
         return;
@@ -556,10 +841,10 @@ function clearFile() {
 
 function downloadTemplate() {
     const templateData = [
-        ['Date/Time', 'Name', 'Matric Number', 'Role', 'Additional Notes', 'Link Proof'],
-        ['2024-01-15 14:00', 'Ahmad Bin Ali', 'A12345678', 'Peserta', 'Champion', 'https://example.com/proof'],
-        ['2024-01-15 14:00', 'Siti Binti Hassan', 'A87654321', 'AJK', 'Committee Member', ''],
-        ['2024-01-15 14:00', 'Chong Wei Ming', 'A11223344', 'Penonton', '', '']
+        ['Matric Number', 'Name', 'Role (For Committee Member only)', 'Timestamp (If Available)', 'Proof (If Available)', 'Notes (Optional)'],
+        ['A12345678', 'Ahmad Bin Ali', 'Program Director', '2024-01-15 14:00', 'https://example.com/proof', 'Champion'],
+        ['A87654321', 'Siti Binti Hassan', 'Secretary', '', '', 'Committee Member'],
+        ['A11223344', 'Chong Wei Ming', '', '', '', 'Participant']
     ];
     
     const ws = XLSX.utils.aoa_to_sheet(templateData);
