@@ -295,9 +295,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function redirectUser(role) {
         setTimeout(() => {
             if (role === 'admin') {
-                window.location.href = '/admin/dashboard.html';
+                window.location.href = getBasePath() + 'admin/dashboard.html';
             } else {
-                window.location.href = '/student/dashboard.html';
+                window.location.href = getBasePath() + 'student/dashboard.html';
             }
         }, 1000);
     }

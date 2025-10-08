@@ -31,6 +31,10 @@ const database = window.database;
 const googleProvider = new firebase.auth.GoogleAuthProvider();
 googleProvider.addScope('profile');
 googleProvider.addScope('email');
+// Force account selection every time
+googleProvider.setCustomParameters({
+    prompt: 'select_account'
+});
 
 // Authentication state observer
 auth.onAuthStateChanged((user) => {
@@ -44,7 +48,7 @@ auth.onAuthStateChanged((user) => {
         // Allow pages to opt-out of auto-redirect by setting window.SKIP_AUTH_REDIRECT = true
         if (!window.SKIP_AUTH_REDIRECT) {
             if (!window.location.pathname.includes('index.html') && !window.location.pathname.endsWith('/')) {
-                window.location.href = '/index.html';
+                window.location.href = getBasePath() + 'index.html';
             }
         }
     }
@@ -97,12 +101,12 @@ async function checkUserRole(user) {
         }
         
         // No valid record found - redirect to login
-        window.location.href = '/index.html';
+        window.location.href = getBasePath() + 'index.html';
         
     } catch (error) {
         console.error('Error checking user role:', error);
         // On error, redirect to login
-        window.location.href = '/index.html';
+        window.location.href = getBasePath() + 'index.html';
     }
 }
 
@@ -111,7 +115,40 @@ async function checkUserRole(user) {
 async function createUserProfile(user) {
     console.warn('createUserProfile called - user creation should happen in login.js');
     // Redirect to login for proper user creation flow
-    window.location.href = '/index.html';
+    window.location.href = getBasePath() + 'index.html';
+}
+
+// Get the base path for the application (handles subdirectory deployments)
+function getBasePath() {
+    const path = window.location.pathname;
+    const pathParts = path.split('/');
+    
+    // Find the index.html or remove the current page
+    let baseParts = [];
+    for (let i = 0; i < pathParts.length - 1; i++) {
+        baseParts.push(pathParts[i]);
+    }
+    
+    // If we're in a subdirectory with index.html, keep that path
+    if (path.includes('index.html')) {
+        return pathParts.slice(0, -1).join('/') + '/';
+    }
+    
+    // Otherwise, find the root by looking for common folders
+    if (path.includes('/admin/') || path.includes('/student/') || path.includes('/assets/')) {
+        // Go up until we find the root
+        const rootIndex = Math.max(
+            pathParts.indexOf('admin') - 1,
+            pathParts.indexOf('student') - 1,
+            pathParts.indexOf('assets') - 1
+        );
+        if (rootIndex > 0) {
+            return pathParts.slice(0, rootIndex + 1).join('/') + '/';
+        }
+    }
+    
+    // Default fallback
+    return baseParts.join('/') + '/';
 }
 
 // Get current user data
@@ -131,7 +168,7 @@ async function signOut() {
     try {
         await auth.signOut();
         sessionStorage.clear();
-        window.location.href = '/index.html';
+        window.location.href = getBasePath() + 'index.html';
     } catch (error) {
         console.error('Error signing out:', error);
     }

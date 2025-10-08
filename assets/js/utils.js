@@ -236,7 +236,7 @@ function calculateMeritPoints(role, eventLevel, additionalNotes = '', meritValue
 function requireAuth() {
     const user = getCurrentUser();
     if (!user) {
-        window.location.href = '/index.html';
+        window.location.href = getBasePath() + 'index.html';
         return false;
     }
     return true;
@@ -247,7 +247,7 @@ function requireAdmin() {
     if (!requireAuth()) return false;
     
     if (!isAdmin()) {
-        window.location.href = '/student/dashboard.html';
+        window.location.href = getBasePath() + 'student/dashboard.html';
         return false;
     }
     return true;
