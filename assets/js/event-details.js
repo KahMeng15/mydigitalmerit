@@ -130,19 +130,11 @@ function displayEventInfo(event) {
     
     // Header information
     document.getElementById('eventTitle').textContent = event.name;
-    document.getElementById('eventLevel').textContent = event.level;
-    document.getElementById('eventLevel').className = `badge bg-primary`;
     
-    // Status badge
-    const statusBadge = document.getElementById('eventStatus');
+    // Calculate status information
     const isUpcoming = new Date(event.date).getTime() > Date.now();
     const statusClass = getStatusClass(event.status, isUpcoming);
     const statusText = getStatusText(event.status, isUpcoming);
-    statusBadge.textContent = statusText;
-    statusBadge.className = `badge ${statusClass}`;
-    
-    // Date
-    document.getElementById('eventDate').textContent = formatDate(event.date);
     
     // Detailed information
     document.getElementById('eventName').textContent = event.name;
@@ -380,20 +372,20 @@ function getOrganizerDisplay(organizer) {
 
 function getLevelClass(level) {
     switch(level) {
-        case 'University': return 'bg-red-500 text-white';
-        case 'Faculty': return 'bg-orange-500 text-white';
-        case 'College': return 'bg-yellow-500 text-black';
-        case 'Club': return 'bg-green-500 text-white';
-        case 'External': return 'bg-purple-500 text-white';
-        default: return 'bg-gray-500 text-white';
+        case 'University': return 'bg-danger';
+        case 'Faculty': return 'bg-warning';
+        case 'College': return 'bg-light text-gray-700';
+        case 'Club': return 'bg-success';
+        case 'External': return 'bg-primary';
+        default: return 'bg-secondary';
     }
 }
 
 function getStatusClass(status, isUpcoming) {
-    if (status === 'draft') return 'bg-gray-500 text-white';
-    if (status === 'active' && isUpcoming) return 'bg-green-500 text-white';
-    if (status === 'active' && !isUpcoming) return 'bg-yellow-500 text-black';
-    return 'bg-gray-500 text-white';
+    if (status === 'draft') return 'bg-secondary';
+    if (status === 'active' && isUpcoming) return 'bg-warning';
+    if (status === 'active' && !isUpcoming) return 'bg-success';
+    return 'bg-secondary';
 }
 
 function getStatusText(status, isUpcoming) {

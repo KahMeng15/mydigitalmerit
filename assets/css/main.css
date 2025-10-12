@@ -54,6 +54,16 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* Badge components */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
 /* Container and Layout */
 .container {
     max-width: 1200px;
@@ -762,15 +772,17 @@ body {
 .toast {
     margin-bottom: 0.5rem;
     padding: 1rem;
+}
+
 /* Background utilities */
 .bg-white { background-color: white; }
 .bg-gray-50 { background-color: var(--gray-50); }
 .bg-gray-100 { background-color: var(--gray-100); }
-.bg-primary { background-color: var(--primary-color); }
-.bg-success { background-color: var(--success-color); }
-.bg-warning { background-color: var(--warning-color); }
-.bg-danger { background-color: var(--danger-color); }
-.bg-light { background-color: var(--light-color); }
+.bg-primary { background-color: var(--primary-color); color: white; }
+.bg-success { background-color: var(--success-color); color: white; }
+.bg-warning { background-color: var(--warning-color); color: white; }
+.bg-danger { background-color: var(--danger-color); color: white; }
+.bg-light { background-color: var(--light-color); color: black; }
 
 /* Border utilities */
 .border { border: 1px solid var(--border-color); }
@@ -922,17 +934,6 @@ body {
 .status-online { background-color: var(--success-color); }
 .status-offline { background-color: var(--gray-400); }
 .status-away { background-color: var(--warning-color); }
-
-/* Badge components */
-.badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.25rem 0.75rem;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: white;
-}
 
 /* Progress bars */
 .progress {
