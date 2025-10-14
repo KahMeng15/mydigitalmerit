@@ -58,6 +58,11 @@ function setupEventListeners() {
     
     // Delete confirmation
     document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
+    
+    // Child activity management
+    document.getElementById('addChildActivityBtn').addEventListener('click', () => {
+        window.location.href = `create-child-activity.html?parentId=${currentEventId}`;
+    });
 }
 
 async function loadEventDetails() {
@@ -83,6 +88,9 @@ async function loadEventDetails() {
         
         // Load uploaded merits
         await loadUploadedMerits();
+        
+        // Load sub-activities or parent event info
+        await loadHierarchyInfo();
         
     } catch (error) {
         console.error('Error loading event details:', error);
@@ -122,6 +130,164 @@ async function loadOrganizerDetails(event) {
         console.error('Error loading organizer details:', error);
     }
 }
+
+async function loadHierarchyInfo() {
+    if (currentEventData.isSubActivity && currentEventData.parentEventId) {
+        // This is a sub-activity, load parent event info
+        await loadParentEventInfo();
+    } else {
+        // This is a parent event, load sub-activities
+        await loadSubActivities();
+    }
+}
+
+async function loadParentEventInfo() {
+    try {
+        const parentEventDoc = await firestore.collection('events').doc(currentEventData.parentEventId).get();
+        if (parentEventDoc.exists) {
+            const parentEventData = parentEventDoc.data();
+            
+            // Show parent event section
+            const parentSection = document.getElementById('parentEventSection');
+            parentSection.classList.remove('d-none');
+            
+            // Update parent event info
+            document.getElementById('parentEventName').textContent = parentEventData.name;
+            
+            // Set up view parent event button
+            document.getElementById('viewParentEventBtn').onclick = () => {
+                window.location.href = `event-details.html?id=${currentEventData.parentEventId}`;
+            };
+        }
+    } catch (error) {
+        console.error('Error loading parent event info:', error);
+    }
+}
+
+async function loadSubActivities() {
+    try {
+        const eventsSnapshot = await firestore.collection('events')
+            .where('parentEventId', '==', currentEventId)
+            .get();
+        
+        const childActivities = [];
+        eventsSnapshot.forEach(doc => {
+            childActivities.push({ id: doc.id, ...doc.data() });
+        });
+        
+        // Sort child activities
+        childActivities.sort((a, b) => {
+            if (a.activityOrder && b.activityOrder) {
+                return a.activityOrder - b.activityOrder;
+            }
+            return a.name.localeCompare(b.name);
+        });
+        
+        displaySubActivities(childActivities);
+        
+    } catch (error) {
+        console.error('Error loading child activities:', error);
+    }
+}
+
+function displaySubActivities(childActivities) {
+    const listContainer = document.getElementById('childActivitiesList');
+    const noChildActivitiesMsg = document.getElementById('noChildActivities');
+    
+    if (childActivities.length === 0) {
+        noChildActivitiesMsg.style.display = 'block';
+        listContainer.innerHTML = '';
+        return;
+    }
+    
+    noChildActivitiesMsg.style.display = 'none';
+    
+    const html = childActivities.map(activity => {
+        const statusClass = activity.status === 'active' ? 'bg-success' : 'bg-secondary';
+        const statusText = activity.status === 'active' ? 'Active' : 'Draft';
+        
+        return `
+            <div class="bg-light p-4 rounded border mb-3">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <h5 class="font-semibold">${sanitizeHTML(activity.name)}</h5>
+                            ${activity.subActivityType ? `<span class="badge bg-info text-xs">${sanitizeHTML(activity.subActivityType)}</span>` : ''}
+                            <span class="badge ${statusClass} text-xs">${statusText}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 text-sm mb-2">
+                            ${activity.date ? `<div><strong>Date:</strong> ${formatDate(activity.date)}</div>` : ''}
+                            ${activity.location ? `<div><strong>Location:</strong> ${sanitizeHTML(activity.location)}</div>` : ''}
+                            ${activity.activityOrder ? `<div><strong>Order:</strong> ${activity.activityOrder}</div>` : ''}
+                        </div>
+                        ${activity.description ? `<p class="text-secondary text-sm mt-2">${sanitizeHTML(activity.description)}</p>` : ''}
+                    </div>
+                    <div class="flex gap-2 ml-4">
+                        <button onclick="editChildActivity('${activity.id}')" class="btn btn-outline btn-sm" title="Edit">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                        </button>
+                        <button onclick="viewChildActivity('${activity.id}')" class="btn btn-secondary btn-sm" title="View Details">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                            </svg>
+                        </button>
+                        <button onclick="uploadMeritsForChildActivity('${activity.id}')" class="btn btn-primary btn-sm" title="Upload Merits">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                            </svg>
+                        </button>
+                        <button onclick="deleteChildActivity('${activity.id}')" class="btn btn-danger btn-sm" title="Delete">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    listContainer.innerHTML = html;
+}
+
+function viewChildActivity(childActivityId) {
+    window.location.href = `event-details.html?id=${childActivityId}`;
+}
+
+function uploadMeritsForChildActivity(childActivityId) {
+    // Get the parent event ID from the current page
+    const parentEventId = currentEventId;
+    window.location.href = `upload-merits.html?eventId=${parentEventId}&childActivityId=${childActivityId}`;
+}
+
+function editChildActivity(childActivityId) {
+    // For now, just navigate to view - could be enhanced to inline edit
+    window.location.href = `event-details.html?id=${childActivityId}`;
+}
+
+async function deleteChildActivity(childActivityId) {
+    if (!confirm('Are you sure you want to delete this child activity? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        showLoading();
+        await firestore.collection('events').doc(childActivityId).delete();
+        showToast('Child activity deleted successfully', 'success');
+        // Reload child activities
+        await loadSubActivities();
+    } catch (error) {
+        console.error('Error deleting child activity:', error);
+        showToast('Error deleting child activity: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+
 
 function displayEventInfo(event) {
     // Update page title and breadcrumb

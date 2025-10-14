@@ -43,9 +43,9 @@ function displayUserInfo() {
 
 async function loadDashboardStats() {
     try {
-        // Load events count
+        // Load events count (only parent events, not child activities)
         const eventsSnapshot = await db.collection('events').get();
-        const eventsArray = eventsSnapshot.docs.map(doc => doc.data());
+        const eventsArray = eventsSnapshot.docs.map(doc => doc.data()).filter(event => !event.isSubActivity);
         document.getElementById('totalEvents').textContent = eventsArray.length;
         // Count active events (future events)
         const now = Date.now();
@@ -74,8 +74,8 @@ async function loadDashboardStats() {
 
 async function loadRecentEvents() {
     try {
-        const eventsSnapshot = await db.collection('events').orderBy('createdAt', 'desc').limit(5).get();
-        const eventsArray = eventsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const eventsSnapshot = await db.collection('events').orderBy('createdAt', 'desc').limit(10).get();
+        const eventsArray = eventsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(event => !event.isSubActivity).slice(0, 5);
         const tableBody = document.getElementById('recentEventsTable');
         if (eventsArray.length === 0) {
             tableBody.innerHTML = `
@@ -97,7 +97,7 @@ async function loadRecentEvents() {
                     <td>${formatDate(event.date)}</td>
                     <td><span class="${statusClass}">${status}</span></td>
                     <td>
-                        <a href="event-detail.html?id=${event.id}" class="btn btn-outline btn-sm">View</a>
+                        <a href="event-details.html?id=${event.id}" class="btn btn-outline btn-sm">View</a>
                         <a href="upload-merits.html?eventId=${event.id}" class="btn btn-primary btn-sm">Add Merits</a>
                     </td>
                 </tr>
@@ -119,9 +119,9 @@ async function loadRecentActivity() {
         // Load recent user registrations
         const usersSnapshot = await db.collection('users').orderBy('createdAt', 'desc').limit(5).get();
         const recentUsers = usersSnapshot.docs.map(doc => doc.data()).filter(user => user.createdAt).slice(0, 3);
-        // Load recent events
-        const eventsSnapshot = await db.collection('events').orderBy('createdAt', 'desc').limit(3).get();
-        const recentEvents = eventsSnapshot.docs.map(doc => doc.data()).filter(event => event.createdAt).slice(0, 2);
+        // Load recent events (only parent events, not child activities)
+        const eventsSnapshot = await db.collection('events').orderBy('createdAt', 'desc').limit(6).get();
+        const recentEvents = eventsSnapshot.docs.map(doc => doc.data()).filter(event => event.createdAt && !event.isSubActivity).slice(0, 2);
         const activities = [];
         // Add user activities
         recentUsers.forEach(user => {

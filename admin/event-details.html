@@ -149,6 +149,48 @@
                 </div>
             </div>
 
+            <!-- Parent Event / Sub-Activities Section -->
+            <div id="parentEventSection" class="card mb-6 d-none">
+                <div class="card-header">
+                    <h3 class="card-title">Parent Event</h3>
+                </div>
+                <div class="card-body">
+                    <div class="flex items-center gap-4">
+                        <div class="flex-1">
+                            <p class="text-sm text-secondary mb-1">This is a sub-activity of:</p>
+                            <h4 id="parentEventName" class="font-semibold text-lg">-</h4>
+                        </div>
+                        <button id="viewParentEventBtn" class="btn btn-outline">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                            </svg>
+                            View Parent Event
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="subActivitiesSection" class="card mb-6">
+                <div class="card-header flex justify-between items-center">
+                    <div>
+                        <h3 class="card-title">Child Activities</h3>
+                        <p class="text-sm text-secondary mt-1">Manage sub-activities for this event</p>
+                    </div>
+                    <button id="addChildActivityBtn" class="btn btn-primary">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        Add Child Activity
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="childActivitiesList">
+                        <p id="noChildActivities" class="text-secondary text-center py-4">No child activities found. Click "Add Child Activity" to create one.</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Uploaded Merits -->
             <div class="card">
                 <div class="card-header flex justify-between items-center">

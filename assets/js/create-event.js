@@ -91,6 +91,7 @@ async function loadMeritValues() {
         // Update preview after loading
         if (meritValues) {
             updateMeritPreview();
+            populateEventLevels();
         }
         
     } catch (error) {
@@ -98,6 +99,32 @@ async function loadMeritValues() {
     }
 }
 
+function populateEventLevels() {
+    const levelSelect = document.getElementById('eventLevel');
+    const currentValue = levelSelect.value; // Preserve current selection
+    
+    // Standard event levels
+    const levels = [
+        'University',
+        'Faculty', 
+        'College',
+        'Club',
+        'External'
+    ];
+    
+    levelSelect.innerHTML = '<option value="">Select event level</option>';
+    levels.forEach(level => {
+        const option = document.createElement('option');
+        option.value = level;
+        option.textContent = level;
+        levelSelect.appendChild(option);
+    });
+    
+    // Restore previous selection if it was valid
+    if (currentValue && levels.includes(currentValue)) {
+        levelSelect.value = currentValue;
+    }
+}
 
 async function loadOrganizers() {
     const mainSelect = document.getElementById('organizerMain');
@@ -491,7 +518,13 @@ function getFormData() {
         organizer: organizer,
         description: eventDescription,
         status: eventStatus,
-        customRoles: getCustomRolesFromForm()
+        customRoles: getCustomRolesFromForm(),
+        
+        // All events are parent events by default (can have child activities added later)
+        isSubActivity: false,
+        parentEventId: null,
+        subActivityType: null,
+        hasSubActivities: false
     };
     
     // Add end date if provided
@@ -538,7 +571,6 @@ function validateRequiredFields(formData) {
     
     return true;
 }
-
 
 // Generate numeric event ID using Firestore transaction
 async function generateNumericEventId() {

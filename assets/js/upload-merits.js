@@ -36,14 +36,27 @@ function initializePage() {
         }
     }, 100);
     
-    // Check for eventId in URL params
+    // Check for eventId and childActivityId in URL params
     const urlParams = new URLSearchParams(window.location.search);
     const eventId = urlParams.get('eventId');
+    const childActivityId = urlParams.get('childActivityId');
+    
     if (eventId) {
         // Pre-select event if provided in URL
-        setTimeout(() => {
+        setTimeout(async () => {
             document.getElementById('eventSelect').value = eventId;
-            handleEventSelect();
+            await handleEventSelect();
+            
+            // If childActivityId is also provided, pre-select it
+            if (childActivityId) {
+                setTimeout(() => {
+                    const childActivitySelect = document.getElementById('childActivitySelect');
+                    if (childActivitySelect) {
+                        childActivitySelect.value = childActivityId;
+                        handleChildActivitySelect();
+                    }
+                }, 500);
+            }
         }, 1000);
     }
 }
@@ -115,21 +128,31 @@ async function loadEvents() {
             throw new Error('Firebase not properly initialized');
         }
         
+        // Load only parent events (not sub-activities) for the main dropdown
         const eventsSnapshot = await firestore.collection('events').get();
-        const events = {};
+        const parentEvents = {};
+        
         eventsSnapshot.forEach(doc => {
-            events[doc.id] = doc.data();
+            const event = doc.data();
+            if (!event.isSubActivity) {
+                parentEvents[doc.id] = { id: doc.id, ...event };
+            }
         });
+        
         const eventSelect = document.getElementById('eventSelect');
-        eventSelect.innerHTML = '<option value="">Select an event...</option>';
-        Object.entries(events)
-            .sort(([,a], [,b]) => new Date(b.date) - new Date(a.date))
-            .forEach(([id, event]) => {
-                const option = document.createElement('option');
-                option.value = id;
-                option.textContent = `${event.name} (${formatDate(event.date)})`;
-                eventSelect.appendChild(option);
-            });
+        eventSelect.innerHTML = '<option value="">Select a parent event...</option>';
+        
+        // Sort parent events by date (most recent first)
+        const sortedParents = Object.entries(parentEvents)
+            .sort(([,a], [,b]) => new Date(b.date) - new Date(a.date));
+        
+        sortedParents.forEach(([id, event]) => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = `${event.name} (${formatDate(event.date)})`;
+            eventSelect.appendChild(option);
+        });
+        
     } catch (error) {
         console.error('Error loading events:', error);
         showToast('Error loading events', 'error');
@@ -175,10 +198,12 @@ async function loadMeritValues() {
 
 async function handleEventSelect() {
     const eventId = document.getElementById('eventSelect').value;
+    const childActivityGroup = document.getElementById('childActivityGroup');
     const nextBtn = document.getElementById('nextFromStep1');
     
     if (!eventId) {
-        // Reset merit type dropdown
+        // Reset everything
+        childActivityGroup.classList.add('d-none');
         const meritTypeSelect = document.getElementById('meritType');
         meritTypeSelect.innerHTML = '<option value="">Select an event first...</option>';
         if (nextBtn) nextBtn.disabled = true;
@@ -186,22 +211,91 @@ async function handleEventSelect() {
     }
     
     try {
-        // Load event details
+        // Load parent event details
         const eventDoc = await firestore.collection('events').doc(eventId).get();
         selectedEvent = { id: eventId, ...eventDoc.data() };
         
-        // Populate merit types dropdown
-        await populateMeritTypes();
+        // Load child activities for this parent event
+        await loadChildActivities(eventId);
         
-        // Display event info
+        // Show child activity selection
+        childActivityGroup.classList.remove('d-none');
+        
+        // Display event info (will be updated when child activity is selected)
         displayEventInfo();
         
-        // Enable next button
+        // Enable next button (parent event is sufficient to proceed)
         if (nextBtn) nextBtn.disabled = false;
         
     } catch (error) {
         console.error('Error loading event:', error);
         showToast('Error loading event details', 'error');
+    }
+}
+
+async function loadChildActivities(parentEventId) {
+    try {
+        const childActivitySelect = document.getElementById('childActivitySelect');
+        childActivitySelect.innerHTML = '<option value="">Upload to Main Event (No specific activity)</option>';
+        
+        // Load child activities for this parent event
+        const childActivitiesSnapshot = await firestore.collection('events')
+            .where('parentEventId', '==', parentEventId)
+            .get();
+        
+        const childActivities = [];
+        childActivitiesSnapshot.forEach(doc => {
+            childActivities.push({ id: doc.id, ...doc.data() });
+        });
+        
+        // Sort child activities by order or name
+        childActivities.sort((a, b) => {
+            if (a.activityOrder && b.activityOrder) {
+                return a.activityOrder - b.activityOrder;
+            }
+            return a.name.localeCompare(b.name);
+        });
+        
+        // Add child activities to dropdown
+        childActivities.forEach(activity => {
+            const option = document.createElement('option');
+            option.value = activity.id;
+            option.textContent = `${activity.name}${activity.subActivityType ? ` (${activity.subActivityType})` : ''}`;
+            childActivitySelect.appendChild(option);
+        });
+        
+        // Add event listener for child activity selection
+        childActivitySelect.removeEventListener('change', handleChildActivitySelect);
+        childActivitySelect.addEventListener('change', handleChildActivitySelect);
+        
+    } catch (error) {
+        console.error('Error loading child activities:', error);
+        showToast('Error loading child activities', 'error');
+    }
+}
+
+async function handleChildActivitySelect() {
+    const childActivityId = document.getElementById('childActivitySelect').value;
+    
+    if (!childActivityId) {
+        // Selected "Main Event" - use parent event
+        await populateMeritTypes();
+        displayEventInfo();
+    } else {
+        // Selected a child activity - load its details
+        try {
+            const childActivityDoc = await firestore.collection('events').doc(childActivityId).get();
+            if (childActivityDoc.exists) {
+                const childActivityData = { id: childActivityId, ...childActivityDoc.data() };
+                // Update selected event to be the child activity
+                selectedEvent = childActivityData;
+                await populateMeritTypes();
+                displayEventInfo();
+            }
+        } catch (error) {
+            console.error('Error loading child activity:', error);
+            showToast('Error loading child activity details', 'error');
+        }
     }
 }
 
@@ -375,17 +469,58 @@ function displayEventInfo() {
     
     meritTypesHtml += '</div></div>';
     
-    eventDetails.innerHTML = `
+    // Determine what type of selection we have
+    const childActivitySelect = document.getElementById('childActivitySelect');
+    const selectedChildActivityId = childActivitySelect ? childActivitySelect.value : '';
+    
+    // Build event info
+    let eventInfoHtml = `
         <div class="grid grid-cols-2 gap-4">
             <div><strong>Event:</strong> ${sanitizeHTML(selectedEvent.name)}</div>
             <div><strong>Level:</strong> ${sanitizeHTML(selectedEvent.level)}</div>
             <div><strong>Date:</strong> ${formatDate(selectedEvent.date)}</div>
-            <div><strong>Location:</strong> ${sanitizeHTML(selectedEvent.location || 'Not specified')}</div>
-        </div>
-        ${meritTypesHtml}
-    `;
+            <div><strong>Location:</strong> ${sanitizeHTML(selectedEvent.location || 'Not specified')}</div>`;
+    
+    // Add type information based on selection
+    if (selectedEvent.isSubActivity) {
+        eventInfoHtml += `
+            <div><strong>Type:</strong> Child Activity</div>
+            <div><strong>Category:</strong> ${sanitizeHTML(selectedEvent.subActivityType || 'Not specified')}</div>`;
+    } else if (selectedChildActivityId === '') {
+        eventInfoHtml += `
+            <div><strong>Upload Target:</strong> Main Event</div>
+            <div><strong>Type:</strong> Parent Event</div>`;
+    } else {
+        eventInfoHtml += `
+            <div><strong>Upload Target:</strong> Child Activity</div>
+            <div><strong>Type:</strong> Parent Event</div>`;
+    }
+    
+    eventInfoHtml += `</div>${meritTypesHtml}`;
+    
+    eventDetails.innerHTML = eventInfoHtml;
     
     eventInfo.classList.remove('d-none');
+}
+
+async function loadParentEventName(parentEventId) {
+    try {
+        const parentEventDoc = await firestore.collection('events').doc(parentEventId).get();
+        const parentEventNameElement = document.getElementById('parentEventName');
+        
+        if (parentEventDoc.exists && parentEventNameElement) {
+            const parentEventData = parentEventDoc.data();
+            parentEventNameElement.textContent = parentEventData.name || 'Unknown Event';
+        } else if (parentEventNameElement) {
+            parentEventNameElement.textContent = 'Event not found';
+        }
+    } catch (error) {
+        console.error('Error loading parent event name:', error);
+        const parentEventNameElement = document.getElementById('parentEventName');
+        if (parentEventNameElement) {
+            parentEventNameElement.textContent = 'Error loading';
+        }
+    }
 }
 
 function handleMeritTypeChange() {

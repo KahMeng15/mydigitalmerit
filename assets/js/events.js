@@ -54,6 +54,7 @@ async function loadEvents() {
         const eventsSnapshot = await firestore.collection('events').get();
         allEvents = eventsSnapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(event => !event.isSubActivity)
             .sort((a, b) => new Date(b.date) - new Date(a.date));
         
         console.log('Loaded events:', allEvents.length);
@@ -183,9 +184,12 @@ function displayEvents() {
     const tableBody = document.getElementById('eventsTableBody');
     const eventCount = document.getElementById('eventCount');
     
-    eventCount.textContent = `${filteredEvents.length} event${filteredEvents.length !== 1 ? 's' : ''}`;
+    // Filter to show only parent events (not child activities)
+    const parentEvents = filteredEvents.filter(event => !event.isSubActivity);
     
-    if (filteredEvents.length === 0) {
+    eventCount.textContent = `${parentEvents.length} event${parentEvents.length !== 1 ? 's' : ''}`;
+    
+    if (parentEvents.length === 0) {
         displayNoEvents('No events found matching your criteria');
         return;
     }
@@ -193,12 +197,12 @@ function displayEvents() {
     // Calculate pagination
     const startIndex = (currentPage - 1) * eventsPerPage;
     const endIndex = startIndex + eventsPerPage;
-    const eventsToShow = filteredEvents.slice(startIndex, endIndex);
+    const eventsToShow = parentEvents.slice(startIndex, endIndex);
     
     // Update showing info
     document.getElementById('showingFrom').textContent = startIndex + 1;
-    document.getElementById('showingTo').textContent = Math.min(endIndex, filteredEvents.length);
-    document.getElementById('totalEvents').textContent = filteredEvents.length;
+    document.getElementById('showingTo').textContent = Math.min(endIndex, parentEvents.length);
+    document.getElementById('totalEvents').textContent = parentEvents.length;
     
     tableBody.innerHTML = eventsToShow.map(event => {
         const eventDate = new Date(event.date);
@@ -206,11 +210,15 @@ function displayEvents() {
         const statusClass = getStatusClass(event.status, isUpcoming);
         const statusText = getStatusText(event.status, isUpcoming);
         
+        // Count child activities for this parent event
+        const childActivityCount = filteredEvents.filter(e => e.isSubActivity && e.parentEventId === event.id).length;
+        
         return `
             <tr>
                 <td>
                     <div class="font-medium">${sanitizeHTML(event.name)}</div>
                     ${event.description ? `<div class="text-sm text-secondary">${sanitizeHTML(event.description.substring(0, 50))}${event.description.length > 50 ? '...' : ''}</div>` : ''}
+                    ${childActivityCount > 0 ? `<div class="text-xs text-info mt-1">📋 ${childActivityCount} child activit${childActivityCount > 1 ? 'ies' : 'y'}</div>` : ''}
                 </td>
                 <td><span class="badge bg-primary">${sanitizeHTML(event.level)}</span></td>
                 <td>

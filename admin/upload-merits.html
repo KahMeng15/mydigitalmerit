@@ -74,18 +74,27 @@
             <div id="step1" class="upload-step">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Step 1: Select Event</h3>
+                        <h3 class="card-title">Step 1: Select Event & Activity</h3>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body space-y-4">
                         <div class="form-group">
-                            <label for="eventSelect" class="form-label">Choose Event *</label>
+                            <label for="eventSelect" class="form-label">Choose Parent Event *</label>
                             <select id="eventSelect" class="form-control form-select" required>
-                                <option value="">Select an event...</option>
+                                <option value="">Select a parent event...</option>
                             </select>
                         </div>
+                        
+                        <div id="childActivityGroup" class="form-group d-none">
+                            <label for="childActivitySelect" class="form-label">Select Activity</label>
+                            <select id="childActivitySelect" class="form-control form-select">
+                                <option value="">Upload to Main Event (No specific activity)</option>
+                            </select>
+                            <small class="form-text text-muted">Choose a specific child activity or leave as "Main Event" to upload merits directly to the parent event</small>
+                        </div>
+                        
                         <div id="eventInfo" class="d-none">
-                            <div class="bg-light p-4 rounded mt-4">
-                                <h4 class="font-semibold mb-2">Event Information</h4>
+                            <div class="bg-light p-4 rounded">
+                                <h4 class="font-semibold mb-2">Selected Event Information</h4>
                                 <div id="eventDetails"></div>
                             </div>
                         </div>
