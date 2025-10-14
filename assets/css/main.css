@@ -54,16 +54,6 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* Badge components */
-.badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.25rem 0.75rem;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-
 /* Container and Layout */
 .container {
     max-width: 1200px;
@@ -693,6 +683,10 @@ body {
 .p-3 { padding: 0.75rem; }
 .p-4 { padding: 1rem; }
 .p-6 { padding: 1.5rem; }
+.p-8 { padding: 2rem; }
+
+.py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+.py-8 { padding-top: 2rem; padding-bottom: 2rem; }
 
 /* Margin utilities */
 .mb-1 { margin-bottom: 0.25rem; }
@@ -715,6 +709,7 @@ body {
 .ml-2 { margin-left: 0.5rem; }
 .ml-3 { margin-left: 0.75rem; }
 .ml-auto { margin-left: auto; }
+.mx-auto { margin-left: auto; margin-right: auto; }
 
 /* Text utilities */
 .text-center { text-align: center; }
@@ -778,11 +773,11 @@ body {
 .bg-white { background-color: white; }
 .bg-gray-50 { background-color: var(--gray-50); }
 .bg-gray-100 { background-color: var(--gray-100); }
-.bg-primary { background-color: var(--primary-color); color: white; }
-.bg-success { background-color: var(--success-color); color: white; }
-.bg-warning { background-color: var(--warning-color); color: white; }
-.bg-danger { background-color: var(--danger-color); color: white; }
-.bg-light { background-color: var(--light-color); color: black; }
+.bg-primary { background-color: var(--primary-color); }
+.bg-success { background-color: var(--success-color); }
+.bg-warning { background-color: var(--warning-color); }
+.bg-danger { background-color: var(--danger-color); }
+.bg-light { background-color: var(--light-color); }
 
 /* Border utilities */
 .border { border: 1px solid var(--border-color); }
@@ -791,6 +786,9 @@ body {
 .border-b { border-bottom: 1px solid var(--border-color); }
 .border-l { border-left: 1px solid var(--border-color); }
 .border-r { border-right: 1px solid var(--border-color); }
+.border-warning { border-color: var(--warning-color) !important; }
+.border-danger { border-color: var(--danger-color) !important; }
+.border-success { border-color: var(--success-color) !important; }
 
 .rounded { border-radius: var(--border-radius); }
 .rounded-lg { border-radius: var(--border-radius-lg); }
@@ -805,6 +803,7 @@ body {
 .w-8 { width: 2rem; }
 .w-10 { width: 2.5rem; }
 .w-12 { width: 3rem; }
+.w-16 { width: 4rem; }
 
 .h-4 { height: 1rem; }
 .h-5 { height: 1.25rem; }
@@ -812,6 +811,7 @@ body {
 .h-8 { height: 2rem; }
 .h-10 { height: 2.5rem; }
 .h-12 { height: 3rem; }
+.h-16 { height: 4rem; }
 
 .max-w-md { max-width: 28rem; }
 .max-w-lg { max-width: 32rem; }
@@ -934,6 +934,17 @@ body {
 .status-online { background-color: var(--success-color); }
 .status-offline { background-color: var(--gray-400); }
 .status-away { background-color: var(--warning-color); }
+
+/* Badge components */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: white;
+}
 
 /* Progress bars */
 .progress {
@@ -1083,7 +1094,7 @@ body {
         width: 100%;
         justify-content: center;
     }
-}
+
 
 /* Utility classes */
 .d-none { display: none !important; }

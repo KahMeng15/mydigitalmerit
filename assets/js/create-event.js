@@ -66,7 +66,6 @@ async function loadMeritValues() {
         const snapshot = await firestore.collection('meritvalue').get();
         const roles = {};
         const levels = {};
-        const availableLevels = [];
         
         // Process each level document
         snapshot.forEach(doc => {
@@ -76,7 +75,6 @@ async function loadMeritValues() {
             // Convert level name to match event levels (remove " Level" suffix)
             const eventLevelName = levelName.replace(' Level', '');
             levels[eventLevelName] = levelData;
-            availableLevels.push(eventLevelName);
             
             // For each role in this level, add to roles object
             Object.entries(levelData).forEach(([roleName, points]) => {
@@ -90,9 +88,6 @@ async function loadMeritValues() {
         meritValues = { roles: roles, levels: levels, achievements: {} };
         console.log('Loaded merit values:', meritValues);
         
-        // Populate event level dropdown
-        populateEventLevelDropdown(availableLevels);
-        
         // Update preview after loading
         if (meritValues) {
             updateMeritPreview();
@@ -101,27 +96,6 @@ async function loadMeritValues() {
     } catch (error) {
         console.error('Error loading merit values:', error);
     }
-}
-
-function populateEventLevelDropdown(availableLevels) {
-    const levelSelect = document.getElementById('eventLevel');
-    levelSelect.innerHTML = '<option value="">Select event level</option>';
-    
-    // Sort levels in a logical order
-    const levelOrder = ['University', 'National', 'College', 'Block', 'International'];
-    const sortedLevels = availableLevels.sort((a, b) => {
-        const aIndex = levelOrder.indexOf(a);
-        const bIndex = levelOrder.indexOf(b);
-        return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
-    });
-    
-    // Use Firebase level names directly
-    sortedLevels.forEach(level => {
-        const option = document.createElement('option');
-        option.value = level;
-        option.textContent = level;
-        levelSelect.appendChild(option);
-    });
 }
 
 

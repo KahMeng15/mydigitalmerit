@@ -92,8 +92,65 @@ function showToast(message, type = 'info') {
 
 // Validate matric number format
 function validateMatricNumber(matricNumber) {
-    const pattern = /^[A-Z]\d{8}$/; // Format: A12345678
-    return pattern.test(matricNumber);
+    if (!matricNumber) return false;
+    
+    const cleanMatric = matricNumber.trim().toUpperCase();
+    
+    // Valid formats:
+    // S12345 (S + 5 digits)
+    // DP121234 (DP + 6 digits) 
+    // GS12345 (GS + 5 digits)
+    // 12345 (5 digits only)
+    const patterns = [
+        /^S\d{5}$/,        // S12345
+        /^DP\d{6}$/,       // DP121234
+        /^GS\d{5}$/,       // GS12345
+        /^\d{5}$/          // 12345
+    ];
+    
+    return patterns.some(pattern => pattern.test(cleanMatric));
+}
+
+// Test function for matric number validation (for debugging)
+function testMatricValidation() {
+    const testCases = [
+        { input: 'S12345', expected: true },
+        { input: 's12345', expected: true },
+        { input: 'DP121234', expected: true },
+        { input: 'dp121234', expected: true },
+        { input: 'GS12345', expected: true },
+        { input: 'gs12345', expected: true },
+        { input: '12345', expected: true },
+        { input: 'S34129', expected: true },
+        { input: 'A12345678', expected: false },
+        { input: 'S123456', expected: false },
+        { input: 'DP12345', expected: false },
+        { input: 'XY12345', expected: false },
+        { input: '', expected: false },
+    ];
+    
+    console.log('Testing matric number validation:');
+    testCases.forEach(test => {
+        const result = validateMatricNumber(test.input);
+        const status = result === test.expected ? '✅' : '❌';
+        console.log(`${status} "${test.input}" -> ${result} (expected: ${test.expected})`);
+    });
+}
+
+// Normalize and format matric number to standard format
+function formatMatricNumber(rawMatric) {
+    if (!rawMatric) return '';
+    
+    // Clean the input - remove spaces, dots, and convert to uppercase
+    let cleaned = String(rawMatric).replace(/[\s.]/g, '').trim().toUpperCase();
+    
+    // Handle different input patterns and standardize them
+    // Remove common prefixes that might be inconsistent
+    cleaned = cleaned.replace(/^MATRIC[:\s]*/i, '');
+    cleaned = cleaned.replace(/^NO[:\s]*/i, '');
+    
+    // Return the cleaned format
+    return cleaned;
 }
 
 // Normalize institutional matric strings extracted from email local-part into a canonical form
@@ -174,17 +231,40 @@ function convertArrayToCSV(data) {
 }
 
 // Parse Excel file using SheetJS
-function parseExcelFile(file) {
+function parseExcelFile(file, specificSheet = null) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                resolve(jsonData);
+                
+                // If specific sheet requested, parse only that sheet
+                if (specificSheet) {
+                    if (!workbook.SheetNames.includes(specificSheet)) {
+                        throw new Error(`Sheet "${specificSheet}" not found in the file`);
+                    }
+                    const worksheet = workbook.Sheets[specificSheet];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    resolve(jsonData);
+                    return;
+                }
+                
+                // If no specific sheet, return metadata for sheet selection or first sheet data
+                if (workbook.SheetNames.length === 1) {
+                    // Single sheet - return data directly
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    resolve(jsonData);
+                } else {
+                    // Multiple sheets - return metadata for selection
+                    resolve({
+                        sheetNames: workbook.SheetNames,
+                        workbook: workbook,
+                        totalSheets: workbook.SheetNames.length
+                    });
+                }
             } catch (error) {
                 reject(error);
             }
@@ -251,4 +331,15 @@ function requireAdmin() {
         return false;
     }
     return true;
+}
+
+// Convert Excel date serial number to JavaScript Date
+function excelDateToJSDate(excelDate) {
+    // Excel's epoch is January 1, 1900 (but with a leap year bug)
+    // JavaScript's epoch is January 1, 1970
+    // Excel serial date 1 = January 1, 1900 = -25567 days from JS epoch
+    // Account for Excel's leap year bug (Feb 29, 1900 doesn't exist)
+    const excelEpoch = new Date(1899, 11, 30); // December 30, 1899
+    const jsDate = new Date(excelEpoch.getTime() + (excelDate * 24 * 60 * 60 * 1000));
+    return jsDate;
 }

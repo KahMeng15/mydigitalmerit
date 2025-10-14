@@ -13,6 +13,10 @@ let meritValues = null;
 let processedData = [];
 let validRecords = [];
 let invalidRecords = [];
+let excelData = null;
+let columnHeaders = [];
+let columnMapping = {};
+let currentWorkbook = null;
 
 function initializePage() {
     // Display user info
@@ -45,28 +49,62 @@ function initializePage() {
 }
 
 function setupEventListeners() {
+    // Helper function to safely add event listeners
+    function addEventListenerSafely(id, event, handler) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener(event, handler);
+        } else {
+            console.warn(`Element with id '${id}' not found`);
+        }
+    }
+    
     // Sign out
-    document.getElementById('signOutBtn').addEventListener('click', signOut);
+    addEventListenerSafely('signOutBtn', 'click', signOut);
     
     // Event selection
-    document.getElementById('eventSelect').addEventListener('change', handleEventSelect);
+    addEventListenerSafely('eventSelect', 'change', handleEventSelect);
     
     // Merit type selection
-    document.getElementById('meritType').addEventListener('change', handleMeritTypeChange);
-    document.getElementById('overrideMeritValue').addEventListener('change', handleOverrideToggle);
+    addEventListenerSafely('meritType', 'change', handleMeritTypeChange);
+    addEventListenerSafely('overrideMeritValue', 'change', handleOverrideToggle);
     
     // File upload
-    document.getElementById('excelFile').addEventListener('change', handleFileSelect);
-    document.getElementById('processFileBtn').addEventListener('click', processFile);
-    document.getElementById('clearFileBtn').addEventListener('click', clearFile);
+    addEventListenerSafely('excelFile', 'change', handleFileSelect);
+    addEventListenerSafely('processFileBtn', 'click', processFile);
     
     // Template download
-    document.getElementById('downloadTemplateBtn').addEventListener('click', downloadTemplate);
+    addEventListenerSafely('downloadTemplateBtn', 'click', downloadTemplate);
     
     // Preview actions
-    document.getElementById('exportPreviewBtn').addEventListener('click', exportPreview);
-    document.getElementById('confirmUploadBtn').addEventListener('click', finalizeUpload);
-    document.getElementById('backToPreviewBtn').addEventListener('click', backToPreview);
+    addEventListenerSafely('exportPreviewBtn', 'click', exportPreview);
+    addEventListenerSafely('confirmUploadBtn', 'click', finalizeUpload);
+    
+    // Page navigation
+    addEventListenerSafely('nextFromStep1', 'click', () => goToStep(2));
+    addEventListenerSafely('backFromStep2', 'click', () => goToStep(1));
+    addEventListenerSafely('nextFromStep2', 'click', () => goToStep(3));
+    addEventListenerSafely('backFromStep3', 'click', () => goToStep(2));
+    addEventListenerSafely('nextFromStep3', 'click', handleFileUploadNext);
+    addEventListenerSafely('backFromStep4', 'click', () => goToStep(3));
+    addEventListenerSafely('nextFromStep4', 'click', handleSheetSelectionNext);
+    addEventListenerSafely('backFromStep5', 'click', () => goToStep(4));
+    addEventListenerSafely('nextFromStep6', 'click', proceedToValidation);
+    addEventListenerSafely('backFromStep6', 'click', () => goToStep(5));
+    addEventListenerSafely('nextFromStep7', 'click', () => {
+        updateUploadSummary();
+        goToStep(8);
+    });
+    addEventListenerSafely('backFromStep7', 'click', () => goToStep(6));
+    addEventListenerSafely('backFromStep8', 'click', () => goToStep(7));
+    
+    // Role assignment radios (may not exist)
+    const roleAssignmentRadios = document.querySelectorAll('input[name="roleAssignment"]');
+    if (roleAssignmentRadios.length > 0) {
+        roleAssignmentRadios.forEach(radio => {
+            radio.addEventListener('change', handleRoleAssignmentChange);
+        });
+    }
 }
 
 async function loadEvents() {
@@ -137,12 +175,13 @@ async function loadMeritValues() {
 
 async function handleEventSelect() {
     const eventId = document.getElementById('eventSelect').value;
+    const nextBtn = document.getElementById('nextFromStep1');
     
     if (!eventId) {
-        hideSteps([2, 3, 4, 5]);
         // Reset merit type dropdown
         const meritTypeSelect = document.getElementById('meritType');
         meritTypeSelect.innerHTML = '<option value="">Select an event first...</option>';
+        if (nextBtn) nextBtn.disabled = true;
         return;
     }
     
@@ -156,7 +195,10 @@ async function handleEventSelect() {
         
         // Display event info
         displayEventInfo();
-        showStep(2);
+        
+        // Enable next button
+        if (nextBtn) nextBtn.disabled = false;
+        
     } catch (error) {
         console.error('Error loading event:', error);
         showToast('Error loading event details', 'error');
@@ -349,15 +391,44 @@ function displayEventInfo() {
 function handleMeritTypeChange() {
     const meritType = document.getElementById('meritType').value;
     const customGroup = document.getElementById('customMeritTypeGroup');
+    const nextBtn = document.getElementById('nextFromStep2');
     
     if (meritType === 'custom') {
         customGroup.classList.remove('d-none');
-        showStep(3);
     } else {
         customGroup.classList.add('d-none');
-        if (meritType) {
-            showStep(3);
-        }
+    }
+    
+    // Enable/disable next button
+    if (nextBtn) {
+        nextBtn.disabled = !meritType;
+    }
+    
+    // Update role definition section visibility on step 5
+    updateRoleDefinitionVisibility();
+}
+
+function updateRoleDefinitionVisibility() {
+    const meritType = document.getElementById('meritType').value;
+    const committeeRoleOptions = document.getElementById('committeeRoleOptions');
+    const nonCommitteeRoleInfo = document.getElementById('nonCommitteeRoleInfo');
+    const roleColumnGroup = document.getElementById('roleColumnGroup');
+    
+    if (meritType === 'committee') {
+        // Show committee role definition options and role column selection
+        committeeRoleOptions.classList.remove('d-none');
+        nonCommitteeRoleInfo.classList.add('d-none');
+        roleColumnGroup.classList.remove('d-none');
+    } else if (meritType && meritType !== 'custom') {
+        // Show non-committee info, hide committee options and role column
+        committeeRoleOptions.classList.add('d-none');
+        nonCommitteeRoleInfo.classList.remove('d-none');
+        roleColumnGroup.classList.add('d-none');
+    } else {
+        // Hide all for no selection or custom
+        committeeRoleOptions.classList.add('d-none');
+        nonCommitteeRoleInfo.classList.add('d-none');
+        roleColumnGroup.classList.add('d-none');
     }
 }
 
@@ -374,12 +445,14 @@ function handleOverrideToggle() {
 
 function handleFileSelect() {
     const fileInput = document.getElementById('excelFile');
-    const processBtn = document.getElementById('processFileBtn');
+    const nextBtn = document.getElementById('nextFromStep3');
     
-    processBtn.disabled = !fileInput.files[0];
+    if (nextBtn) {
+        nextBtn.disabled = !fileInput.files[0];
+    }
 }
 
-async function processFile() {
+async function handleFileUploadNext() {
     const fileInput = document.getElementById('excelFile');
     const file = fileInput.files[0];
     
@@ -391,76 +464,587 @@ async function processFile() {
     try {
         showLoading();
         
-        // Parse Excel file
-        const excelData = await parseExcelFile(file);
+        // Parse file to get sheet information
+        const result = await parseExcelFile(file);
         
-        // Process and validate data
-        processedData = await processExcelData(excelData);
+        // Store workbook globally for later use
+        if (result.workbook) {
+            window.currentWorkbook = result.workbook;
+        }
+        
+        // Check if single or multiple sheets
+        if (result.sheetNames && result.sheetNames.length > 1) {
+            // Multiple sheets - populate sheet selector
+            setupMultipleSheetSelection(result.sheetNames);
+        } else {
+            // Single sheet - setup single sheet display
+            const sheetName = result.sheetNames ? result.sheetNames[0] : 'Sheet1';
+            setupSingleSheetSelection(sheetName, result.length || 0);
+        }
+        
+        hideLoading();
+        goToStep(4);
+        
+    } catch (error) {
+        hideLoading();
+        console.error('Error processing file:', error);
+        showToast('Error reading Excel file: ' + error.message, 'error');
+    }
+}
+
+function setupSingleSheetSelection(sheetName, rowCount) {
+    // Show single sheet info
+    const singleSheetInfo = document.getElementById('singleSheetInfo');
+    const multipleSheetSelection = document.getElementById('multipleSheetSelection');
+    const nextBtn = document.getElementById('nextFromStep4');
+    
+    if (singleSheetInfo) {
+        singleSheetInfo.classList.remove('d-none');
+        
+        // Update sheet information
+        const singleSheetNameElement = document.getElementById('singleSheetName');
+        const singleSheetNameDisplay = document.getElementById('singleSheetNameDisplay');
+        const singleSheetRows = document.getElementById('singleSheetRows');
+        
+        if (singleSheetNameElement) singleSheetNameElement.textContent = sheetName;
+        if (singleSheetNameDisplay) singleSheetNameDisplay.textContent = sheetName;
+        if (singleSheetRows) singleSheetRows.textContent = rowCount;
+        
+        // Store selected sheet for processing
+        window.selectedSheet = sheetName;
+    }
+    
+    if (multipleSheetSelection) {
+        multipleSheetSelection.classList.add('d-none');
+    }
+    
+    // Enable next button
+    if (nextBtn) {
+        nextBtn.disabled = false;
+    }
+}
+
+function setupMultipleSheetSelection(sheetNames) {
+    // Show multiple sheet selection
+    const singleSheetInfo = document.getElementById('singleSheetInfo');
+    const multipleSheetSelection = document.getElementById('multipleSheetSelection');
+    const sheetCountElement = document.getElementById('sheetCount');
+    const nextBtn = document.getElementById('nextFromStep4');
+    
+    if (singleSheetInfo) {
+        singleSheetInfo.classList.add('d-none');
+    }
+    
+    if (multipleSheetSelection) {
+        multipleSheetSelection.classList.remove('d-none');
+        
+        if (sheetCountElement) {
+            sheetCountElement.textContent = sheetNames.length;
+        }
+        
+        // Populate sheet selector
+        populateSheetSelector(sheetNames);
+        
+        // Set up sheet selection change handler
+        const sheetSelect = document.getElementById('sheetSelect');
+        if (sheetSelect) {
+            sheetSelect.onchange = function() {
+                const selectedSheet = this.value;
+                const previewInfo = document.getElementById('sheetPreviewInfo');
+                
+                if (selectedSheet) {
+                    // Show preview info
+                    if (previewInfo) {
+                        previewInfo.classList.remove('d-none');
+                        
+                        // Get row count for selected sheet
+                        try {
+                            if (window.currentWorkbook && window.currentWorkbook.Sheets[selectedSheet]) {
+                                const sheet = window.currentWorkbook.Sheets[selectedSheet];
+                                const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                                const rowCount = sheetData.length;
+                                
+                                document.getElementById('selectedSheetName').textContent = selectedSheet;
+                                document.getElementById('selectedSheetRows').textContent = rowCount;
+                            }
+                        } catch (e) {
+                            console.warn('Error getting sheet preview:', e);
+                        }
+                    }
+                    
+                    // Enable next button
+                    if (nextBtn) {
+                        nextBtn.disabled = false;
+                    }
+                    
+                    // Store selected sheet
+                    window.selectedSheet = selectedSheet;
+                } else {
+                    // Hide preview and disable next button
+                    if (previewInfo) {
+                        previewInfo.classList.add('d-none');
+                    }
+                    if (nextBtn) {
+                        nextBtn.disabled = true;
+                    }
+                    window.selectedSheet = null;
+                }
+            };
+        }
+    }
+    
+    // Initially disable next button until sheet is selected
+    if (nextBtn) {
+        nextBtn.disabled = true;
+    }
+}
+
+function handleSheetSelectionNext() {
+    if (!window.selectedSheet) {
+        showToast('Please select a sheet to process', 'warning');
+        return;
+    }
+    
+    // Update Step 5 with selected sheet information
+    const processSheetName = document.getElementById('processSheetName');
+    const selectedSheetSummary = document.getElementById('selectedSheetSummary');
+    
+    if (processSheetName) {
+        processSheetName.textContent = window.selectedSheet;
+    }
+    
+    if (selectedSheetSummary) {
+        selectedSheetSummary.classList.remove('d-none');
+        
+        // Get row count
+        try {
+            if (window.currentWorkbook && window.currentWorkbook.Sheets[window.selectedSheet]) {
+                const sheet = window.currentWorkbook.Sheets[window.selectedSheet];
+                const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                const rowCount = sheetData.length;
+                
+                const processSheetRows = document.getElementById('processSheetRows');
+                if (processSheetRows) {
+                    processSheetRows.textContent = rowCount;
+                }
+            }
+        } catch (e) {
+            console.warn('Error getting sheet info:', e);
+        }
+    }
+    
+    goToStep(5);
+}
+
+async function processFile() {
+    const fileInput = document.getElementById('excelFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showToast('Please select a file first', 'error');
+        return;
+    }
+    
+    if (!window.selectedSheet) {
+        showToast('Please select a sheet first', 'error');
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        // Parse the selected sheet
+        excelData = await parseExcelFile(file, window.selectedSheet);
+        
+        if (excelData.length < 2) {
+            throw new Error('Excel file must have headers and at least one data row');
+        }
+        // Process dates in the data (convert Excel date serial numbers)
+        excelData = excelData.map(row => 
+            row.map(cell => {
+                // Handle Excel date serial numbers more carefully
+                if (typeof cell === 'number' && cell > 25567 && cell < 100000) {
+                    try {
+                        // Likely an Excel date serial number
+                        return excelDateToJSDate(cell);
+                    } catch (error) {
+                        return cell; // Return original value if conversion fails
+                    }
+                }
+                return cell;
+            })
+        );
+        
+        // Get column headers
+        columnHeaders = excelData[0].map((header, index) => ({
+            index: index,
+            name: header || `Column ${index + 1}`
+        }));
+        
+        // Populate column mapping dropdowns
+        populateColumnMappingDropdowns();
+        
+        // Populate role selection dropdown
+        populateRoleSelectionDropdown();
+        
+        // Display file preview
+        displayFilePreview();
+        
+        // Update role definition visibility based on current merit type
+        updateRoleDefinitionVisibility();
+        
+        // Show success message with sheet info
+        const dataRows = excelData.length - 1; // Subtract header row
+        showToast(`Successfully loaded "${window.selectedSheet}" with ${dataRows} data ${dataRows === 1 ? 'row' : 'rows'}`, 'success');
+        
+        goToStep(6);
+        
+    } catch (error) {
+        console.error('Error loading sheet:', error);
+        showToast('Error loading sheet: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Populate sheet selector dropdown
+function populateSheetSelector(sheetNames) {
+    const sheetSelect = document.getElementById('sheetSelect');
+    sheetSelect.innerHTML = '<option value="">Choose a sheet to process...</option>';
+    
+    let bestSheetIndex = 0; // Default to first sheet
+    
+    sheetNames.forEach((sheetName, index) => {
+        const option = document.createElement('option');
+        option.value = sheetName;
+        
+        // Try to get sheet row count if possible
+        let displayName = sheetName;
+        try {
+            if (window.currentWorkbook && window.currentWorkbook.Sheets[sheetName]) {
+                const sheet = window.currentWorkbook.Sheets[sheetName];
+                const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                const rowCount = sheetData.length;
+                displayName = `${sheetName} (${rowCount} rows)`;
+            }
+        } catch (e) {
+            // Fallback to just sheet name
+            displayName = sheetName;
+        }
+        
+        option.textContent = displayName;
+        
+        // Auto-select sheets with common data names or the first non-empty sheet
+        const lowerName = sheetName.toLowerCase();
+        if (lowerName.includes('data') || 
+            lowerName.includes('student') ||
+            lowerName.includes('record') ||
+            lowerName.includes('merit') ||
+            lowerName.includes('main')) {
+            bestSheetIndex = index;
+        }
+        
+        sheetSelect.appendChild(option);
+    });
+    
+    // Don't auto-select any sheet - let user choose
+    // Keep default "Choose a sheet to process..." option selected
+    
+    // Add change handler for immediate feedback
+    sheetSelect.onchange = function() {
+        this.classList.remove('border-warning');
+        if (this.value) {
+            const processBtn = document.getElementById('processFileBtn');
+            if (processBtn) {
+                processBtn.disabled = false;
+                processBtn.classList.remove('btn-secondary');
+                processBtn.classList.add('btn-primary');
+            }
+        }
+    };
+    
+    // Scroll to sheet selection and show helpful message
+    setTimeout(() => {
+        const sheetSection = document.getElementById('sheetSelectionSection');
+        if (sheetSection) {
+            sheetSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        showToast(`Found ${sheetNames.length} sheets. Please select which sheet contains your merit data.`, 'info');
+    }, 100);
+}
+
+function populateColumnMappingDropdowns() {
+    const dropdowns = ['nameColumnSelect', 'matricColumnSelect', 'roleColumnSelect', 'notesColumnSelect', 'proofLinkColumnSelect'];
+    
+    dropdowns.forEach(dropdownId => {
+        const dropdown = document.getElementById(dropdownId);
+        const isRequired = dropdownId.includes('name') || dropdownId.includes('matric');
+        
+        dropdown.innerHTML = `<option value="">Select column${isRequired ? ' (Required)' : ' (Optional)'}...</option>`;
+        
+        columnHeaders.forEach(header => {
+            const option = document.createElement('option');
+            option.value = header.index;
+            option.textContent = header.name;
+            dropdown.appendChild(option);
+        });
+        
+        // Auto-detect common columns
+        autoDetectColumn(dropdown, dropdownId);
+    });
+}
+
+function autoDetectColumn(dropdown, dropdownId) {
+    const detectionRules = {
+        'nameColumnSelect': ['name', 'student name', 'full name', 'nama'],
+        'matricColumnSelect': ['matric', 'student id', 'id', 'matric number', 'no matric'],
+        'roleColumnSelect': ['role', 'position', 'jawatan', 'committee'],
+        'notesColumnSelect': ['notes', 'note', 'remarks', 'catatan', 'additional notes']
+    };
+    
+    const rules = detectionRules[dropdownId];
+    if (!rules) return;
+    
+    for (const header of columnHeaders) {
+        const headerLower = header.name.toLowerCase();
+        if (rules.some(rule => headerLower.includes(rule))) {
+            dropdown.value = header.index;
+            break;
+        }
+    }
+}
+
+function populateRoleSelectionDropdown() {
+    const roleSelect = document.getElementById('singleRoleSelect');
+    roleSelect.innerHTML = '<option value="">Select role...</option>';
+    
+    if (meritValues && meritValues.roles && selectedEvent) {
+        // Map event level to database level
+        const levelMapping = {
+            'University': 'University',
+            'Faculty': 'National',
+            'College': 'College', 
+            'Club': 'Block',
+            'External': 'International'
+        };
+        
+        const dbLevel = levelMapping[selectedEvent.level] || selectedEvent.level;
+        
+        // Add base roles
+        Object.keys(meritValues.roles).forEach(role => {
+            const option = document.createElement('option');
+            option.value = role;
+            option.textContent = `${role} (${meritValues.roles[role][dbLevel] || 0} points)`;
+            roleSelect.appendChild(option);
+        });
+        
+        // Add custom roles if available
+        if (selectedEvent.customRoles && selectedEvent.customRoles.length > 0) {
+            const separator = document.createElement('option');
+            separator.disabled = true;
+            separator.textContent = '--- Custom Roles ---';
+            roleSelect.appendChild(separator);
+            
+            selectedEvent.customRoles.forEach(customRole => {
+                const option = document.createElement('option');
+                option.value = `custom:${customRole.name}`;
+                option.textContent = `${customRole.name} (${customRole.value} points)`;
+                roleSelect.appendChild(option);
+            });
+        }
+    }
+}
+
+function displayFilePreview() {
+    const head = document.getElementById('mappingPreviewHead');
+    const body = document.getElementById('mappingPreviewBody');
+    
+    // Clear existing content
+    head.innerHTML = '';
+    body.innerHTML = '';
+    
+    if (!excelData || excelData.length < 2) return;
+    
+    // Create header row
+    const headerRow = document.createElement('tr');
+    excelData[0].forEach((header, index) => {
+        const th = document.createElement('th');
+        th.textContent = header || `Column ${index + 1}`;
+        headerRow.appendChild(th);
+    });
+    head.appendChild(headerRow);
+    
+    // Create data rows (show all rows, but limit for performance)
+    const maxRowsToShow = Math.min(20, excelData.length - 1); // Show up to 20 rows
+    for (let i = 1; i <= maxRowsToShow; i++) {
+        const row = document.createElement('tr');
+        excelData[i].forEach(cell => {
+            const td = document.createElement('td');
+            td.textContent = cell || '';
+            td.style.maxWidth = '150px';
+            td.style.overflow = 'hidden';
+            td.style.textOverflow = 'ellipsis';
+            td.style.whiteSpace = 'nowrap';
+            row.appendChild(td);
+        });
+        body.appendChild(row);
+    }
+    
+    // Add row count info if there are more rows
+    if (excelData.length - 1 > maxRowsToShow) {
+        const infoRow = document.createElement('tr');
+        const infoCell = document.createElement('td');
+        infoCell.colSpan = excelData[0].length;
+        infoCell.innerHTML = `<em class="text-secondary">... and ${excelData.length - 1 - maxRowsToShow} more rows</em>`;
+        infoCell.style.textAlign = 'center';
+        infoCell.style.padding = '10px';
+        infoRow.appendChild(infoCell);
+        body.appendChild(infoRow);
+    }
+}
+
+function handleRoleAssignmentChange() {
+    const selectedValue = document.querySelector('input[name="roleAssignment"]:checked').value;
+    const singleRoleSection = document.getElementById('singleRoleSection');
+    const manualRoleSection = document.getElementById('manualRoleSection');
+    
+    if (selectedValue === 'single') {
+        singleRoleSection.classList.remove('d-none');
+        manualRoleSection.classList.add('d-none');
+    } else if (selectedValue === 'manual') {
+        singleRoleSection.classList.add('d-none');
+        manualRoleSection.classList.remove('d-none');
+    } else {
+        singleRoleSection.classList.add('d-none');
+        manualRoleSection.classList.add('d-none');
+    }
+}
+
+async function proceedToValidation() {
+    // Validate column mapping
+    const nameColumn = document.getElementById('nameColumnSelect').value;
+    const matricColumn = document.getElementById('matricColumnSelect').value;
+    const meritType = document.getElementById('meritType').value;
+    
+    if (!nameColumn || !matricColumn) {
+        showToast('Please select columns for student name and matric number', 'error');
+        return;
+    }
+    
+    // For committee merit type, validate role assignment
+    if (meritType === 'committee') {
+        const roleAssignment = document.querySelector('input[name="roleAssignment"]:checked')?.value;
+        const singleRole = document.getElementById('singleRoleSelect').value;
+        
+        if (roleAssignment === 'single' && !singleRole) {
+            showToast('Please select a committee role for all students', 'error');
+            return;
+        }
+        
+        if (roleAssignment === 'column' && !document.getElementById('roleColumnSelect').value) {
+            showToast('Please select a role column or choose a different role assignment method', 'error');
+            return;
+        }
+    }
+    
+    // Store column mapping
+    columnMapping = {
+        name: parseInt(nameColumn),
+        matricNumber: parseInt(matricColumn),
+        role: document.getElementById('roleColumnSelect').value ? parseInt(document.getElementById('roleColumnSelect').value) : null,
+        notes: document.getElementById('notesColumnSelect').value ? parseInt(document.getElementById('notesColumnSelect').value) : null,
+        proofLink: document.getElementById('proofLinkColumnSelect').value ? parseInt(document.getElementById('proofLinkColumnSelect').value) : null
+    };
+    
+    try {
+        showLoading();
+        
+        // Process data with column mapping
+        processedData = await processExcelDataWithMapping();
         
         // Validate records
         validateRecords();
         
         // Display preview
         displayPreview();
-        showStep(4);
+        goToStep(7);
         
     } catch (error) {
-        console.error('Error processing file:', error);
-        showToast('Error processing file: ' + error.message, 'error');
+        console.error('Error processing data:', error);
+        showToast('Error processing data: ' + error.message, 'error');
     } finally {
         hideLoading();
     }
 }
 
-async function processExcelData(excelData) {
-    if (excelData.length < 2) {
-        throw new Error('Excel file must have headers and at least one data row');
+async function processExcelDataWithMapping() {
+    const meritType = document.getElementById('meritType').value;
+    let roleAssignment = 'single';  // Default for non-committee
+    let singleRole = meritType;     // Use merit type as role for non-committee
+    
+    // For committee merit type, get the role assignment method
+    if (meritType === 'committee') {
+        roleAssignment = document.querySelector('input[name="roleAssignment"]:checked')?.value || 'single';
+        singleRole = document.getElementById('singleRoleSelect').value;
     }
     
-    const headers = excelData[0];
-    const requiredColumns = ['Name', 'Matric Number'];
-    
-    // Check for required columns
-    const missingColumns = requiredColumns.filter(col => 
-        !headers.some(header => header && header.toLowerCase().includes(col.toLowerCase()))
-    );
-    
-    if (missingColumns.length > 0) {
-        throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
-    }
-    
-    // Find column indices
-    const columnMap = {};
-    headers.forEach((header, index) => {
-        if (header) {
-            const lowerHeader = header.toLowerCase();
-            if (lowerHeader.includes('name') && !lowerHeader.includes('matric')) columnMap.name = index;
-            if (lowerHeader.includes('matric')) columnMap.matricNumber = index;
-            if (lowerHeader.includes('role')) columnMap.role = index;
-            if (lowerHeader.includes('note')) columnMap.notes = index;
-            if (lowerHeader.includes('proof')) columnMap.proof = index;
-            if (lowerHeader.includes('timestamp') || lowerHeader.includes('time')) columnMap.timestamp = index;
-        }
-    });
-    
-    // Process data rows
     const processed = [];
+    
+    // Process data rows (skip header)
     for (let i = 1; i < excelData.length; i++) {
         const row = excelData[i];
         
         // Skip empty rows
         if (!row || row.every(cell => !cell)) continue;
         
+        let assignedRole = '';
+        
+        // Determine role based on merit type and assignment method
+        if (meritType === 'committee') {
+            // Committee merit type - use role assignment method
+            if (roleAssignment === 'column' && columnMapping.role !== null) {
+                assignedRole = row[columnMapping.role] || '';
+            } else if (roleAssignment === 'single' && singleRole) {
+                assignedRole = singleRole;
+            }
+            // For manual assignment, role will be empty and handled in preview
+        } else {
+            // Non-committee merit type - use merit type as role
+            assignedRole = meritType;
+            roleAssignment = 'single'; // Force single assignment for consistency
+        }
+        
+        // Auto-format name and matric number
+        const rawName = row[columnMapping.name] || '';
+        const rawMatricNumber = row[columnMapping.matricNumber] || '';
+        
+        // Capitalize name properly (first letter of each word)
+        const formattedName = rawName.trim()
+            .toLowerCase()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        
+        // Format and validate matric number
+        const formattedMatricNumber = formatMatricNumber(rawMatricNumber);
+        
         const record = {
             rowNumber: i + 1,
-            name: row[columnMap.name] || '',
-            matricNumber: row[columnMap.matricNumber] || '',
-            role: row[columnMap.role] || '', // Specific committee role if provided
-            notes: row[columnMap.notes] || '',
-            proof: row[columnMap.proof] || '',
-            timestamp: row[columnMap.timestamp] || '',
-            issues: []
+            name: formattedName,
+            matricNumber: formattedMatricNumber,
+            role: assignedRole,
+            notes: columnMapping.notes !== null ? (row[columnMapping.notes] || '') : '',
+            issues: [],
+            roleAssignmentMethod: roleAssignment,
+            meritPoints: 0,
+            additionalNotes: columnMapping.notes !== null ? (row[columnMapping.notes] || '') : '',
+            linkProof: columnMapping.proofLink !== null ? (row[columnMapping.proofLink] || '') : ''
         };
+        
+        // Calculate merit points if role is assigned
+        if (assignedRole) {
+            calculateMeritPoints(record);
+        }
         
         processed.push(record);
     }
@@ -482,8 +1066,8 @@ function validateRecords() {
         
         if (!record.matricNumber.trim()) {
             issues.push('Matric number is required');
-        } else if (!validateMatricNumber(record.matricNumber.trim().toUpperCase())) {
-            issues.push('Invalid matric number format (expected: A12345678)');
+        } else if (!validateMatricNumber(record.matricNumber.trim())) {
+            issues.push('Invalid matric number format (expected: S12345, DP121234, GS12345, or 12345)');
         }
         
         // For committee member type, role validation will be handled in preview
@@ -576,13 +1160,17 @@ function displayPreviewTable() {
         const statusClass = record.issues.length === 0 ? 'status-valid' : 'status-error';
         const statusIcon = record.issues.length === 0 ? '✓' : '✗';
         
-        // For committee member selection, show role dropdown
+        // Handle role display based on merit type and assignment method
         let roleCell = '';
-        if (selectedMeritType === 'committee') {
+        const roleAssignmentMethod = record.roleAssignmentMethod || 'single';
+        const meritType = document.getElementById('meritType').value;
+        
+        if (meritType === 'committee' && roleAssignmentMethod === 'manual') {
+            // Show dropdown for manual committee role assignment
             roleCell = `
-                <select class="form-select form-select-sm role-select" data-record-index="${index}" onchange="updateRecordRole(${index}, this.value)">
-                    <option value="">Select Role...</option>
-                    ${getCommitteeRoleOptions(record.role)}
+                <select class="form-control form-select role-select" data-record-index="${index}" onchange="updateRecordRole(${index}, this.value)">
+                    <option value="">Select Committee Role...</option>
+                    ${getRoleOptions(record.role)}
                 </select>
             `;
         } else {
@@ -632,61 +1220,105 @@ function getCommitteeRoleOptions(selectedRole = '') {
 
 // Function to update record role and recalculate merit points
 function updateRecordRole(recordIndex, newRole) {
-    const allRecords = [...validRecords, ...invalidRecords];
-    if (recordIndex < 0 || recordIndex >= allRecords.length) return;
-    
-    const record = allRecords[recordIndex];
-    record.role = newRole;
-    
-    // Recalculate merit points
-    if (newRole) {
-        record.meritPoints = calculateMeritPointsForUpload(newRole, selectedEvent.level, record.additionalNotes, meritValues, selectedEvent);
-    } else {
-        record.meritPoints = 0;
+    try {
+        // Validate input parameters
+        if (typeof recordIndex !== 'number' || recordIndex < 0) {
+            console.warn('Invalid recordIndex provided:', recordIndex);
+            return;
+        }
+        
+        if (typeof newRole !== 'string') {
+            console.warn('Invalid role provided:', newRole);
+            return;
+        }
+        
+        const allRecords = [...validRecords, ...invalidRecords];
+        if (recordIndex >= allRecords.length) {
+            console.warn('Record index out of bounds:', recordIndex, 'Total records:', allRecords.length);
+            return;
+        }
+        
+        const record = allRecords[recordIndex];
+        if (!record) {
+            console.warn('Record not found at index:', recordIndex);
+            return;
+        }
+        
+        record.role = newRole;
+        
+        // Recalculate merit points
+        try {
+            if (newRole && newRole.trim()) {
+                record.meritPoints = calculateMeritPointsForUpload(newRole, selectedEvent?.level, record.additionalNotes, meritValues, selectedEvent);
+            } else {
+                record.meritPoints = 0;
+            }
+        } catch (pointsError) {
+            console.error('Error calculating merit points for role update:', pointsError);
+            record.meritPoints = 0;
+        }
+        
+        // Re-validate the record
+        const issues = [];
+        if (!record.name || !record.name.trim()) issues.push('Name is required');
+        if (!record.matricNumber || !record.matricNumber.trim()) issues.push('Matric number is required');
+        else if (!validateMatricNumber(record.matricNumber.trim().toUpperCase())) {
+            issues.push('Invalid matric number format (expected: A12345678 or S12345)');
+        }
+        if (!record.role || !record.role.trim()) issues.push('Role is required');
+        
+        record.issues = issues;
+        
+        // Move between valid/invalid arrays
+        const wasValid = validRecords.includes(record);
+        const isValid = issues.length === 0;
+        
+        if (wasValid && !isValid) {
+            // Move from valid to invalid
+            const index = validRecords.indexOf(record);
+            if (index > -1) {
+                validRecords.splice(index, 1);
+                invalidRecords.push(record);
+            }
+        } else if (!wasValid && isValid) {
+            // Move from invalid to valid
+            const index = invalidRecords.indexOf(record);
+            if (index > -1) {
+                invalidRecords.splice(index, 1);
+                validRecords.push(record);
+            }
+        }
+        
+        // Update the display
+        try {
+            displayPreviewTable();
+            updateUploadSummary();
+        } catch (displayError) {
+            console.error('Error updating display after role change:', displayError);
+        }
+        
+    } catch (error) {
+        console.error('Error in updateRecordRole:', error);
+        showToast('Error updating record role. Please try again.', 'error');
     }
-    
-    // Re-validate the record
-    const issues = [];
-    if (!record.name.trim()) issues.push('Name is required');
-    if (!record.matricNumber.trim()) issues.push('Matric number is required');
-    else if (!validateMatricNumber(record.matricNumber.trim().toUpperCase())) {
-        issues.push('Invalid matric number format (expected: A12345678)');
-    }
-    if (!record.role.trim()) issues.push('Role is required');
-    
-    record.issues = issues;
-    
-    // Move between valid/invalid arrays
-    const wasValid = validRecords.includes(record);
-    const isValid = issues.length === 0;
-    
-    if (wasValid && !isValid) {
-        // Move from valid to invalid
-        validRecords.splice(validRecords.indexOf(record), 1);
-        invalidRecords.push(record);
-    } else if (!wasValid && isValid) {
-        // Move from invalid to valid
-        invalidRecords.splice(invalidRecords.indexOf(record), 1);
-        validRecords.push(record);
-    }
-    
-    // Update the display
-    displayPreviewTable();
-    updateUploadSummary();
 }
 
 // Function to update upload summary
 function updateUploadSummary() {
     const summaryElement = document.getElementById('uploadSummary');
+    
     if (summaryElement && selectedEvent) {
+        const meritType = getMeritType();
+        const totalMeritPoints = validRecords.reduce((sum, record) => sum + record.meritPoints, 0);
+        
         summaryElement.innerHTML = `
             <div class="bg-light p-4 rounded">
                 <h4 class="font-semibold mb-2">Upload Summary</h4>
                 <ul class="space-y-1">
                     <li><strong>Event:</strong> ${sanitizeHTML(selectedEvent.name)}</li>
-                    <li><strong>Merit Type:</strong> ${sanitizeHTML(getMeritType())}</li>
+                    <li><strong>Merit Type:</strong> ${sanitizeHTML(meritType)}</li>
                     <li><strong>Records to upload:</strong> ${validRecords.length}</li>
-                    <li><strong>Total merit points:</strong> ${validRecords.reduce((sum, record) => sum + record.meritPoints, 0)}</li>
+                    <li><strong>Total merit points:</strong> ${totalMeritPoints}</li>
                     ${invalidRecords.length > 0 ? `<li class="text-warning"><strong>Records with issues (will be skipped):</strong> ${invalidRecords.length}</li>` : ''}
                 </ul>
             </div>
@@ -712,7 +1344,7 @@ function exportPreview() {
 }
 
 function backToPreview() {
-    showStep(4);
+    goToStep(7);
 }
 
 async function confirmUpload() {
@@ -723,7 +1355,7 @@ async function confirmUpload() {
     
     // Display upload summary first
     updateUploadSummary();
-    showStep(5);
+    goToStep(8);
 }
 
 async function finalizeUpload() {
@@ -736,24 +1368,60 @@ async function finalizeUpload() {
     if (!confirmed) return;
     
     try {
-        // Show progress
-        hideSteps([1, 2, 3, 4, 5]);
-        document.getElementById('uploadProgress').classList.remove('d-none');
+        // Hide all steps and show Step 9
+        hideSteps([1, 2, 3, 4, 5, 6, 7, 8]);
+        goToStep(9);
+        
+        // Update step indicator to show Step 9
+        document.getElementById('currentStep').textContent = '9';
+        document.getElementById('progressIndicator').style.width = '100%';
+        
+        console.log('Now showing Step 9 (Upload Progress)');
         
         await uploadMeritRecords();
         
-        showToast('Merit records uploaded successfully!', 'success');
+        // Show completion message in Step 9
+        const step9Element = document.getElementById('step9');
+        step9Element.innerHTML = `
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Step 9: Upload Complete</h3>
+                </div>
+                <div class="card-body text-center">
+                    <div class="text-success mb-4">
+                        <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <h4 class="text-success mb-3">Upload Completed Successfully!</h4>
+                    <p class="mb-4">${validRecords.length} merit records have been uploaded to the system.</p>
+                </div>
+                <div class="card-footer">
+                    <div class="flex justify-center gap-3">
+                        <button onclick="window.location.href='events.html'" class="btn btn-primary">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5v4m8-4v4"/>
+                            </svg>
+                            Return to Events
+                        </button>
+                        <button onclick="location.reload()" class="btn btn-outline">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            Upload More Records
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
         
-        // Redirect after a delay
-        setTimeout(() => {
-            window.location.href = `events.html`;
-        }, 2000);
+        showToast('Merit records uploaded successfully!', 'success');
         
     } catch (error) {
         console.error('Error uploading merit records:', error);
         showToast('Error uploading merit records: ' + error.message, 'error');
-        showStep(5);
-        document.getElementById('uploadProgress').classList.add('d-none');
+        goToStep(8);
     }
 }
 
@@ -764,38 +1432,61 @@ async function uploadMeritRecords() {
     let uploaded = 0;
     const total = validRecords.length;
     
+    // Initialize progress display
+    if (progressText) {
+        progressText.textContent = `0 of ${total} records uploaded`;
+    }
+    
     for (const record of validRecords) {
         try {
             // Find or create user
             const userId = await findOrCreateUser(record);
-            // Create merit record
-            const meritId = generateId();
+            // Create merit record data (remove undefined values)
             const meritData = {
-                id: meritId,
                 name: record.name,
                 matricNumber: record.matricNumber.toUpperCase(),
                 role: record.role,
                 meritPoints: record.meritPoints,
-                additionalNotes: record.additionalNotes,
-                linkProof: record.linkProof,
                 meritType: getMeritType(),
                 eventLevel: selectedEvent.level,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdBy: getCurrentUser().uid
+                eventName: selectedEvent.name,
+                eventDate: selectedEvent.date,
+                uploadDate: firebase.firestore.FieldValue.serverTimestamp(),
+                uploadedBy: getCurrentUser().uid
             };
-            // Save merit record in Firestore (nested structure)
-            const userMeritsDoc = firestore.collection('userMerits').doc(userId);
-            // Get current merits for this user
-            const userMeritsSnap = await userMeritsDoc.get();
-            let userMerits = userMeritsSnap.exists ? userMeritsSnap.data() : {};
-            if (!userMerits[selectedEvent.id]) userMerits[selectedEvent.id] = {};
-            userMerits[selectedEvent.id][meritId] = meritData;
-            await userMeritsDoc.set(userMerits);
+            
+            // Add optional fields only if they have values
+            if (record.additionalNotes && record.additionalNotes.trim()) {
+                meritData.additionalNotes = record.additionalNotes.trim();
+            }
+            
+            if (record.linkProof && record.linkProof.trim()) {
+                meritData.linkProof = record.linkProof.trim();
+            }
+            
+            // Save merit record in new structure: students/{matricNumber}/events/{eventId}
+            const studentEventDoc = firestore
+                .collection('students')
+                .doc(record.matricNumber.toUpperCase())
+                .collection('events')
+                .doc(selectedEvent.id.toString());
+            
+            await studentEventDoc.set(meritData);
             uploaded++;
             // Update progress
             const percentage = (uploaded / total) * 100;
-            progressBar.style.width = `${percentage}%`;
-            progressText.textContent = `${uploaded} of ${total} records uploaded`;
+            
+            if (progressBar) {
+                progressBar.style.width = `${percentage}%`;
+                progressBar.setAttribute('aria-valuenow', percentage);
+                progressBar.textContent = `${Math.round(percentage)}%`;
+            }
+            if (progressText) {
+                progressText.textContent = `${uploaded} of ${total} records uploaded`;
+            }
+            
+            // Small delay to make progress visible
+            await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
             console.error(`Error uploading record for ${record.name}:`, error);
             // Continue with next record
@@ -831,9 +1522,18 @@ async function findOrCreateUser(record) {
 }
 
 function clearFile() {
-    document.getElementById('excelFile').value = '';
-    document.getElementById('processFileBtn').disabled = true;
-    hideSteps([4, 5]);
+    const fileInput = document.getElementById('excelFile');
+    const processBtn = document.getElementById('processFileBtn');
+    
+    if (fileInput) {
+        fileInput.value = '';
+    }
+    
+    if (processBtn) {
+        processBtn.disabled = true;
+    }
+    
+    hideSteps([4, 5, 6, 7, 8]);
     processedData = [];
     validRecords = [];
     invalidRecords = [];
@@ -856,11 +1556,146 @@ function downloadTemplate() {
 }
 
 function showStep(stepNumber) {
-    document.getElementById(`step${stepNumber}`).classList.remove('d-none');
+    const stepElement = document.getElementById(`step${stepNumber}`);
+    if (stepElement) {
+        stepElement.classList.remove('d-none');
+    } else {
+        console.warn(`Step element 'step${stepNumber}' not found`);
+    }
 }
 
 function hideSteps(stepNumbers) {
     stepNumbers.forEach(stepNumber => {
-        document.getElementById(`step${stepNumber}`).classList.add('d-none');
+        const stepElement = document.getElementById(`step${stepNumber}`);
+        if (stepElement) {
+            stepElement.classList.add('d-none');
+        } else {
+            console.warn(`Step element 'step${stepNumber}' not found`);
+        }
     });
+}
+
+// Page-based navigation functions
+let currentStepNumber = 1;
+
+function goToStep(stepNumber) {
+    // Hide current step
+    hideSteps([currentStepNumber]);
+    
+    // Show new step
+    showStep(stepNumber);
+    
+    // Update current step
+    currentStepNumber = stepNumber;
+    
+    // Update progress indicator
+    updateProgressIndicator(stepNumber);
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateProgressIndicator(stepNumber) {
+    const progressBar = document.getElementById('progressIndicator');
+    const currentStepSpan = document.getElementById('currentStep');
+    
+    if (progressBar) {
+        const percentage = (stepNumber / 9) * 100;
+        progressBar.style.width = `${percentage}%`;
+    }
+    
+    if (currentStepSpan) {
+        currentStepSpan.textContent = stepNumber;
+    }
+}
+
+function getRoleOptions(selectedRole = '') {
+    if (!meritValues || !meritValues.roles || !selectedEvent) return '';
+    
+    // Map event level to database level
+    const levelMapping = {
+        'University': 'University',
+        'Faculty': 'National',
+        'College': 'College', 
+        'Club': 'Block',
+        'External': 'International'
+    };
+    
+    const dbLevel = levelMapping[selectedEvent.level] || selectedEvent.level;
+    let options = '';
+    
+    // Add base roles
+    Object.keys(meritValues.roles).forEach(role => {
+        const points = meritValues.roles[role][dbLevel] || 0;
+        const isSelected = role === selectedRole ? 'selected' : '';
+        options += `<option value="${role}" ${isSelected}>${role} (${points} points)</option>`;
+    });
+    
+    // Add custom roles if available
+    if (selectedEvent.customRoles && selectedEvent.customRoles.length > 0) {
+        selectedEvent.customRoles.forEach(customRole => {
+            const customValue = `custom:${customRole.name}`;
+            const isSelected = customValue === selectedRole ? 'selected' : '';
+            options += `<option value="${customValue}" ${isSelected}>${customRole.name} (${customRole.value} points)</option>`;
+        });
+    }
+    
+    return options;
+}
+
+function calculateMeritPoints(record) {
+    try {
+        if (!record || typeof record !== 'object') {
+            console.warn('Invalid record provided to calculateMeritPoints');
+            return;
+        }
+        
+        if (!record.role || !selectedEvent || !meritValues) {
+            record.meritPoints = 0;
+            return;
+        }
+        
+        const levelMapping = {
+            'University': 'University',
+            'Faculty': 'National',
+            'College': 'College', 
+            'Club': 'Block',
+            'External': 'International'
+        };
+        
+        const dbLevel = levelMapping[selectedEvent.level] || selectedEvent.level;
+        
+        // Check if it's a custom role
+        if (typeof record.role === 'string' && record.role.startsWith('custom:')) {
+            const customRoleName = record.role.substring(7); // Remove 'custom:' prefix
+            const customRole = selectedEvent.customRoles?.find(r => r.name === customRoleName);
+            record.meritPoints = customRole ? customRole.value : 0;
+        } else {
+            // Base role
+            record.meritPoints = meritValues.roles[record.role]?.[dbLevel] || 0;
+        }
+    } catch (error) {
+        console.error('Error calculating merit points:', error);
+        if (record) {
+            record.meritPoints = 0;
+        }
+    }
+}
+
+
+
+function proceedToConfirm() {
+    // Check if there are any valid records to upload
+    if (validRecords.length === 0) {
+        showToast('No valid records to upload. Please fix the issues and try again.', 'error');
+        return;
+    }
+    
+    // Display upload summary and proceed to confirmation
+    updateUploadSummary();
+    goToStep(8);
+}
+
+function backToPreview() {
+    goToStep(7);
 }

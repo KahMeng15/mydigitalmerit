@@ -44,114 +44,420 @@
                 </div>
             </div>
 
-            <!-- Step 1: Event Selection -->
-            <div id="step1" class="card mb-6">
-                <div class="card-header">
-                    <h3 class="card-title">Step 1: Select Event</h3>
-                </div>
-                <div class="card-body">
-                    <div class="form-group">
-                        <label for="eventSelect" class="form-label">Choose Event *</label>
-                        <select id="eventSelect" class="form-control form-select" required>
-                            <option value="">Select an event...</option>
-                        </select>
+            <!-- Progress Indicator -->
+            <div class="mb-6">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium">Upload Progress</span>
+                            <span class="text-sm text-secondary"><span id="currentStep">1</span> of 9</span>
+                        </div>
+                        <div class="w-full bg-light rounded h-2 mb-2">
+                            <div id="progressIndicator" class="bg-primary h-2 rounded transition-all duration-300" style="width: 11.1%"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-secondary">
+                            <span>Event</span>
+                            <span>Config</span>
+                            <span>Upload</span>
+                            <span>Sheets</span>
+                            <span>Process</span>
+                            <span>Mapping</span>
+                            <span>Preview</span>
+                            <span>Confirm</span>
+                            <span>Done</span>
+                        </div>
                     </div>
-                    <div id="eventInfo" class="d-none">
-                        <div class="bg-light p-4 rounded">
-                            <h4 class="font-semibold mb-2">Event Information</h4>
-                            <div id="eventDetails"></div>
+                </div>
+            </div>
+
+            <!-- Step 1: Event Selection -->
+            <div id="step1" class="upload-step">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Step 1: Select Event</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label for="eventSelect" class="form-label">Choose Event *</label>
+                            <select id="eventSelect" class="form-control form-select" required>
+                                <option value="">Select an event...</option>
+                            </select>
+                        </div>
+                        <div id="eventInfo" class="d-none">
+                            <div class="bg-light p-4 rounded mt-4">
+                                <h4 class="font-semibold mb-2">Event Information</h4>
+                                <div id="eventDetails"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="flex justify-between">
+                            <div></div>
+                            <button id="nextFromStep1" class="btn btn-primary" disabled>
+                                Next: Upload Configuration
+                                <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Step 2: Upload Configuration -->
-            <div id="step2" class="card mb-6 d-none">
-                <div class="card-header">
-                    <h3 class="card-title">Step 2: Upload Configuration</h3>
-                </div>
-                <div class="card-body">
-                    <div class="grid grid-cols-2 gap-6">
-                        <div>
-                            <div class="form-group">
-                                <label for="meritType" class="form-label">Merit Type *</label>
-                                <select id="meritType" class="form-control form-select" required>
-                                    <option value="">Select merit type...</option>
-                                    <option value="">No event selected</option>
-                                </select>
-                            </div>
-                            <div id="customMeritTypeGroup" class="form-group d-none">
-                                <label for="customMeritType" class="form-label">Custom Merit Type</label>
-                                <input type="text" id="customMeritType" class="form-control" 
-                                       placeholder="Enter custom merit type">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Override Merit Value</label>
-                                <div class="flex items-center gap-2">
-                                    <input type="checkbox" id="overrideMeritValue">
-                                    <label for="overrideMeritValue" class="text-sm">Use custom merit value</label>
+            <div id="step2" class="upload-step d-none">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Step 2: Upload Configuration</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <div class="form-group">
+                                    <label for="meritType" class="form-label">Merit Type *</label>
+                                    <select id="meritType" class="form-control form-select" required>
+                                        <option value="">Select merit type...</option>
+                                        <option value="">No event selected</option>
+                                    </select>
+                                </div>
+                                <div id="customMeritTypeGroup" class="form-group d-none">
+                                    <label for="customMeritType" class="form-label">Custom Merit Type</label>
+                                    <input type="text" id="customMeritType" class="form-control" 
+                                           placeholder="Enter custom merit type">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Override Merit Value</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="checkbox" id="overrideMeritValue">
+                                        <label for="overrideMeritValue" class="text-sm">Use custom merit value</label>
+                                    </div>
+                                </div>
+                                <div id="customMeritValueGroup" class="form-group d-none">
+                                    <label for="customMeritValue" class="form-label">Custom Merit Value</label>
+                                    <input type="number" id="customMeritValue" class="form-control" min="0" 
+                                           placeholder="Enter merit value">
                                 </div>
                             </div>
-                            <div id="customMeritValueGroup" class="form-group d-none">
-                                <label for="customMeritValue" class="form-label">Custom Merit Value</label>
-                                <input type="number" id="customMeritValue" class="form-control" min="0" 
-                                       placeholder="Enter merit value">
+                            <div>
+                                <div class="bg-light p-4 rounded">
+                                    <h4 class="font-semibold mb-2">Excel File Format</h4>
+                                    <p class="text-sm text-secondary mb-2">Your Excel file should have these columns:</p>
+                                    <ul class="text-sm space-y-1">
+                                        <li><strong>Date/Time:</strong> Event date and time</li>
+                                        <li><strong>Name:</strong> Student full name</li>
+                                        <li><strong>Matric Number:</strong> Student ID (S12345, DP121234, etc.)</li>
+                                        <li><strong>Role:</strong> Student role in event</li>
+                                        <li><strong>Additional Notes:</strong> Achievements/awards</li>
+                                        <li><strong>Link Proof:</strong> Evidence link (optional)</li>
+                                    </ul>
+                                    <button id="downloadTemplateBtn" class="btn btn-outline btn-sm mt-3">
+                                        Download Template
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <div>
-                            <div class="bg-light p-4 rounded">
-                                <h4 class="font-semibold mb-2">Excel File Format</h4>
-                                <p class="text-sm text-secondary mb-2">Your Excel file should have these columns:</p>
-                                <ul class="text-sm space-y-1">
-                                    <li><strong>Date/Time:</strong> Event date and time</li>
-                                    <li><strong>Name:</strong> Student full name</li>
-                                    <li><strong>Matric Number:</strong> Student ID (A12345678)</li>
-                                    <li><strong>Role:</strong> Student role in event</li>
-                                    <li><strong>Additional Notes:</strong> Achievements/awards</li>
-                                    <li><strong>Link Proof:</strong> Evidence link (optional)</li>
-                                </ul>
-                                <button id="downloadTemplateBtn" class="btn btn-outline btn-sm mt-3">
-                                    Download Template
-                                </button>
-                            </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="flex justify-between">
+                            <button id="backFromStep2" class="btn btn-outline">
+                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                                Back: Select Event
+                            </button>
+                            <button id="nextFromStep2" class="btn btn-primary" disabled>
+                                Next: Upload File
+                                <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Step 3: File Upload -->
-            <div id="step3" class="card mb-6 d-none">
-                <div class="card-header">
-                    <h3 class="card-title">Step 3: Upload Excel File</h3>
-                </div>
-                <div class="card-body">
-                    <div class="form-group">
-                        <label for="excelFile" class="form-label">Choose Excel File *</label>
-                        <input type="file" id="excelFile" class="form-control" 
-                               accept=".xlsx,.xls" required>
-                        <small class="text-sm text-secondary">Accepted formats: .xlsx, .xls</small>
+            <div id="step3" class="upload-step d-none">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Step 3: Upload Excel File</h3>
                     </div>
-                    <div class="flex gap-3 mt-4">
-                        <button id="processFileBtn" class="btn btn-primary" disabled>
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                            Process File
-                        </button>
-                        <button id="clearFileBtn" class="btn btn-outline">Clear File</button>
+                    <div class="card-body">
+                        <div class="text-center py-6">
+                            <div class="mb-4">
+                                <svg class="w-12 h-12 mx-auto text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </div>
+                            <div class="form-group">
+                                <label for="excelFile" class="form-label font-medium">Choose Excel File *</label>
+                                <input type="file" id="excelFile" class="form-control mt-3" 
+                                       accept=".xlsx,.xls" required>
+                                <small class="text-sm text-secondary mt-2 block">Accepted formats: .xlsx, .xls (Max size: 10MB)</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="flex justify-between">
+                            <button id="backFromStep3" class="btn btn-outline">
+                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                                Back: Configuration
+                            </button>
+                            <button id="nextFromStep3" class="btn btn-primary" disabled>
+                                Next: Select Sheet
+                                <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Step 4: Preview and Validation -->
-            <div id="step4" class="card mb-6 d-none">
-                <div class="card-header flex justify-between items-center">
-                    <h3 class="card-title">Step 4: Preview and Validation</h3>
-                    <div class="flex gap-2">
-                        <span id="recordCount" class="text-sm text-secondary"></span>
-                        <button id="exportPreviewBtn" class="btn btn-outline btn-sm">Export Preview</button>
+            <!-- Step 4: Sheet Selection -->
+            <div id="step4" class="upload-step d-none">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Step 4: Select Excel Sheet</h3>
+                    </div>
+                    <div class="card-body">
+                        <!-- Single Sheet Info -->
+                        <div id="singleSheetInfo" class="text-center py-8 d-none">
+                            <div class="mb-4">
+                                <svg class="w-16 h-16 mx-auto text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <h4 class="font-medium mb-2">Single Sheet Detected</h4>
+                            <p class="text-secondary mb-4">Your Excel file contains one sheet: <strong id="singleSheetName"></strong></p>
+                            <div class="bg-light p-4 rounded mb-4">
+                                <div class="text-sm">
+                                    <div class="mb-2"><strong>Sheet:</strong> <span id="singleSheetNameDisplay"></span></div>
+                                    <div><strong>Rows:</strong> <span id="singleSheetRows"></span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Multiple Sheets Selection -->
+                        <div id="multipleSheetSelection" class="d-none">
+                            <div class="text-center mb-6">
+                                <div class="mb-4">
+                                    <svg class="w-16 h-16 mx-auto text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                                    </svg>
+                                </div>
+                                <h4 class="font-medium mb-2">Multiple Sheets Detected</h4>
+                                <p class="text-secondary mb-4">Your Excel file contains <strong id="sheetCount"></strong> sheets. Please select which sheet contains your merit data:</p>
+                            </div>
+                            
+                            <div class="max-w-md mx-auto">
+                                <div class="form-group">
+                                    <label for="sheetSelect" class="form-label font-medium">Select Sheet *</label>
+                                    <select id="sheetSelect" class="form-control form-select">
+                                        <option value="">Choose a sheet to process...</option>
+                                    </select>
+                                    <small class="text-sm text-secondary mt-2">Select the sheet that contains the student merit records you want to upload.</small>
+                                </div>
+                                
+                                <!-- Sheet Preview Info -->
+                                <div id="sheetPreviewInfo" class="d-none mt-4 p-4 bg-light rounded">
+                                    <div class="text-sm">
+                                        <div class="mb-2"><strong>Selected Sheet:</strong> <span id="selectedSheetName"></span></div>
+                                        <div><strong>Rows:</strong> <span id="selectedSheetRows"></span></div>
+                                    </div>
+                                </div>
+                                
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="flex justify-between">
+                            <button id="backFromStep4" class="btn btn-outline">
+                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                                Back: Upload File
+                            </button>
+                            <button id="nextFromStep4" class="btn btn-primary" disabled>
+                                Next: Process Data
+                                <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Step 5: File Processing -->
+            <div id="step5" class="upload-step d-none">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Step 5: Process Excel Data</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center py-8">
+                            <div class="mb-4">
+                                <svg class="w-16 h-16 mx-auto text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </div>
+                            <h4 class="font-medium mb-2">Ready to Process Sheet Data</h4>
+                            <p class="text-secondary mb-6">Click the button below to analyze your selected sheet and prepare it for column mapping.</p>
+                            
+                            <div id="selectedSheetSummary" class="bg-light p-4 rounded mb-6 d-none">
+                                <div class="text-sm">
+                                    <div class="mb-2"><strong>Selected Sheet:</strong> <span id="processSheetName"></span></div>
+                                    <div><strong>Total Rows:</strong> <span id="processSheetRows"></span></div>
+                                </div>
+                            </div>
+                            
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="flex justify-between">
+                            <button id="backFromStep5" class="btn btn-outline">
+                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                                Back: Select Sheet
+                            </button>
+                            <button id="processFileBtn" class="btn btn-primary">
+                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Process Sheet Data
+                                <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 6: Column Mapping -->
+            <div id="step6" class="upload-step d-none">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Step 6: Column Mapping & Role Assignment</h3>
+                    </div>
+                <div class="card-body">
+                    <!-- Column Mapping Section -->
+                    <div class="mb-6">
+                        <h4 class="font-semibold mb-4">Column Mapping</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="form-group">
+                                <label for="nameColumnSelect" class="form-label">Student Name Column *</label>
+                                <select id="nameColumnSelect" class="form-control form-select" required>
+                                    <option value="">Select column (Required)...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="matricColumnSelect" class="form-label">Matric Number Column *</label>
+                                <select id="matricColumnSelect" class="form-control form-select" required>
+                                    <option value="">Select column (Required)...</option>
+                                </select>
+                                <small class="text-sm text-secondary">Accepted formats: S12345, DP121234, GS12345, or 12345</small>
+                            </div>
+                            <div id="roleColumnGroup" class="form-group">
+                                <label for="roleColumnSelect" class="form-label">Role Column</label>
+                                <select id="roleColumnSelect" class="form-control form-select">
+                                    <option value="">Select column (Optional)...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="notesColumnSelect" class="form-label">Notes Column</label>
+                                <select id="notesColumnSelect" class="form-control form-select">
+                                    <option value="">Select column (Optional)...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="proofLinkColumnSelect" class="form-label">Proof Link Column</label>
+                                <select id="proofLinkColumnSelect" class="form-control form-select">
+                                    <option value="">Select column (Optional)...</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Role Assignment Section -->
+                    <div class="mb-6">
+                        <h4 class="font-semibold mb-4">Role Assignment</h4>
+                        <div id="committeeRoleOptions" class="d-none">
+                            <div class="grid grid-cols-2 gap-6">
+                                <div class="form-group">
+                                    <label class="form-label">How to assign committee roles?</label>
+                                    <div class="space-y-2">
+                                        <label class="flex items-center">
+                                            <input type="radio" name="roleAssignment" value="single" checked>
+                                            <span class="ml-2">Assign same role to all members</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="radio" name="roleAssignment" value="column">
+                                            <span class="ml-2">Use role column from Excel</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div id="singleRoleSection" class="form-group">
+                                    <label for="singleRoleSelect" class="form-label">Select Role *</label>
+                                    <select id="singleRoleSelect" class="form-control form-select">
+                                        <option value="">Select role...</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="nonCommitteeRoleInfo" class="bg-light p-4 rounded">
+                            <p class="text-sm">All participants will be assigned the selected merit type role.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- File Preview Section -->
+                    <div class="mb-6">
+                        <h4 class="font-semibold mb-3">Excel File Preview</h4>
+                        <div class="bg-light p-4 rounded">
+                            <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+                                <table class="table table-sm">
+                                    <thead id="mappingPreviewHead"></thead>
+                                    <tbody id="mappingPreviewBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+                <div class="card-footer">
+                    <div class="flex justify-between">
+                        <button id="backFromStep6" class="btn btn-outline">
+                            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                            </svg>
+                            Back: Process Data
+                        </button>
+                        <button id="nextFromStep6" class="btn btn-primary">
+                            Next: Preview & Validate
+                            <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 7: Preview and Validation -->
+            <div id="step7" class="upload-step d-none">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="flex justify-between items-center">
+                            <h3 class="card-title">Step 7: Preview and Validation</h3>
+                            <div class="flex gap-2">
+                                <span id="recordCount" class="text-sm text-secondary"></span>
+                                <button id="exportPreviewBtn" class="btn btn-outline btn-sm">Export Preview</button>
+                            </div>
+                        </div>
+                    </div>
                 <div class="card-body">
                     <!-- Validation Summary -->
                     <div id="validationSummary" class="mb-4"></div>
@@ -175,38 +481,76 @@
                         </table>
                     </div>
                 </div>
-            </div>
-
-            <!-- Step 5: Confirmation and Upload -->
-            <div id="step5" class="card mb-6 d-none">
-                <div class="card-header">
-                    <h3 class="card-title">Step 5: Confirm and Upload</h3>
-                </div>
-                <div class="card-body">
-                    <div id="uploadSummary" class="mb-4"></div>
-                    <div class="flex gap-3">
-                        <button id="confirmUploadBtn" class="btn btn-success">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-                            </svg>
-                            Upload Merit Records
-                        </button>
-                        <button id="backToPreviewBtn" class="btn btn-outline">Back to Preview</button>
+                
+                <div class="card-footer">
+                        <div class="flex justify-between">
+                            <button id="backFromStep7" class="btn btn-outline">
+                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                                Back: Column Mapping
+                            </button>
+                            <button id="nextFromStep7" class="btn btn-primary">
+                                Next: Final Confirmation
+                                <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Upload Progress -->
-            <div id="uploadProgress" class="card d-none">
-                <div class="card-body text-center">
-                    <div class="spinner mb-3"></div>
-                    <p class="font-medium mb-2">Uploading merit records...</p>
-                    <div class="w-full bg-gray-200 rounded-full h-2">
-                        <div id="progressBar" class="bg-primary h-2 rounded-full" style="width: 0%"></div>
+            <!-- Step 8: Final Confirmation -->
+            <div id="step8" class="upload-step d-none">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Step 8: Final Confirmation</h3>
                     </div>
-                    <p class="text-sm text-secondary mt-2">
-                        <span id="progressText">0 of 0 records uploaded</span>
-                    </p>
+                    <div class="card-body">
+                        <div id="uploadSummary" class="mb-4"></div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="flex justify-between">
+                            <button id="backFromStep8" class="btn btn-outline">
+                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                                Back: Preview & Validation
+                            </button>
+                            <button id="confirmUploadBtn" class="btn btn-success">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                                </svg>
+                                Upload Merit Records
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 9: Upload Progress -->
+            <div id="step9" class="upload-step d-none">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Step 9: Uploading Merit Records</h3>
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="spinner-border text-primary mb-4" role="status">
+                            <span class="sr-only">Loading...</span>
+                        </div>
+                        <h5 class="mb-4">Uploading merit records to the system...</h5>
+                        <div class="progress mb-4" style="height: 30px;">
+                            <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                                 role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                 0%
+                            </div>
+                        </div>
+                        <p class="text-muted mb-0">
+                            <span id="progressText">0 of 0 records uploaded</span>
+                        </p>
+                        <p class="text-sm text-secondary mt-2">Please do not close this window while uploading...</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -266,6 +610,61 @@
         .validation-card.success { background-color: rgba(5, 150, 105, 0.1); border: 1px solid rgba(5, 150, 105, 0.2); }
         .validation-card.warning { background-color: rgba(217, 119, 6, 0.1); border: 1px solid rgba(217, 119, 6, 0.2); }
         .validation-card.error { background-color: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.2); }
+        
+        /* Page-based upload styles */
+        .upload-step {
+            min-height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .upload-step .card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .upload-step .card-body {
+            flex: 1;
+        }
+        
+        .card-footer {
+            background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            padding: 1rem 1.5rem;
+            margin-top: auto;
+        }
+        
+        /* Consistent navigation button styling */
+        .card-footer .btn {
+            padding: 0.75rem 1.5rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .card-footer .btn svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            flex-shrink: 0;
+        }
+        
+        .card-footer .flex.justify-between {
+            width: 100%;
+            align-items: center;
+        }
+        
+        /* Ensure consistent spacing for button groups */
+        .card-footer .flex.gap-3 {
+            gap: 0.75rem;
+        }
+        
+        /* Override any inconsistent button spacing */
+        .card-footer .btn + .btn {
+            margin-left: 0.75rem;
+        }
     </style>
 </body>
 </html>
