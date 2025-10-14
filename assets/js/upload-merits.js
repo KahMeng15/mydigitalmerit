@@ -176,16 +176,15 @@ async function loadMeritValues() {
             const levelName = doc.id; // e.g., "Block Level", "University Level"
             const levelData = doc.data();
             
-            // Convert level name to match event levels (remove " Level" suffix)
-            const eventLevelName = levelName.replace(' Level', '');
-            levels[eventLevelName] = levelData;
+            // Store the level with its original database name
+            levels[levelName] = levelData;
             
             // For each role in this level, add to roles object
             Object.entries(levelData).forEach(([roleName, points]) => {
                 if (!roles[roleName]) {
                     roles[roleName] = {};
                 }
-                roles[roleName][eventLevelName] = points;
+                roles[roleName][levelName] = points;
             });
         });
         
@@ -371,17 +370,7 @@ async function populateMeritTypes() {
     }
 }
 
-// Map event levels to database level names
-function mapEventLevelToDbLevel(eventLevel) {
-    const levelMapping = {
-        'University': 'University',
-        'Faculty': 'National', // Faculty level maps to National level
-        'College': 'College',
-        'Club': 'Block', // Club level maps to Block level
-        'External': 'International'
-    };
-    return levelMapping[eventLevel] || eventLevel;
-}
+
 
 function calculateMeritPointsForUpload(role, eventLevel, additionalNotes = '', meritValues, event) {
     if (!meritValues) return 0;
@@ -414,12 +403,10 @@ function calculateMeritPointsForUpload(role, eventLevel, additionalNotes = '', m
         }
     }
     
-    // Map event level to database level
-    const dbLevel = mapEventLevelToDbLevel(eventLevel);
-    
+    // Use event level directly as it now matches database level names
     // Fall back to base role calculation
-    if (meritValues.roles && meritValues.roles[role] && meritValues.roles[role][dbLevel]) {
-        basePoints = meritValues.roles[role][dbLevel];
+    if (meritValues.roles && meritValues.roles[role] && meritValues.roles[role][eventLevel]) {
+        basePoints = meritValues.roles[role][eventLevel];
     }
     
     // Add bonus points for achievements (if implemented)
@@ -445,9 +432,9 @@ function displayEventInfo() {
     
     // Base roles
     if (meritValues && meritValues.roles) {
-        const dbLevel = mapEventLevelToDbLevel(selectedEvent.level);
+        // Use event level directly as it now matches database level names
         Object.entries(meritValues.roles).forEach(([role, levels]) => {
-            const points = levels[dbLevel] || 0;
+            const points = levels[selectedEvent.level] || 0;
             meritTypesHtml += `
                 <div class="bg-gray-100 p-2 rounded text-sm">
                     <strong>${sanitizeHTML(role)}:</strong> ${points} points
@@ -954,16 +941,8 @@ function populateRoleSelectionDropdown() {
     roleSelect.innerHTML = '<option value="">Select role...</option>';
     
     if (meritValues && meritValues.roles && selectedEvent) {
-        // Map event level to database level
-        const levelMapping = {
-            'University': 'University',
-            'Faculty': 'National',
-            'College': 'College', 
-            'Club': 'Block',
-            'External': 'International'
-        };
-        
-        const dbLevel = levelMapping[selectedEvent.level] || selectedEvent.level;
+        // Use event level directly as it now matches database level names
+        const dbLevel = selectedEvent.level;
         
         // Add base roles
         Object.keys(meritValues.roles).forEach(role => {
@@ -1747,16 +1726,8 @@ function updateProgressIndicator(stepNumber) {
 function getRoleOptions(selectedRole = '') {
     if (!meritValues || !meritValues.roles || !selectedEvent) return '';
     
-    // Map event level to database level
-    const levelMapping = {
-        'University': 'University',
-        'Faculty': 'National',
-        'College': 'College', 
-        'Club': 'Block',
-        'External': 'International'
-    };
-    
-    const dbLevel = levelMapping[selectedEvent.level] || selectedEvent.level;
+    // Use event level directly as it now matches database level names
+    const dbLevel = selectedEvent.level;
     let options = '';
     
     // Add base roles
@@ -1790,15 +1761,8 @@ function calculateMeritPoints(record) {
             return;
         }
         
-        const levelMapping = {
-            'University': 'University',
-            'Faculty': 'National',
-            'College': 'College', 
-            'Club': 'Block',
-            'External': 'International'
-        };
-        
-        const dbLevel = levelMapping[selectedEvent.level] || selectedEvent.level;
+        // Use event level directly as it now matches database level names
+        const dbLevel = selectedEvent.level;
         
         // Check if it's a custom role
         if (typeof record.role === 'string' && record.role.startsWith('custom:')) {

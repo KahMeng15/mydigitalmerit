@@ -48,44 +48,33 @@ function initializePage() {
 let meritValues = null;
 let editingEventId = null;
 
-// Map event levels to database level names
-function mapEventLevelToDbLevel(eventLevel) {
-    const levelMapping = {
-        'University': 'University',
-        'Faculty': 'National', // Faculty level maps to National level
-        'College': 'College',
-        'Club': 'Block', // Club level maps to Block level
-        'External': 'International'
-    };
-    return levelMapping[eventLevel] || eventLevel;
-}
-
 
 async function loadMeritValues() {
     try {
         const snapshot = await firestore.collection('meritvalue').get();
         const roles = {};
         const levels = {};
+        const availableLevels = [];
         
         // Process each level document
         snapshot.forEach(doc => {
             const levelName = doc.id; // e.g., "Block Level", "University Level"
             const levelData = doc.data();
             
-            // Convert level name to match event levels (remove " Level" suffix)
-            const eventLevelName = levelName.replace(' Level', '');
-            levels[eventLevelName] = levelData;
+            // Store the level with its original database name
+            levels[levelName] = levelData;
+            availableLevels.push(levelName);
             
             // For each role in this level, add to roles object
             Object.entries(levelData).forEach(([roleName, points]) => {
                 if (!roles[roleName]) {
                     roles[roleName] = {};
                 }
-                roles[roleName][eventLevelName] = points;
+                roles[roleName][levelName] = points;
             });
         });
         
-        meritValues = { roles: roles, levels: levels, achievements: {} };
+        meritValues = { roles: roles, levels: levels, availableLevels: availableLevels, achievements: {} };
         console.log('Loaded merit values:', meritValues);
         
         // Update preview after loading
@@ -103,14 +92,13 @@ function populateEventLevels() {
     const levelSelect = document.getElementById('eventLevel');
     const currentValue = levelSelect.value; // Preserve current selection
     
-    // Standard event levels
-    const levels = [
-        'University',
-        'Faculty', 
-        'College',
-        'Club',
-        'External'
-    ];
+    if (!meritValues || !meritValues.availableLevels) {
+        levelSelect.innerHTML = '<option value="">Loading levels...</option>';
+        return;
+    }
+    
+    // Get levels from database and sort them alphabetically
+    const levels = meritValues.availableLevels.slice().sort();
     
     levelSelect.innerHTML = '<option value="">Select event level</option>';
     levels.forEach(level => {
@@ -250,10 +238,10 @@ function updateMeritPreview() {
         previewHTML += '<div><h4 class="font-semibold mb-3">Base Roles</h4><div class="space-y-2">';
         
         // Create array of roles with their points for sorting
-        const dbLevel = mapEventLevelToDbLevel(eventLevel);
+        // Use the eventLevel directly as it now matches database level names
         const rolesWithPoints = Object.entries(meritValues.roles).map(([role, levels]) => ({
             role: role,
-            points: levels[dbLevel] || 0
+            points: levels[eventLevel] || 0
         }));
         
         // Sort by points from highest to lowest
@@ -377,7 +365,7 @@ async function loadEventForEditing(eventId) {
             
             // Add each custom role
             eventData.customRoles.forEach(role => {
-                addCustomRole();
+                addCustomRoleRow();
                 const roleRows = document.querySelectorAll('#customRolesContainer .custom-role-row');
                 const lastRow = roleRows[roleRows.length - 1];
                 lastRow.querySelector('.custom-role-name').value = role.name;

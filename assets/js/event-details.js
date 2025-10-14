@@ -10,17 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
 let currentEventId = null;
 let currentEventData = null;
 
-// Map event levels to database level names
-function mapEventLevelToDbLevel(eventLevel) {
-    const levelMapping = {
-        'University': 'University',
-        'Faculty': 'National', // Faculty level maps to National level
-        'College': 'College',
-        'Club': 'Block', // Club level maps to Block level
-        'External': 'International'
-    };
-    return levelMapping[eventLevel] || eventLevel;
-}
+
 
 function initializePage() {
     // Display user info
@@ -348,16 +338,15 @@ async function loadMeritTypes() {
             const levelName = doc.id; // e.g., "Block Level", "University Level"
             const levelData = doc.data();
             
-            // Convert level name to match event levels (remove " Level" suffix)
-            const eventLevelName = levelName.replace(' Level', '');
-            meritValues.levels[eventLevelName] = levelData;
+            // Store the level with its original database name
+            meritValues.levels[levelName] = levelData;
             
             // For each role in this level, add to roles object
             Object.entries(levelData).forEach(([roleName, points]) => {
                 if (!meritValues.roles[roleName]) {
                     meritValues.roles[roleName] = {};
                 }
-                meritValues.roles[roleName][eventLevelName] = points;
+                meritValues.roles[roleName][levelName] = points;
             });
         });
         
@@ -376,11 +365,11 @@ function displayMeritTypes(meritValues) {
     
     // Base roles
     if (meritValues.roles && currentEventData.level) {
-        const dbLevel = mapEventLevelToDbLevel(currentEventData.level);
+        // Use the event level directly as it now matches database level names
         const sortedRoles = Object.entries(meritValues.roles)
             .map(([role, levels]) => ({
                 role: role,
-                points: levels[dbLevel] || 0
+                points: levels[currentEventData.level] || 0
             }))
             .sort((a, b) => b.points - a.points);
         
