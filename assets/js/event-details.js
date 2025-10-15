@@ -38,21 +38,49 @@ function initializePage() {
 
 function setupEventListeners() {
     // Sign out
-    document.getElementById('signOutBtn').addEventListener('click', signOut);
+    const signOutBtn = document.getElementById('signOutBtn');
+    if (signOutBtn) {
+        signOutBtn.addEventListener('click', signOut);
+    }
     
     // Action buttons
-    document.getElementById('editEventBtn').addEventListener('click', () => editEvent(currentEventId));
-    document.getElementById('deleteEventBtn').addEventListener('click', () => showDeleteModal());
-    document.getElementById('refreshMerits').addEventListener('click', () => loadUploadedMerits());
-    document.getElementById('exportMerits').addEventListener('click', exportMerits);
+    const editEventBtn = document.getElementById('editEventBtn');
+    if (editEventBtn) {
+        editEventBtn.addEventListener('click', () => editEvent(currentEventId));
+    }
+    
+    const deleteEventBtn = document.getElementById('deleteEventBtn');
+    if (deleteEventBtn) {
+        deleteEventBtn.addEventListener('click', () => {
+            showDeleteModal();
+        });
+    }
+    
+    const refreshMeritsBtn = document.getElementById('refreshMerits');
+    if (refreshMeritsBtn) {
+        refreshMeritsBtn.addEventListener('click', () => loadUploadedMerits());
+    }
+    
+    const exportMeritsBtn = document.getElementById('exportMerits');
+    if (exportMeritsBtn) {
+        exportMeritsBtn.addEventListener('click', exportMerits);
+    }
     
     // Delete confirmation
-    document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener('click', () => {
+            confirmDelete();
+        });
+    }
     
     // Child activity management
-    document.getElementById('addChildActivityBtn').addEventListener('click', () => {
-        window.location.href = `create-child-activity.html?parentId=${currentEventId}`;
-    });
+    const addChildActivityBtn = document.getElementById('addChildActivityBtn');
+    if (addChildActivityBtn) {
+        addChildActivityBtn.addEventListener('click', () => {
+            window.location.href = `create-child-activity.html?parentId=${currentEventId}`;
+        });
+    }
 }
 
 async function loadEventDetails() {
@@ -568,8 +596,16 @@ function closeDeleteModal() {
     document.getElementById('deleteModal').classList.add('d-none');
 }
 
+// Make closeDeleteModal available globally for onclick handlers
+window.closeDeleteModal = closeDeleteModal;
+
 async function confirmDelete() {
     try {
+        if (!currentEventId) {
+            showToast('No event ID found', 'error');
+            return;
+        }
+        
         showLoading();
         
         // Delete the event
