@@ -30,10 +30,7 @@
         <div class="container">
             <!-- Breadcrumb -->
             <nav class="mb-6">
-                <ol class="breadcrumb">
-                    <li><a href="events.html">Events</a></li>
-                    <li><span id="eventBreadcrumb">Event Details</span></li>
-                </ol>
+                <a href="events.html">Events</a> > <span id="eventBreadcrumb">Loading...</span>
             </nav>
 
             <!-- Event Header -->
@@ -41,12 +38,6 @@
                 <div class="flex justify-between items-start">
                     <div>
                         <h1 id="eventTitle" class="text-2xl font-bold mb-2">Loading...</h1>
-                        <div class="flex items-center gap-3">
-                            <span id="eventLevel" class="badge bg-primary">-</span>
-                            <span id="eventStatus" class="badge bg-secondary">-</span>
-                            <span class="text-secondary">•</span>
-                            <span id="eventDate" class="text-secondary">-</span>
-                        </div>
                     </div>
                     <div class="flex gap-2">
                         <a id="uploadMeritsBtn" href="#" class="btn btn-success">
@@ -80,35 +71,37 @@
                     </div>
                     <div class="card-body">
                         <div class="space-y-4">
-                            <div class="bg-gray-50 p-3 rounded">
-                                <label class="form-label text-sm font-semibold text-gray-600">Event Name</label>
-                                <p id="eventName" class="font-medium text-lg text-gray-900 mt-1">-</p>
-                            </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="bg-blue-50 p-3 rounded">
                                     <label class="form-label text-sm font-semibold text-blue-600">Level</label>
                                     <div id="eventLevelBadge" class="mt-2">
-                                        <span id="eventLevelText" class="badge bg-primary">-</span>
+                                        <span id="eventLevel" class="badge bg-primary">-</span>
                                     </div>
                                 </div>
                                 <div class="bg-green-50 p-3 rounded">
                                     <label class="form-label text-sm font-semibold text-green-600">Status</label>
                                     <div id="eventStatusBadge" class="mt-2">
-                                        <span id="eventStatusText" class="badge bg-secondary">-</span>
+                                        <span id="eventStatus" class="badge bg-secondary">-</span>
                                     </div>
                                 </div>
                             </div>
-                            <div class="bg-purple-50 p-3 rounded">
-                                <label class="form-label text-sm font-semibold text-purple-600">Date & Time</label>
-                                <p id="eventDateTime" class="font-medium text-purple-900 mt-1">-</p>
-                            </div>
-                            <div class="bg-orange-50 p-3 rounded">
-                                <label class="form-label text-sm font-semibold text-orange-600">Location</label>
-                                <p id="eventLocation" class="font-medium text-orange-900 mt-1">-</p>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-purple-50 p-3 rounded">
+                                    <label class="form-label text-sm font-semibold text-purple-600">Date</label>
+                                    <p id="eventDate" class="font-medium text-purple-900 mt-1">-</p>
+                                </div>
+                                <div class="bg-pink-50 p-3 rounded">
+                                    <label class="form-label text-sm font-semibold text-pink-600">Time</label>
+                                    <p id="eventTime" class="font-medium text-pink-900 mt-1">-</p>
+                                </div>
                             </div>
                             <div class="bg-indigo-50 p-3 rounded">
                                 <label class="form-label text-sm font-semibold text-indigo-600">Organizer</label>
                                 <div id="eventOrganizer" class="font-medium text-indigo-900 mt-1">-</div>
+                            </div>
+                            <div id="eventParentOrganizerSection" class="d-none bg-cyan-50 p-3 rounded">
+                                <label class="form-label text-sm font-semibold text-cyan-600">Parent Organizer</label>
+                                <div id="eventParentOrganizer" class="font-medium text-cyan-900 mt-1">-</div>
                             </div>
                             <div id="eventDescriptionSection" class="d-none bg-gray-50 p-3 rounded">
                                 <label class="form-label text-sm font-semibold text-gray-600">Description</label>

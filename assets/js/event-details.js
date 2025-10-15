@@ -294,31 +294,54 @@ function displayEventInfo(event) {
     
     // Status badge
     const statusBadge = document.getElementById('eventStatus');
-    const isUpcoming = new Date(event.date).getTime() > Date.now();
-    const statusClass = getStatusClass(event.status, isUpcoming);
-    const statusText = getStatusText(event.status, isUpcoming);
-    statusBadge.textContent = statusText;
-    statusBadge.className = `badge ${statusClass}`;
+    if (statusBadge) {
+        const eventDate = new Date(event.date || event.startDate);
+        const isUpcoming = eventDate.getTime() > Date.now();
+        const statusClass = getStatusClass(event.status, isUpcoming);
+        const statusText = getStatusText(event.status, isUpcoming);
+        statusBadge.textContent = statusText;
+        statusBadge.className = statusClass;
+        console.log('Status updated:', { status: event.status, statusText, statusClass, isUpcoming }); // Debug log
+    }
     
-    // Date
-    document.getElementById('eventDate').textContent = formatDate(event.date);
+    // Date display (separate from time)
+    const dateElement = document.getElementById('eventDate');
+    if (dateElement) {
+        let dateText = '';
+        if (event.startDate && event.endDate && event.startDate !== event.endDate) {
+            dateText = `${formatDate(event.startDate)} to ${formatDate(event.endDate)}`;
+        } else {
+            dateText = formatDate(event.date || event.startDate);
+        }
+        dateElement.textContent = dateText;
+    }
     
-    // Detailed information
-    document.getElementById('eventName').textContent = event.name;
+    // Time display (separate from date)
+    const timeElement = document.getElementById('eventTime');
+    if (timeElement) {
+        let timeText = '';
+        if (event.startTime && event.endTime) {
+            timeText = `${event.startTime} to ${event.endTime}`;
+        } else if (event.time) {
+            timeText = event.time;
+        } else {
+            // Extract time from datetime if available
+            const eventDateTime = new Date(event.date || event.startDate);
+            if (!isNaN(eventDateTime.getTime())) {
+                timeText = eventDateTime.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: true 
+                });
+            } else {
+                timeText = 'Not specified';
+            }
+        }
+        timeElement.textContent = timeText;
+    }
     
-    // Level badge with proper styling
-    const levelBadge = document.getElementById('eventLevelText');
-    levelBadge.textContent = event.level;
-    levelBadge.className = `badge ${getLevelClass(event.level)}`;
-    
-    // Status badge with proper styling
-    const statusTextBadge = document.getElementById('eventStatusText');
-    statusTextBadge.textContent = statusText;
-    statusTextBadge.className = `badge ${statusClass}`;
-    
-    document.getElementById('eventDateTime').textContent = formatDateTime(event.date);
-    document.getElementById('eventLocation').textContent = event.location || 'Not specified';
-    document.getElementById('eventOrganizer').innerHTML = getOrganizerDisplay(event.organizer);
+    // Organizer display with proper parent/sub logic
+    displayOrganizerInfo(event.organizer);
     
     // Description (optional)
     if (event.description && event.description.trim()) {
@@ -539,6 +562,67 @@ function displayMeritBreakdown(breakdown) {
 }
 
 // Utility functions
+function displayOrganizerInfo(organizer) {
+    const organizerElement = document.getElementById('eventOrganizer');
+    const parentOrganizerElement = document.getElementById('eventParentOrganizer');
+    const parentOrganizerSection = document.getElementById('eventParentOrganizerSection');
+    
+    if (!organizer) {
+        organizerElement.innerHTML = 'Not specified';
+        parentOrganizerSection.classList.add('d-none');
+        return;
+    }
+    
+    let subOrganizerText = '';
+    let parentOrganizerText = '';
+    
+    if (typeof organizer === 'string') {
+        organizerElement.innerHTML = organizer;
+        parentOrganizerSection.classList.add('d-none');
+        return;
+    }
+    
+    if (typeof organizer === 'object') {
+        // Check if there's a sub organizer
+        const hasSubOrganizer = organizer.sub_name_en || organizer.sub_name_bm || organizer.sub_name;
+        
+        if (hasSubOrganizer) {
+            // Display sub organizer as main organizer
+            if (organizer.sub_name_en && organizer.sub_name_bm) {
+                subOrganizerText = `${organizer.sub_name_en} / ${organizer.sub_name_bm}`;
+            } else if (organizer.sub_name) {
+                subOrganizerText = organizer.sub_name;
+            }
+            
+            // Display parent organizer separately
+            if (organizer.main_name_en && organizer.main_name_bm) {
+                parentOrganizerText = `${organizer.main_name_en} / ${organizer.main_name_bm}`;
+            } else if (organizer.main_name) {
+                parentOrganizerText = organizer.main_name;
+            }
+            
+            organizerElement.innerHTML = subOrganizerText;
+            parentOrganizerElement.innerHTML = parentOrganizerText;
+            parentOrganizerSection.classList.remove('d-none');
+        } else {
+            // No sub organizer, just display main organizer
+            if (organizer.main_name_en && organizer.main_name_bm) {
+                organizerElement.innerHTML = `${organizer.main_name_en} / ${organizer.main_name_bm}`;
+            } else if (organizer.main_name) {
+                organizerElement.innerHTML = organizer.main_name;
+            } else {
+                organizerElement.innerHTML = 'Not specified';
+            }
+            parentOrganizerSection.classList.add('d-none');
+        }
+        
+        return;
+    }
+    
+    organizerElement.innerHTML = 'Not specified';
+    parentOrganizerSection.classList.add('d-none');
+}
+
 function getOrganizerDisplay(organizer) {
     if (!organizer) return 'Not specified';
     
@@ -582,17 +666,39 @@ function getLevelClass(level) {
 }
 
 function getStatusClass(status, isUpcoming) {
-    if (status === 'draft') return 'bg-gray-500 text-white';
-    if (status === 'active' && isUpcoming) return 'bg-green-500 text-white';
-    if (status === 'active' && !isUpcoming) return 'bg-yellow-500 text-black';
-    return 'bg-gray-500 text-white';
+    if (!status) return 'badge bg-secondary';
+    
+    switch (status.toLowerCase()) {
+        case 'draft':
+            return 'badge bg-secondary';
+        case 'active':
+        case 'published':
+            return isUpcoming ? 'badge bg-success' : 'badge bg-warning';
+        case 'completed':
+            return 'badge bg-info';
+        case 'cancelled':
+            return 'badge bg-danger';
+        default:
+            return 'badge bg-secondary';
+    }
 }
 
 function getStatusText(status, isUpcoming) {
-    if (status === 'draft') return 'Draft';
-    if (status === 'active' && isUpcoming) return 'Upcoming';
-    if (status === 'active' && !isUpcoming) return 'Completed';
-    return status;
+    if (!status) return 'Unknown';
+    
+    switch (status.toLowerCase()) {
+        case 'draft':
+            return 'Draft';
+        case 'active':
+        case 'published':
+            return isUpcoming ? 'Upcoming' : 'Completed';
+        case 'completed':
+            return 'Completed';
+        case 'cancelled':
+            return 'Cancelled';
+        default:
+            return status.charAt(0).toUpperCase() + status.slice(1);
+    }
 }
 
 function editEvent(eventId) {
