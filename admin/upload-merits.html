@@ -50,17 +50,16 @@
                     <div class="card-body">
                         <div class="flex items-center justify-between mb-2">
                             <span class="text-sm font-medium">Upload Progress</span>
-                            <span class="text-sm text-secondary"><span id="currentStep">1</span> of 9</span>
+                            <span class="text-sm text-secondary"><span id="currentStep">1</span> of 8</span>
                         </div>
                         <div class="w-full bg-light rounded h-2 mb-2">
-                            <div id="progressIndicator" class="bg-primary h-2 rounded transition-all duration-300" style="width: 11.1%"></div>
+                            <div id="progressIndicator" class="bg-primary h-2 rounded transition-all duration-300" style="width: 12.5%"></div>
                         </div>
                         <div class="flex justify-between text-xs text-secondary">
                             <span>Event</span>
                             <span>Config</span>
                             <span>Upload</span>
                             <span>Sheets</span>
-                            <span>Process</span>
                             <span>Mapping</span>
                             <span>Preview</span>
                             <span>Confirm</span>
@@ -290,7 +289,7 @@
                                 Back: Upload File
                             </button>
                             <button id="nextFromStep4" class="btn btn-primary" disabled>
-                                Next: Process Data
+                                Next: Column Mapping
                                 <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                                 </svg>
@@ -300,58 +299,11 @@
                 </div>
             </div>
 
-            <!-- Step 5: File Processing -->
+            <!-- Step 5: Column Mapping -->
             <div id="step5" class="upload-step d-none">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Step 5: Process Excel Data</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="text-center py-8">
-                            <div class="mb-4">
-                                <svg class="w-16 h-16 mx-auto text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                </svg>
-                            </div>
-                            <h4 class="font-medium mb-2">Ready to Process Sheet Data</h4>
-                            <p class="text-secondary mb-6">Click the button below to analyze your selected sheet and prepare it for column mapping.</p>
-                            
-                            <div id="selectedSheetSummary" class="bg-light p-4 rounded mb-6 d-none">
-                                <div class="text-sm">
-                                    <div class="mb-2"><strong>Selected Sheet:</strong> <span id="processSheetName"></span></div>
-                                    <div><strong>Total Rows:</strong> <span id="processSheetRows"></span></div>
-                                </div>
-                            </div>
-                            
-                        </div>
-                    </div>
-                    <div class="card-footer">
-                        <div class="flex justify-between">
-                            <button id="backFromStep5" class="btn btn-outline">
-                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                                </svg>
-                                Back: Select Sheet
-                            </button>
-                            <button id="processFileBtn" class="btn btn-primary">
-                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                </svg>
-                                Process Sheet Data
-                                <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 6: Column Mapping -->
-            <div id="step6" class="upload-step d-none">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Step 6: Column Mapping & Role Assignment</h3>
+                        <h3 class="card-title">Step 5: Column Mapping & Role Assignment</h3>
                     </div>
                 <div class="card-body">
                     <!-- Column Mapping Section -->
@@ -439,13 +391,13 @@
                 </div>
                 <div class="card-footer">
                     <div class="flex justify-between">
-                        <button id="backFromStep6" class="btn btn-outline">
+                        <button id="backFromStep5" class="btn btn-outline">
                             <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                             </svg>
-                            Back: Process Data
+                            Back: Select Sheets
                         </button>
-                        <button id="nextFromStep6" class="btn btn-primary">
+                        <button id="nextFromStep5" class="btn btn-primary">
                             Next: Preview & Validate
                             <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -455,12 +407,12 @@
                 </div>
             </div>
 
-            <!-- Step 7: Preview and Validation -->
-            <div id="step7" class="upload-step d-none">
+            <!-- Step 6: Preview and Validation -->
+            <div id="step6" class="upload-step d-none">
                 <div class="card">
                     <div class="card-header">
                         <div class="flex justify-between items-center">
-                            <h3 class="card-title">Step 7: Preview and Validation</h3>
+                            <h3 class="card-title">Step 6: Preview and Validation</h3>
                             <div class="flex gap-2">
                                 <span id="recordCount" class="text-sm text-secondary"></span>
                                 <button id="exportPreviewBtn" class="btn btn-outline btn-sm">Export Preview</button>
@@ -493,13 +445,13 @@
                 
                 <div class="card-footer">
                         <div class="flex justify-between">
-                            <button id="backFromStep7" class="btn btn-outline">
+                            <button id="backFromStep6" class="btn btn-outline">
                                 <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                                 </svg>
                                 Back: Column Mapping
                             </button>
-                            <button id="nextFromStep7" class="btn btn-primary">
+                            <button id="nextFromStep6" class="btn btn-primary">
                                 Next: Final Confirmation
                                 <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -510,18 +462,18 @@
                 </div>
             </div>
 
-            <!-- Step 8: Final Confirmation -->
-            <div id="step8" class="upload-step d-none">
+            <!-- Step 7: Final Confirmation -->
+            <div id="step7" class="upload-step d-none">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Step 8: Final Confirmation</h3>
+                        <h3 class="card-title">Step 7: Final Confirmation</h3>
                     </div>
                     <div class="card-body">
                         <div id="uploadSummary" class="mb-4"></div>
                     </div>
                     <div class="card-footer">
                         <div class="flex justify-between">
-                            <button id="backFromStep8" class="btn btn-outline">
+                            <button id="backFromStep7" class="btn btn-outline">
                                 <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                                 </svg>
@@ -538,11 +490,11 @@
                 </div>
             </div>
 
-            <!-- Step 9: Upload Progress -->
-            <div id="step9" class="upload-step d-none">
+            <!-- Step 8: Upload Progress -->
+            <div id="step8" class="upload-step d-none">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Step 9: Uploading Merit Records</h3>
+                        <h3 class="card-title">Step 8: Uploading Merit Records</h3>
                     </div>
                     <div class="card-body text-center">
                         <div class="spinner-border text-primary mb-4" role="status">

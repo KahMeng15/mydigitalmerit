@@ -84,7 +84,7 @@ function setupEventListeners() {
     
     // File upload
     addEventListenerSafely('excelFile', 'change', handleFileSelect);
-    addEventListenerSafely('processFileBtn', 'click', processFile);
+    // Removed processFileBtn since Step 5 was eliminated
     
     // Template download
     addEventListenerSafely('downloadTemplateBtn', 'click', downloadTemplate);
@@ -102,13 +102,16 @@ function setupEventListeners() {
     addEventListenerSafely('backFromStep4', 'click', () => goToStep(3));
     addEventListenerSafely('nextFromStep4', 'click', handleSheetSelectionNext);
     addEventListenerSafely('backFromStep5', 'click', () => goToStep(4));
-    addEventListenerSafely('nextFromStep6', 'click', proceedToValidation);
+    addEventListenerSafely('nextFromStep5', 'click', proceedToValidation);
     addEventListenerSafely('backFromStep6', 'click', () => goToStep(5));
-    addEventListenerSafely('nextFromStep7', 'click', () => {
+    addEventListenerSafely('nextFromStep6', 'click', () => {
         updateUploadSummary();
-        goToStep(8);
+        goToStep(7);
     });
     addEventListenerSafely('backFromStep7', 'click', () => goToStep(6));
+    addEventListenerSafely('nextFromStep7', 'click', () => {
+        goToStep(8);
+    });
     addEventListenerSafely('backFromStep8', 'click', () => goToStep(7));
     
     // Role assignment radios (may not exist)
@@ -733,35 +736,80 @@ function handleSheetSelectionNext() {
         return;
     }
     
-    // Update Step 5 with selected sheet information
-    const processSheetName = document.getElementById('processSheetName');
-    const selectedSheetSummary = document.getElementById('selectedSheetSummary');
+    // Process the file data immediately and go to column mapping
+    processFileData();
+}
+
+async function processFileData() {
+    const fileInput = document.getElementById('excelFile');
+    const file = fileInput.files[0];
     
-    if (processSheetName) {
-        processSheetName.textContent = window.selectedSheet;
+    if (!file) {
+        showToast('Please select a file first', 'error');
+        return;
     }
     
-    if (selectedSheetSummary) {
-        selectedSheetSummary.classList.remove('d-none');
+    if (!window.selectedSheet) {
+        showToast('Please select a sheet first', 'error');
+        return;
+    }
+    
+    try {
+        showLoading();
         
-        // Get row count
-        try {
-            if (window.currentWorkbook && window.currentWorkbook.Sheets[window.selectedSheet]) {
-                const sheet = window.currentWorkbook.Sheets[window.selectedSheet];
-                const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-                const rowCount = sheetData.length;
-                
-                const processSheetRows = document.getElementById('processSheetRows');
-                if (processSheetRows) {
-                    processSheetRows.textContent = rowCount;
-                }
-            }
-        } catch (e) {
-            console.warn('Error getting sheet info:', e);
+        // Parse the selected sheet
+        excelData = await parseExcelFile(file, window.selectedSheet);
+        
+        if (excelData.length < 2) {
+            throw new Error('Excel file must have headers and at least one data row');
         }
+        
+        // Process dates in the data (convert Excel date serial numbers)
+        excelData = excelData.map(row => 
+            row.map(cell => {
+                // Handle Excel date serial numbers more carefully
+                if (typeof cell === 'number' && cell > 25567 && cell < 100000) {
+                    try {
+                        // Likely an Excel date serial number
+                        return excelDateToJSDate(cell);
+                    } catch (error) {
+                        return cell; // Return original value if conversion fails
+                    }
+                }
+                return cell;
+            })
+        );
+        
+        // Get column headers
+        columnHeaders = excelData[0].map((header, index) => ({
+            index: index,
+            name: header || `Column ${index + 1}`
+        }));
+        
+        // Populate column mapping dropdowns
+        populateColumnMappingDropdowns();
+        
+        // Populate role selection dropdown
+        populateRoleSelectionDropdown();
+        
+        // Display file preview
+        displayFilePreview();
+        
+        // Update role definition visibility based on current merit type
+        updateRoleDefinitionVisibility();
+        
+        // Show success message with sheet info
+        const dataRows = excelData.length - 1; // Subtract header row
+        showToast(`Successfully loaded "${window.selectedSheet}" with ${dataRows} data ${dataRows === 1 ? 'row' : 'rows'}`, 'success');
+        
+        goToStep(5); // Go directly to column mapping (new step 5)
+        
+    } catch (error) {
+        console.error('Error loading sheet:', error);
+        showToast('Error loading sheet: ' + error.message, 'error');
+    } finally {
+        hideLoading();
     }
-    
-    goToStep(5);
 }
 
 async function processFile() {
@@ -825,7 +873,7 @@ async function processFile() {
         const dataRows = excelData.length - 1; // Subtract header row
         showToast(`Successfully loaded "${window.selectedSheet}" with ${dataRows} data ${dataRows === 1 ? 'row' : 'rows'}`, 'success');
         
-        goToStep(6);
+        goToStep(5); // Go to column mapping (new step 5)
         
     } catch (error) {
         console.error('Error loading sheet:', error);
@@ -1091,7 +1139,7 @@ async function proceedToValidation() {
         
         // Display preview
         displayPreview();
-        goToStep(7);
+        goToStep(6);
         
     } catch (error) {
         console.error('Error processing data:', error);
@@ -1468,7 +1516,7 @@ function exportPreview() {
 }
 
 function backToPreview() {
-    goToStep(7);
+    goToStep(6);
 }
 
 async function confirmUpload() {
@@ -1492,24 +1540,24 @@ async function finalizeUpload() {
     if (!confirmed) return;
     
     try {
-        // Hide all steps and show Step 9
-        hideSteps([1, 2, 3, 4, 5, 6, 7, 8]);
-        goToStep(9);
+        // Hide all steps and show Step 8
+        hideSteps([1, 2, 3, 4, 5, 6, 7]);
+        goToStep(8);
         
-        // Update step indicator to show Step 9
-        document.getElementById('currentStep').textContent = '9';
+        // Update step indicator to show Step 8
+        document.getElementById('currentStep').textContent = '8';
         document.getElementById('progressIndicator').style.width = '100%';
         
-        console.log('Now showing Step 9 (Upload Progress)');
+        console.log('Now showing Step 8 (Upload Progress)');
         
         await uploadMeritRecords();
         
-        // Show completion message in Step 9
-        const step9Element = document.getElementById('step9');
-        step9Element.innerHTML = `
+        // Show completion message in Step 8
+        const step8Element = document.getElementById('step8');
+        step8Element.innerHTML = `
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">Step 9: Upload Complete</h3>
+                    <h3 class="card-title">Step 8: Upload Complete</h3>
                 </div>
                 <div class="card-body text-center">
                     <div class="text-success mb-4">
@@ -1545,7 +1593,7 @@ async function finalizeUpload() {
     } catch (error) {
         console.error('Error uploading merit records:', error);
         showToast('Error uploading merit records: ' + error.message, 'error');
-        goToStep(8);
+        goToStep(7);
     }
 }
 
@@ -1721,6 +1769,12 @@ function goToStep(stepNumber) {
     // Update progress indicator
     updateProgressIndicator(stepNumber);
     
+    // Step-specific actions
+    if (stepNumber === 7) {
+        // Update upload summary when entering confirmation step
+        updateUploadSummary();
+    }
+    
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -1730,7 +1784,7 @@ function updateProgressIndicator(stepNumber) {
     const currentStepSpan = document.getElementById('currentStep');
     
     if (progressBar) {
-        const percentage = (stepNumber / 9) * 100;
+        const percentage = (stepNumber / 8) * 100;
         progressBar.style.width = `${percentage}%`;
     }
     
@@ -1817,8 +1871,4 @@ function proceedToConfirm() {
     // Display upload summary and proceed to confirmation
     updateUploadSummary();
     goToStep(8);
-}
-
-function backToPreview() {
-    goToStep(7);
 }
