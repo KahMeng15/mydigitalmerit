@@ -438,39 +438,125 @@ async function loadUploadedMerits() {
         const tableBody = document.getElementById('uploadedMeritsTable');
         tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-secondary">Loading merits...</td></tr>';
         
-        // Load all user merits and filter for this event
-        const userMeritsSnapshot = await firestore.collection('userMerits').get();
         const uploadedMerits = [];
         let totalMerits = 0;
         const meritBreakdown = {};
         
-        userMeritsSnapshot.forEach(userDoc => {
-            const userMerits = userDoc.data();
-            const userId = userDoc.id;
+        // Method 1A: Load from event participants list (ULTRA-FAST - Single Query)
+        // Try the fastest approach first - if participants subcollection exists
+        try {
+            const participantsSnapshot = await firestore
+                .collection('events')
+                .doc(currentEventId)
+                .collection('participants')
+                .get();
             
-            if (userMerits[currentEventId]) {
-                const eventMerits = userMerits[currentEventId];
-                Object.entries(eventMerits).forEach(([roleType, merit]) => {
+            if (!participantsSnapshot.empty) {
+                // Use the participant list - this is the fastest method
+                participantsSnapshot.forEach(participantDoc => {
+                    const participantData = participantDoc.data();
+                    
                     uploadedMerits.push({
-                        userId: userId,
-                        studentName: merit.studentName || 'Unknown',
-                        matricNumber: merit.matricNumber || 'Unknown',
-                        role: roleType,
-                        points: merit.points || 0,
-                        uploadDate: merit.uploadDate || 'Unknown'
+                        matricNumber: participantDoc.id,
+                        studentName: participantData.studentName || 'Unknown',
+                        role: participantData.meritType || 'Participant',
+                        points: participantData.meritPoints || 0,
+                        uploadDate: participantData.uploadDate || null,
+                        additionalNotes: participantData.additionalNotes || '',
+                        linkProof: participantData.linkProof || '',
+                        source: 'participants'
                     });
                     
-                    totalMerits += merit.points || 0;
+                    totalMerits += participantData.meritPoints || 0;
                     
-                    // Count for breakdown
-                    if (!meritBreakdown[roleType]) {
-                        meritBreakdown[roleType] = { count: 0, totalPoints: 0 };
+                    const meritType = participantData.meritType || 'Participant';
+                    if (!meritBreakdown[meritType]) {
+                        meritBreakdown[meritType] = { count: 0, totalPoints: 0 };
                     }
-                    meritBreakdown[roleType].count++;
-                    meritBreakdown[roleType].totalPoints += merit.points || 0;
+                    meritBreakdown[meritType].count++;
+                    meritBreakdown[meritType].totalPoints += participantData.meritPoints || 0;
                 });
             }
-        });
+        } catch (participantError) {
+            console.log('Participants subcollection not available, falling back to collection group query');
+        }
+        
+        // Method 1B: Fallback to Collection Group Query (for older events without participants list)
+        if (uploadedMerits.length === 0) {
+            const eventMeritsQuery = await firestore.collectionGroup('events')
+                .where(firebase.firestore.FieldPath.documentId(), '==', currentEventId)
+                .get();
+            
+            // Process the results - only students who have this event
+            for (const eventMeritDoc of eventMeritsQuery.docs) {
+                const meritData = eventMeritDoc.data();
+                const matricNumber = eventMeritDoc.ref.parent.parent.id; // Get matric from path
+                
+                uploadedMerits.push({
+                    matricNumber: matricNumber,
+                    studentName: meritData.studentName || 'Unknown',
+                    role: meritData.meritType || 'Participant',
+                    points: meritData.meritPoints || 0,
+                    uploadDate: meritData.uploadDate || null,
+                    additionalNotes: meritData.additionalNotes || '',
+                    linkProof: meritData.linkProof || '',
+                    source: 'collection-group'
+                });
+                
+                totalMerits += meritData.meritPoints || 0;
+                
+                const meritType = meritData.meritType || 'Participant';
+                if (!meritBreakdown[meritType]) {
+                    meritBreakdown[meritType] = { count: 0, totalPoints: 0 };
+                }
+                meritBreakdown[meritType].count++;
+                meritBreakdown[meritType].totalPoints += meritData.meritPoints || 0;
+            }
+        }
+        
+        // Method 2: Load from legacy structure (userMerits collection) for backward compatibility
+        try {
+            const userMeritsSnapshot = await firestore.collection('userMerits').get();
+            
+            userMeritsSnapshot.forEach(userDoc => {
+                const userMerits = userDoc.data();
+                const userId = userDoc.id;
+                
+                if (userMerits[currentEventId]) {
+                    const eventMerits = userMerits[currentEventId];
+                    Object.entries(eventMerits).forEach(([roleType, merit]) => {
+                        // Check if we already have this student from the new structure
+                        const existingRecord = uploadedMerits.find(m => 
+                            m.matricNumber === merit.matricNumber && m.source === 'new'
+                        );
+                        
+                        // Only add from legacy if not already in new structure
+                        if (!existingRecord) {
+                            uploadedMerits.push({
+                                userId: userId,
+                                matricNumber: merit.matricNumber || 'Unknown',
+                                studentName: merit.studentName || 'Unknown',
+                                role: roleType,
+                                points: merit.points || 0,
+                                uploadDate: merit.uploadDate || 'Unknown',
+                                source: 'legacy'
+                            });
+                            
+                            totalMerits += merit.points || 0;
+                            
+                            // Count for breakdown
+                            if (!meritBreakdown[roleType]) {
+                                meritBreakdown[roleType] = { count: 0, totalPoints: 0 };
+                            }
+                            meritBreakdown[roleType].count++;
+                            meritBreakdown[roleType].totalPoints += merit.points || 0;
+                        }
+                    });
+                }
+            });
+        } catch (legacyError) {
+            console.warn('Error loading legacy merits (this is normal if userMerits collection doesn\'t exist):', legacyError);
+        }
         
         // Update statistics
         document.getElementById('totalMerits').textContent = totalMerits.toLocaleString();
@@ -481,7 +567,14 @@ async function loadUploadedMerits() {
             tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-secondary">No merits uploaded yet</td></tr>';
         } else {
             // Sort by upload date (newest first)
-            uploadedMerits.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
+            uploadedMerits.sort((a, b) => {
+                if (!a.uploadDate) return 1;
+                if (!b.uploadDate) return -1;
+                
+                const dateA = a.uploadDate.toDate ? a.uploadDate.toDate() : new Date(a.uploadDate);
+                const dateB = b.uploadDate.toDate ? b.uploadDate.toDate() : new Date(b.uploadDate);
+                return dateB - dateA;
+            });
             
             tableBody.innerHTML = uploadedMerits.map(merit => `
                 <tr>
@@ -611,21 +704,47 @@ async function confirmDelete() {
         // Delete the event
         await firestore.collection('events').doc(currentEventId).delete();
         
-        // Also delete all associated merits
-        const userMeritsSnapshot = await firestore.collection('userMerits').get();
+        // Delete associated merits from both data structures
         const batch = firestore.batch();
+        let deletionCount = 0;
         
-        userMeritsSnapshot.forEach(userDoc => {
-            const userMerits = userDoc.data();
-            if (userMerits[currentEventId]) {
-                delete userMerits[currentEventId];
-                batch.update(firestore.collection('userMerits').doc(userDoc.id), userMerits);
-            }
-        });
+        // Method 1: Delete from new structure using Collection Group Query (EFFICIENT)
+        try {
+            const eventMeritsQuery = await firestore.collectionGroup('events')
+                .where(firebase.firestore.FieldPath.documentId(), '==', currentEventId)
+                .get();
+            
+            eventMeritsQuery.forEach(eventMeritDoc => {
+                batch.delete(eventMeritDoc.ref);
+                deletionCount++;
+            });
+        } catch (newStructureError) {
+            console.warn('Error deleting from new structure:', newStructureError);
+        }
         
-        await batch.commit();
+        // Method 2: Delete from legacy structure (userMerits collection)
+        try {
+            const userMeritsSnapshot = await firestore.collection('userMerits').get();
+            
+            userMeritsSnapshot.forEach(userDoc => {
+                const userMerits = userDoc.data();
+                if (userMerits[currentEventId]) {
+                    delete userMerits[currentEventId];
+                    batch.update(firestore.collection('userMerits').doc(userDoc.id), userMerits);
+                    deletionCount++;
+                }
+            });
+        } catch (legacyStructureError) {
+            console.warn('Error deleting from legacy structure (this is normal if userMerits collection doesn\'t exist):', legacyStructureError);
+        }
         
-        showToast('Event deleted successfully', 'success');
+        // Commit all deletions
+        if (deletionCount > 0) {
+            await batch.commit();
+            showToast(`Event and ${deletionCount} associated merit record(s) deleted successfully`, 'success');
+        } else {
+            showToast('Event deleted successfully (no merit records found)', 'success');
+        }
         
         setTimeout(() => {
             window.location.href = 'events.html';

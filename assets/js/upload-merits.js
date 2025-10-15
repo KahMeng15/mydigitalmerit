@@ -1646,7 +1646,29 @@ async function uploadMeritRecords() {
                 .collection('events')
                 .doc(selectedEvent.id.toString());
             
+            // Also add student info to merit data for efficient querying
+            meritData.studentName = record.name;
+            meritData.matricNumber = record.matricNumber.toUpperCase();
+            
             await studentEventDoc.set(meritData);
+            
+            // OPTIONAL: Also maintain a participant list in the event document for fastest querying
+            // This creates a small overhead during upload but makes event details loading super fast
+            const eventParticipantRef = firestore
+                .collection('events')
+                .doc(selectedEvent.id.toString())
+                .collection('participants')
+                .doc(record.matricNumber.toUpperCase());
+            
+            await eventParticipantRef.set({
+                studentName: record.name,
+                matricNumber: record.matricNumber.toUpperCase(),
+                meritType: getMeritType(),
+                meritPoints: record.meritPoints,
+                uploadDate: firebase.firestore.FieldValue.serverTimestamp(),
+                additionalNotes: meritData.additionalNotes || null,
+                linkProof: meritData.linkProof || null
+            });
             uploaded++;
             // Update progress
             const percentage = (uploaded / total) * 100;
