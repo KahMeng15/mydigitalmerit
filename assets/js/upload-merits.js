@@ -1611,8 +1611,8 @@ async function uploadMeritRecords() {
     
     for (const record of validRecords) {
         try {
-            // Find or create user
-            const userId = await findOrCreateUser(record);
+            // Find or create student
+            const studentId = await findOrCreateStudent(record);
             // Create merit record data (remove undefined values)
             // Get level info for storage
             const levelDisplayName = selectedEvent.levelId 
@@ -1620,9 +1620,6 @@ async function uploadMeritRecords() {
                 : (selectedEvent.level || 'Unknown');
                 
             const meritData = {
-                name: record.name,
-                matricNumber: record.matricNumber.toUpperCase(),
-                role: record.role,
                 meritPoints: record.meritPoints,
                 meritType: getMeritType(),
                 eventLevel: levelDisplayName,                    // Store display name for compatibility
@@ -1672,29 +1669,29 @@ async function uploadMeritRecords() {
     }
 }
 
-async function findOrCreateUser(record) {
+async function findOrCreateStudent(record) {
     try {
-        // Search for existing user by matric number
-        const usersSnapshot = await firestore.collection('users').where('matricNumber', '==', record.matricNumber.toUpperCase()).get();
-        if (!usersSnapshot.empty) {
-            // User exists, return the first match
-            return usersSnapshot.docs[0].id;
+        // Search for existing student by matric number (using matric as document ID)
+        const matricNumber = record.matricNumber.toUpperCase();
+        const studentDoc = await firestore.collection('students').doc(matricNumber).get();
+        
+        if (studentDoc.exists) {
+            // Student exists, return the matric number (document ID)
+            return matricNumber;
         } else {
-            // Create new user record
-            const userId = generateId();
-            const userData = {
-                matricNumber: record.matricNumber.toUpperCase(),
+            // Create new student record
+            const studentData = {
                 displayName: record.name,
                 role: 'student',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 createdBy: getCurrentUser().uid,
                 isImported: true
             };
-            await firestore.collection('users').doc(userId).set(userData);
-            return userId;
+            await firestore.collection('students').doc(matricNumber).set(studentData);
+            return matricNumber;
         }
     } catch (error) {
-        console.error('Error finding/creating user:', error);
+        console.error('Error finding/creating student:', error);
         throw error;
     }
 }
