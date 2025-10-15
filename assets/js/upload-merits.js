@@ -29,11 +29,6 @@ function initializePage() {
     setTimeout(async () => {
         await loadEvents();
         await loadMeritValues();
-        
-        // If event is pre-selected and merit values are loaded, populate merit types
-        if (selectedEvent && meritValues) {
-            await populateMeritTypes();
-        }
     }, 100);
     
     // Check for eventId and childActivityId in URL params
@@ -217,6 +212,9 @@ async function handleEventSelect() {
         // Display event info (will be updated when child activity is selected)
         displayEventInfo();
         
+        // Populate merit types for this event
+        await populateMeritTypes();
+        
         // Enable next button (parent event is sufficient to proceed)
         if (nextBtn) nextBtn.disabled = false;
         
@@ -231,9 +229,11 @@ async function loadChildActivities(parentEventId) {
         const childActivitySelect = document.getElementById('childActivitySelect');
         childActivitySelect.innerHTML = '<option value="">Upload to Main Event (No specific activity)</option>';
         
-        // Load child activities for this parent event
-        const childActivitiesSnapshot = await firestore.collection('events')
-            .where('parentEventId', '==', parentEventId)
+        // Load child activities from subcollection: events/{parentEventId}/activities
+        const childActivitiesSnapshot = await firestore
+            .collection('events')
+            .doc(parentEventId)
+            .collection('activities')
             .get();
         
         const childActivities = [];
@@ -275,13 +275,26 @@ async function handleChildActivitySelect() {
         await populateMeritTypes();
         displayEventInfo();
     } else {
-        // Selected a child activity - load its details
+        // Selected a child activity - load its details from subcollection
         try {
-            const childActivityDoc = await firestore.collection('events').doc(childActivityId).get();
+            const parentEventId = document.getElementById('eventSelect').value;
+            const childActivityDoc = await firestore
+                .collection('events')
+                .doc(parentEventId)
+                .collection('activities')
+                .doc(childActivityId)
+                .get();
+                
             if (childActivityDoc.exists) {
                 const childActivityData = { id: childActivityId, ...childActivityDoc.data() };
-                // Update selected event to be the child activity
-                selectedEvent = childActivityData;
+                // Update selected event to be the child activity (inherit from parent)
+                const parentEvent = selectedEvent;
+                selectedEvent = {
+                    ...parentEvent, // Inherit parent event properties
+                    ...childActivityData, // Override with child activity specifics
+                    isChildActivity: true,
+                    parentEventId: parentEventId
+                };
                 await populateMeritTypes();
                 displayEventInfo();
             }

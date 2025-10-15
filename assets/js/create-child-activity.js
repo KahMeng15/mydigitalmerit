@@ -157,6 +157,7 @@ async function saveChildActivity(status) {
         const childActivityData = {
             name: name,
             level: parentEventData.level, // Inherit from parent
+            levelId: parentEventData.levelId, // Inherit level ID
             date: dateTime,
             location: document.getElementById('childActivityLocation').value.trim() || parentEventData.location,
             organizer: parentEventData.organizer, // Inherit from parent
@@ -164,10 +165,7 @@ async function saveChildActivity(status) {
             status: status,
             
             // Child activity specific fields
-            isSubActivity: true,
-            parentEventId: parentEventId,
             activityOrder: parseInt(document.getElementById('childActivityOrder').value) || null,
-            hasSubActivities: false,
             
             // Inherit custom roles from parent
             customRoles: parentEventData.customRoles || [],
@@ -177,12 +175,17 @@ async function saveChildActivity(status) {
             createdBy: getCurrentUser().uid
         };
         
-        // Generate new event ID
-        const eventId = await generateNumericEventId();
-        childActivityData.id = eventId;
+        // Generate activity ID (simple timestamp-based ID for subcollection)
+        const activityId = Date.now().toString();
+        childActivityData.id = activityId;
         
-        // Save to Firestore
-        await firestore.collection('events').doc(String(eventId)).set(childActivityData);
+        // Save as subcollection under parent event: events/{parentEventId}/activities/{activityId}
+        await firestore
+            .collection('events')
+            .doc(parentEventId)
+            .collection('activities')
+            .doc(activityId)
+            .set(childActivityData);
         
         // Update parent event to indicate it has sub-activities
         await firestore.collection('events').doc(parentEventId).update({
@@ -205,15 +208,4 @@ async function saveChildActivity(status) {
     }
 }
 
-// Generate numeric event ID using Firestore transaction
-async function generateNumericEventId() {
-    const counterDocRef = firestore.collection('counters').doc('eventId');
-    let newId = null;
-    await firestore.runTransaction(async (transaction) => {
-        const doc = await transaction.get(counterDocRef);
-        const current = doc.exists ? doc.data().value : 0;
-        newId = current + 1;
-        transaction.set(counterDocRef, { value: newId });
-    });
-    return newId;
-}
+// This function is no longer needed since we use timestamp-based IDs for subcollections

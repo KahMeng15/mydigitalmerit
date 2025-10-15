@@ -184,12 +184,10 @@ function displayEvents() {
     const tableBody = document.getElementById('eventsTableBody');
     const eventCount = document.getElementById('eventCount');
     
-    // Filter to show only parent events (not child activities)
-    const parentEvents = filteredEvents.filter(event => !event.isSubActivity);
+    // Show all events (child activities are now subcollections, not separate events)
+    eventCount.textContent = `${filteredEvents.length} event${filteredEvents.length !== 1 ? 's' : ''}`;
     
-    eventCount.textContent = `${parentEvents.length} event${parentEvents.length !== 1 ? 's' : ''}`;
-    
-    if (parentEvents.length === 0) {
+    if (filteredEvents.length === 0) {
         displayNoEvents('No events found matching your criteria');
         return;
     }
@@ -197,21 +195,76 @@ function displayEvents() {
     // Calculate pagination
     const startIndex = (currentPage - 1) * eventsPerPage;
     const endIndex = startIndex + eventsPerPage;
-    const eventsToShow = parentEvents.slice(startIndex, endIndex);
+    const eventsToShow = filteredEvents.slice(startIndex, endIndex);
     
     // Update showing info
     document.getElementById('showingFrom').textContent = startIndex + 1;
-    document.getElementById('showingTo').textContent = Math.min(endIndex, parentEvents.length);
-    document.getElementById('totalEvents').textContent = parentEvents.length;
+    document.getElementById('showingTo').textContent = Math.min(endIndex, filteredEvents.length);
+    document.getElementById('totalEvents').textContent = filteredEvents.length;
     
-    tableBody.innerHTML = eventsToShow.map(event => {
-        const eventDate = new Date(event.date);
-        const isUpcoming = eventDate.getTime() > Date.now();
-        const statusClass = getStatusClass(event.status, isUpcoming);
-        const statusText = getStatusText(event.status, isUpcoming);
-        
-        // Count child activities for this parent event
-        const childActivityCount = filteredEvents.filter(e => e.isSubActivity && e.parentEventId === event.id).length;
+    // Load child activity counts for events being displayed
+    displayEventsWithActivityCounts(eventsToShow, tableBody);
+}
+
+async function displayEventsWithActivityCounts(eventsToShow, tableBody) {
+    // First, display events without activity counts for immediate feedback
+    tableBody.innerHTML = eventsToShow.map(event => renderEventRow(event, 0)).join('');
+    
+    // Then, load activity counts asynchronously
+    for (let i = 0; i < eventsToShow.length; i++) {
+        const event = eventsToShow[i];
+        try {
+            // Check if event has child activities flag to avoid unnecessary queries
+            if (event.hasSubActivities) {
+                const activitiesSnapshot = await firestore
+                    .collection('events')
+                    .doc(event.id.toString())
+                    .collection('activities')
+                    .get();
+                
+                const childActivityCount = activitiesSnapshot.size;
+                
+                // Update the specific row with the activity count
+                const rows = tableBody.querySelectorAll('tr');
+                if (rows[i]) {
+                    rows[i].innerHTML = renderEventRow(event, childActivityCount);
+                }
+            }
+        } catch (error) {
+            console.warn(`Error loading child activities for event ${event.id}:`, error);
+        }
+    }
+}
+
+function renderEventRow(event, childActivityCount) {
+    const eventDate = new Date(event.date);
+    const isUpcoming = eventDate.getTime() > Date.now();
+    const statusClass = getStatusClass(event.status, isUpcoming);
+    const statusText = getStatusText(event.status, isUpcoming);
+    
+    return `
+        <td>
+            <div class="font-medium">${sanitizeHTML(event.name)}</div>
+            ${event.description ? `<div class="text-sm text-secondary">${sanitizeHTML(event.description.substring(0, 50))}${event.description.length > 50 ? '...' : ''}</div>` : ''}
+            ${childActivityCount > 0 ? `<div class="text-xs text-info mt-1">📋 ${childActivityCount} child activit${childActivityCount > 1 ? 'ies' : 'y'}</div>` : ''}
+        </td>
+        <td><span class="badge bg-primary">${sanitizeHTML(event.level)}</span></td>
+        <td>
+            <div>${formatDate(event.date)}</div>
+            ${event.date.includes('T') ? `<div class="text-sm text-secondary">${new Date(event.date).toLocaleTimeString('en-MY', {hour: '2-digit', minute: '2-digit'})}</div>` : ''}
+        </td>
+        <td>${sanitizeHTML(event.location || '-')}</td>
+        <td>${getOrganizerDisplay(event.organizer)}</td>
+        <td><span class="badge ${statusClass}">${statusText}</span></td>
+        <td>
+            <button onclick="viewEvent('${event.id}')" class="btn btn-sm btn-outline" title="View Details">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+                View More
+            </button>
+        </td>`;
         
         return `
             <tr>
@@ -242,7 +295,6 @@ function displayEvents() {
                 </td>
             </tr>
         `;
-    }).join('');
 }
 
 function displayNoEvents(message) {

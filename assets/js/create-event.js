@@ -496,10 +496,7 @@ function getFormData() {
         status: eventStatus,
         customRoles: getCustomRolesFromForm(),
         
-        // All events are parent events by default (can have child activities added later)
-        isSubActivity: false,
-        parentEventId: null,
-        subActivityType: null,
+        // Events can have child activities added as subcollections
         hasSubActivities: false
     };
     

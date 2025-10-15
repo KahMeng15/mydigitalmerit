@@ -43,9 +43,9 @@ function displayUserInfo() {
 
 async function loadDashboardStats() {
     try {
-        // Load events count (only parent events, not child activities)
+        // Load events count
         const eventsSnapshot = await db.collection('events').get();
-        const eventsArray = eventsSnapshot.docs.map(doc => doc.data()).filter(event => !event.isSubActivity);
+        const eventsArray = eventsSnapshot.docs.map(doc => doc.data());
         document.getElementById('totalEvents').textContent = eventsArray.length;
         // Count active events (future events)
         const now = Date.now();
@@ -119,9 +119,9 @@ async function loadRecentActivity() {
         // Load recent user registrations
         const usersSnapshot = await db.collection('users').orderBy('createdAt', 'desc').limit(5).get();
         const recentUsers = usersSnapshot.docs.map(doc => doc.data()).filter(user => user.createdAt).slice(0, 3);
-        // Load recent events (only parent events, not child activities)
+        // Load recent events
         const eventsSnapshot = await db.collection('events').orderBy('createdAt', 'desc').limit(6).get();
-        const recentEvents = eventsSnapshot.docs.map(doc => doc.data()).filter(event => event.createdAt && !event.isSubActivity).slice(0, 2);
+        const recentEvents = eventsSnapshot.docs.map(doc => doc.data()).filter(event => event.createdAt).slice(0, 2);
         const activities = [];
         // Add user activities
         recentUsers.forEach(user => {

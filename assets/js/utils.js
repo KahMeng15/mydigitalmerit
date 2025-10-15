@@ -3,7 +3,26 @@
 // Format date for display
 function formatDate(timestamp) {
     if (!timestamp) return '';
-    const date = new Date(timestamp);
+    
+    let date;
+    // Handle Firestore Timestamp objects
+    if (timestamp && typeof timestamp.toDate === 'function') {
+        date = timestamp.toDate();
+    } 
+    // Handle regular Date objects or timestamp numbers
+    else if (timestamp instanceof Date) {
+        date = timestamp;
+    }
+    // Handle timestamp numbers or strings
+    else {
+        date = new Date(timestamp);
+    }
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+    }
+    
     return date.toLocaleDateString('en-MY', {
         year: 'numeric',
         month: 'short',
@@ -14,7 +33,26 @@ function formatDate(timestamp) {
 // Format datetime for display
 function formatDateTime(timestamp) {
     if (!timestamp) return '';
-    const date = new Date(timestamp);
+    
+    let date;
+    // Handle Firestore Timestamp objects
+    if (timestamp && typeof timestamp.toDate === 'function') {
+        date = timestamp.toDate();
+    } 
+    // Handle regular Date objects
+    else if (timestamp instanceof Date) {
+        date = timestamp;
+    }
+    // Handle timestamp numbers or strings
+    else {
+        date = new Date(timestamp);
+    }
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+    }
+    
     return date.toLocaleString('en-MY', {
         year: 'numeric',
         month: 'short',
