@@ -329,24 +329,27 @@ function displayEventInfo(event) {
 
 async function loadMeritTypes() {
     try {
+        // Ensure level metadata is loaded first
+        await window.levelManager.ensureLevelMetadata();
+        
         // Load merit values
         const meritValuesSnapshot = await firestore.collection('meritvalue').get();
         let meritValues = { roles: {}, levels: {} };
         
-        // Process each level document
+        // Process each level document (now using level IDs)
         meritValuesSnapshot.forEach(doc => {
-            const levelName = doc.id; // e.g., "Block Level", "University Level"
+            const levelId = doc.id; // e.g., "level_001", "level_002"
             const levelData = doc.data();
             
-            // Store the level with its original database name
-            meritValues.levels[levelName] = levelData;
+            // Store the level with level ID as key
+            meritValues.levels[levelId] = levelData;
             
             // For each role in this level, add to roles object
             Object.entries(levelData).forEach(([roleName, points]) => {
                 if (!meritValues.roles[roleName]) {
                     meritValues.roles[roleName] = {};
                 }
-                meritValues.roles[roleName][levelName] = points;
+                meritValues.roles[roleName][levelId] = points;
             });
         });
         
@@ -364,12 +367,17 @@ function displayMeritTypes(meritValues) {
     let html = '';
     
     // Base roles
-    if (meritValues.roles && currentEventData.level) {
-        // Use the event level directly as it now matches database level names
+    if (meritValues.roles && (currentEventData.levelId || currentEventData.level)) {
+        // Use levelId if available, otherwise try to map old level name to ID
+        let levelId = currentEventData.levelId;
+        if (!levelId && currentEventData.level) {
+            levelId = window.levelManager.getLevelIdByName(currentEventData.level);
+        }
+        
         const sortedRoles = Object.entries(meritValues.roles)
             .map(([role, levels]) => ({
                 role: role,
-                points: levels[currentEventData.level] || 0
+                points: levels[levelId] || 0
             }))
             .sort((a, b) => b.points - a.points);
         

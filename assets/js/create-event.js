@@ -51,30 +51,31 @@ let editingEventId = null;
 
 async function loadMeritValues() {
     try {
+        // Ensure level metadata is loaded first
+        await window.levelManager.ensureLevelMetadata();
+        
         const snapshot = await firestore.collection('meritvalue').get();
         const roles = {};
         const levels = {};
-        const availableLevels = [];
         
-        // Process each level document
+        // Process each level document (now using level IDs)
         snapshot.forEach(doc => {
-            const levelName = doc.id; // e.g., "Block Level", "University Level"
+            const levelId = doc.id; // e.g., "level_001", "level_002"
             const levelData = doc.data();
             
-            // Store the level with its original database name
-            levels[levelName] = levelData;
-            availableLevels.push(levelName);
+            // Store the level with level ID as key
+            levels[levelId] = levelData;
             
             // For each role in this level, add to roles object
             Object.entries(levelData).forEach(([roleName, points]) => {
                 if (!roles[roleName]) {
                     roles[roleName] = {};
                 }
-                roles[roleName][levelName] = points;
+                roles[roleName][levelId] = points;
             });
         });
         
-        meritValues = { roles: roles, levels: levels, availableLevels: availableLevels, achievements: {} };
+        meritValues = { roles: roles, levels: levels, achievements: {} };
         console.log('Loaded merit values:', meritValues);
         
         // Update preview after loading
@@ -92,25 +93,12 @@ function populateEventLevels() {
     const levelSelect = document.getElementById('eventLevel');
     const currentValue = levelSelect.value; // Preserve current selection
     
-    if (!meritValues || !meritValues.availableLevels) {
-        levelSelect.innerHTML = '<option value="">Loading levels...</option>';
-        return;
-    }
-    
-    // Get levels from database and sort them alphabetically
-    const levels = meritValues.availableLevels.slice().sort();
-    
-    levelSelect.innerHTML = '<option value="">Select event level</option>';
-    levels.forEach(level => {
-        const option = document.createElement('option');
-        option.value = level;
-        option.textContent = level;
-        levelSelect.appendChild(option);
-    });
-    
-    // Restore previous selection if it was valid
-    if (currentValue && levels.includes(currentValue)) {
-        levelSelect.value = currentValue;
+    try {
+        // Use level manager to populate dropdown with display names but store IDs
+        window.levelManager.populateLevelDropdown(levelSelect, currentValue, true);
+    } catch (error) {
+        console.error('Error populating event levels:', error);
+        levelSelect.innerHTML = '<option value="">Error loading levels</option>';
     }
 }
 
@@ -223,25 +211,28 @@ function addCustomRoleRow() {
 }
 
 function updateMeritPreview() {
-    const eventLevel = document.getElementById('eventLevel').value;
+    const eventLevelId = document.getElementById('eventLevel').value; // Now contains level ID
     const previewContainer = document.getElementById('meritPreview');
     
-    if (!eventLevel || !meritValues) {
+    if (!eventLevelId || !meritValues) {
         previewContainer.innerHTML = '<p class="text-secondary">Select an event level to see merit points preview</p>';
         return;
     }
+    
+    // Get level display name for the header
+    const levelDisplayName = window.levelManager.getLevelName(eventLevelId);
     
     let previewHTML = '<div class="grid grid-cols-2 gap-4">';
     
     // Base roles preview
     if (meritValues.roles) {
-        previewHTML += '<div><h4 class="font-semibold mb-3">Base Roles</h4><div class="space-y-2">';
+        previewHTML += `<div><h4 class="font-semibold mb-3">Base Roles (${sanitizeHTML(levelDisplayName)})</h4><div class="space-y-2">`;
         
         // Create array of roles with their points for sorting
-        // Use the eventLevel directly as it now matches database level names
+        // Use the eventLevelId to get points from the merit values
         const rolesWithPoints = Object.entries(meritValues.roles).map(([role, levels]) => ({
             role: role,
-            points: levels[eventLevel] || 0
+            points: levels[eventLevelId] || 0
         }));
         
         // Sort by points from highest to lowest
@@ -316,7 +307,15 @@ async function loadEventForEditing(eventId) {
         
         // Populate form fields
         document.getElementById('eventName').value = eventData.name || '';
-        document.getElementById('eventLevel').value = eventData.level || '';
+        
+        // Handle both new levelId format and legacy level format
+        let levelToSelect = eventData.levelId; // New format with level ID
+        if (!levelToSelect && eventData.level) {
+            // Legacy format - try to find level ID by name
+            levelToSelect = window.levelManager.getLevelIdByName(eventData.level);
+        }
+        document.getElementById('eventLevel').value = levelToSelect || '';
+        
         document.getElementById('eventDescription').value = eventData.description || '';
         document.getElementById('eventLocation').value = eventData.location || '';
         
@@ -474,7 +473,7 @@ function getCustomRolesFromForm() {
 
 function getFormData() {
     const eventName = document.getElementById('eventName').value.trim();
-    const eventLevel = document.getElementById('eventLevel').value;
+    const eventLevelId = document.getElementById('eventLevel').value; // This is now a level ID
     const eventDate = document.getElementById('eventDate').value;
     const eventEndDate = document.getElementById('eventEndDate').value;
     const eventTime = document.getElementById('eventTime').value;
@@ -500,7 +499,8 @@ function getFormData() {
     
     const formData = {
         name: eventName,
-        level: eventLevel,
+        levelId: eventLevelId,                                    // Store level ID
+        level: window.levelManager.getLevelName(eventLevelId),    // Store display name for backward compatibility
         date: dateTime,
         location: eventLocation,
         organizer: organizer,
@@ -524,7 +524,7 @@ function getFormData() {
 }
 
 function validateRequiredFields(formData) {
-    const requiredFields = ['name', 'level', 'date'];
+    const requiredFields = ['name', 'levelId', 'date'];
     
     for (const field of requiredFields) {
         if (!formData[field]) {

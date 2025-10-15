@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Level System Migration - Digital Merit System</title>
+    <style>
+        body { 
+            font-family: sans-serif; 
+            margin: 2em; 
+            max-width: 1200px;
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+        }
+        .btn { 
+            padding: 10px 20px; 
+            margin: 5px;
+            border: none; 
+            background-color: #007bff; 
+            color: white; 
+            cursor: pointer; 
+            border-radius: 4px;
+        }
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .btn.success { background-color: #28a745; }
+        .btn.danger { background-color: #dc3545; }
+        .btn.warning { background-color: #ffc107; color: black; }
+        #status { 
+            margin-top: 1em; 
+            padding: 1em;
+            border-radius: 4px;
+        }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        .warning { background-color: #fff3cd; border: 1px solid #ffeaa7; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; }
+        .step {
+            margin: 1em 0;
+            padding: 1em;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .step h3 {
+            margin-top: 0;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 1em;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Level System Migration Tool</h1>
+        <p>This tool will help you migrate from the old level name system to the new level ID system with modifiable display names.</p>
+        
+        <div class="step">
+            <h3>Step 1: Create Level Metadata</h3>
+            <p>Create the new levelMetadata collection with default level configurations.</p>
+            <button id="createLevelMetadata" class="btn">Create Level Metadata</button>
+            <div id="step1Status"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 2: Migrate Merit Values</h3>
+            <p>Update the meritvalue collection to use level IDs instead of level names.</p>
+            <button id="migrateMeritValues" class="btn" disabled>Migrate Merit Values</button>
+            <div id="step2Status"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 3: Migrate Events</h3>
+            <p>Update existing events to use levelId field with backward compatibility.</p>
+            <button id="migrateEvents" class="btn" disabled>Migrate Events</button>
+            <div id="step3Status"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 4: Migrate User Merits</h3>
+            <p>Update existing merit records to include levelId field.</p>
+            <button id="migrateUserMerits" class="btn" disabled>Migrate User Merits</button>
+            <div id="step4Status"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 5: Verification</h3>
+            <p>Verify that the migration was successful.</p>
+            <button id="verifyMigration" class="btn" disabled>Verify Migration</button>
+            <div id="step5Status"></div>
+        </div>
+
+        <div class="step">
+            <h3>Current Status</h3>
+            <div id="overallStatus" class="info">
+                Ready to begin migration. Please follow the steps in order.
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Minimal Firebase config for migration only -->
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDd9r8u2fr9pboTbV2DGNbmhBj20Ma5zTI",
+            authDomain: "mydigitalmerit.firebaseapp.com",
+            databaseURL: "https://mydigitalmerit-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "mydigitalmerit",
+            storageBucket: "mydigitalmerit.firebasestorage.app",
+            messagingSenderId: "69229862912",
+            appId: "1:69229862912:web:aa0ef177a855ffad23f8e5",
+            measurementId: "G-BM39BHXZ9D"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+
+        // Initialize Firestore (only what we need for migration)
+        window.firestore = firebase.firestore();
+        
+        console.log('Firebase initialized for migration tool');
+        
+        // Simple HTML sanitization function for migration tool
+        function sanitizeHTML(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+    </script>
+    
+    <!-- Level Manager -->
+    <script src="../assets/js/level-manager.js"></script>
+
+    <script>
+        let migrationState = {
+            step1Complete: false,
+            step2Complete: false,
+            step3Complete: false,
+            step4Complete: false,
+            step5Complete: false
+        };
+
+        // Helper function to ensure Firebase is ready
+        function waitForFirebase() {
+            return new Promise((resolve, reject) => {
+                let attempts = 0;
+                const maxAttempts = 10;
+                
+                const checkFirebase = () => {
+                    attempts++;
+                    if (window.firestore && typeof window.firestore.collection === 'function') {
+                        resolve();
+                    } else if (attempts >= maxAttempts) {
+                        reject(new Error('Firebase failed to initialize after multiple attempts'));
+                    } else {
+                        setTimeout(checkFirebase, 500);
+                    }
+                };
+                
+                checkFirebase();
+            });
+        }
+
+        // Step 1: Create Level Metadata
+        document.getElementById('createLevelMetadata').addEventListener('click', async () => {
+            const button = document.getElementById('createLevelMetadata');
+            const status = document.getElementById('step1Status');
+            
+            button.disabled = true;
+            button.textContent = 'Creating...';
+            status.innerHTML = '<div class="info">Creating level metadata...</div>';
+
+            try {
+                // Ensure Firebase is ready
+                await waitForFirebase();
+                
+                await window.levelManager.createDefaultLevelMetadata();
+                
+                status.innerHTML = '<div class="success">✓ Level metadata created successfully!</div>';
+                migrationState.step1Complete = true;
+                document.getElementById('migrateMeritValues').disabled = false;
+                updateOverallStatus();
+                
+            } catch (error) {
+                console.error('Error creating level metadata:', error);
+                status.innerHTML = `<div class="error">✗ Error: ${error.message}</div>`;
+                button.disabled = false;
+                button.textContent = 'Create Level Metadata';
+            }
+        });
+
+        // Step 2: Migrate Merit Values
+        document.getElementById('migrateMeritValues').addEventListener('click', async () => {
+            const button = document.getElementById('migrateMeritValues');
+            const status = document.getElementById('step2Status');
+            
+            button.disabled = true;
+            button.textContent = 'Migrating...';
+            status.innerHTML = '<div class="info">Migrating merit values...</div>';
+
+            try {
+                await waitForFirebase();
+                await window.levelManager.migrateMeritValues();
+                
+                status.innerHTML = '<div class="success">✓ Merit values migrated successfully!</div>';
+                migrationState.step2Complete = true;
+                document.getElementById('migrateEvents').disabled = false;
+                updateOverallStatus();
+                
+            } catch (error) {
+                console.error('Error migrating merit values:', error);
+                status.innerHTML = `<div class="error">✗ Error: ${error.message}</div>`;
+                button.disabled = false;
+                button.textContent = 'Migrate Merit Values';
+            }
+        });
+
+        // Step 3: Migrate Events
+        document.getElementById('migrateEvents').addEventListener('click', async () => {
+            const button = document.getElementById('migrateEvents');
+            const status = document.getElementById('step3Status');
+            
+            button.disabled = true;
+            button.textContent = 'Migrating...';
+            status.innerHTML = '<div class="info">Migrating events...</div>';
+
+            try {
+                await waitForFirebase();
+                await migrateEvents();
+                
+                status.innerHTML = '<div class="success">✓ Events migrated successfully!</div>';
+                migrationState.step3Complete = true;
+                document.getElementById('migrateUserMerits').disabled = false;
+                updateOverallStatus();
+                
+            } catch (error) {
+                console.error('Error migrating events:', error);
+                status.innerHTML = `<div class="error">✗ Error: ${error.message}</div>`;
+                button.disabled = false;
+                button.textContent = 'Migrate Events';
+            }
+        });
+
+        // Step 4: Migrate User Merits
+        document.getElementById('migrateUserMerits').addEventListener('click', async () => {
+            const button = document.getElementById('migrateUserMerits');
+            const status = document.getElementById('step4Status');
+            
+            button.disabled = true;
+            button.textContent = 'Migrating...';
+            status.innerHTML = '<div class="info">Migrating user merits...</div>';
+
+            try {
+                await waitForFirebase();
+                await migrateUserMerits();
+                
+                status.innerHTML = '<div class="success">✓ User merits migrated successfully!</div>';
+                migrationState.step4Complete = true;
+                document.getElementById('verifyMigration').disabled = false;
+                updateOverallStatus();
+                
+            } catch (error) {
+                console.error('Error migrating user merits:', error);
+                status.innerHTML = `<div class="error">✗ Error: ${error.message}</div>`;
+                button.disabled = false;
+                button.textContent = 'Migrate User Merits';
+            }
+        });
+
+        // Step 5: Verify Migration
+        document.getElementById('verifyMigration').addEventListener('click', async () => {
+            const button = document.getElementById('verifyMigration');
+            const status = document.getElementById('step5Status');
+            
+            button.disabled = true;
+            button.textContent = 'Verifying...';
+            status.innerHTML = '<div class="info">Verifying migration...</div>';
+
+            try {
+                await waitForFirebase();
+                const results = await verifyMigration();
+                
+                status.innerHTML = `<div class="success">✓ Migration verification complete!<pre>${JSON.stringify(results, null, 2)}</pre></div>`;
+                migrationState.step5Complete = true;
+                updateOverallStatus();
+                
+            } catch (error) {
+                console.error('Error verifying migration:', error);
+                status.innerHTML = `<div class="error">✗ Error: ${error.message}</div>`;
+                button.disabled = false;
+                button.textContent = 'Verify Migration';
+            }
+        });
+
+        // Migration helper functions
+        async function migrateEvents() {
+            const eventsSnapshot = await window.firestore.collection('events').get();
+            const batch = window.firestore.batch();
+            const nameToIdMapping = {
+                'University Level': 'level_001',
+                'National Level': 'level_002', 
+                'College Level': 'level_003',
+                'Block Level': 'level_004',
+                'International Level': 'level_005'
+            };
+
+            let updatedCount = 0;
+
+            eventsSnapshot.forEach(doc => {
+                const event = doc.data();
+                if (event.level && !event.levelId) {
+                    const levelId = nameToIdMapping[event.level];
+                    if (levelId) {
+                        batch.update(doc.ref, { 
+                            levelId: levelId,
+                            // Keep the original level field for backward compatibility
+                            level: event.level 
+                        });
+                        updatedCount++;
+                    }
+                }
+            });
+
+            if (updatedCount > 0) {
+                await batch.commit();
+            }
+
+            return { updatedEvents: updatedCount };
+        }
+
+        async function migrateUserMerits() {
+            const userMeritsSnapshot = await window.firestore.collection('userMerits').get();
+            const batch = window.firestore.batch();
+            const nameToIdMapping = {
+                'University Level': 'level_001',
+                'National Level': 'level_002', 
+                'College Level': 'level_003',
+                'Block Level': 'level_004',
+                'International Level': 'level_005'
+            };
+
+            let updatedCount = 0;
+
+            userMeritsSnapshot.forEach(userDoc => {
+                const userMerits = userDoc.data();
+                let userNeedsUpdate = false;
+                const updates = {};
+
+                Object.entries(userMerits).forEach(([eventId, eventMerits]) => {
+                    if (typeof eventMerits === 'object') {
+                        Object.entries(eventMerits).forEach(([meritId, merit]) => {
+                            if (merit.eventLevel && !merit.eventLevelId) {
+                                const levelId = nameToIdMapping[merit.eventLevel];
+                                if (levelId) {
+                                    updates[`${eventId}.${meritId}.eventLevelId`] = levelId;
+                                    userNeedsUpdate = true;
+                                }
+                            }
+                        });
+                    }
+                });
+
+                if (userNeedsUpdate) {
+                    batch.update(userDoc.ref, updates);
+                    updatedCount++;
+                }
+            });
+
+            if (updatedCount > 0) {
+                await batch.commit();
+            }
+
+            return { updatedUsers: updatedCount };
+        }
+
+        async function verifyMigration() {
+            // Check level metadata
+            const levelMetadataSnapshot = await window.firestore.collection('levelMetadata').get();
+            const levelMetadataCount = levelMetadataSnapshot.size;
+
+            // Check merit values
+            const meritValuesSnapshot = await window.firestore.collection('meritvalue').get();
+            const meritValuesCount = meritValuesSnapshot.size;
+            let meritValuesUsingIds = 0;
+            meritValuesSnapshot.forEach(doc => {
+                if (doc.id.startsWith('level_')) {
+                    meritValuesUsingIds++;
+                }
+            });
+
+            // Check events
+            const eventsSnapshot = await window.firestore.collection('events').get();
+            let eventsWithLevelId = 0;
+            let totalEvents = 0;
+            eventsSnapshot.forEach(doc => {
+                const event = doc.data();
+                totalEvents++;
+                if (event.levelId) {
+                    eventsWithLevelId++;
+                }
+            });
+
+            return {
+                levelMetadata: {
+                    count: levelMetadataCount,
+                    expected: 5
+                },
+                meritValues: {
+                    total: meritValuesCount,
+                    usingIds: meritValuesUsingIds,
+                    migrationComplete: meritValuesUsingIds === meritValuesCount
+                },
+                events: {
+                    total: totalEvents,
+                    withLevelId: eventsWithLevelId,
+                    migrationPercentage: totalEvents > 0 ? Math.round((eventsWithLevelId / totalEvents) * 100) : 0
+                }
+            };
+        }
+
+        function updateOverallStatus() {
+            const status = document.getElementById('overallStatus');
+            const completedSteps = Object.values(migrationState).filter(Boolean).length;
+            
+            if (completedSteps === 0) {
+                status.innerHTML = 'Ready to begin migration. Please follow the steps in order.';
+                status.className = 'info';
+            } else if (completedSteps < 5) {
+                status.innerHTML = `Migration in progress: ${completedSteps}/5 steps completed.`;
+                status.className = 'warning';
+            } else {
+                status.innerHTML = '🎉 Migration completed successfully! Your system now uses the new level ID system with modifiable display names.';
+                status.className = 'success';
+            }
+        }
+
+        // Check existing migration status on load
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Wait for Firebase to be fully initialized
+                await waitForFirebase();
+                
+                // Check if level metadata exists
+                const levelMetadataSnapshot = await window.firestore.collection('levelMetadata').limit(1).get();
+                if (!levelMetadataSnapshot.empty) {
+                    migrationState.step1Complete = true;
+                    document.getElementById('migrateMeritValues').disabled = false;
+                    document.getElementById('step1Status').innerHTML = '<div class="success">✓ Level metadata already exists</div>';
+                }
+
+                // Check if merit values are migrated
+                const meritValuesSnapshot = await window.firestore.collection('meritvalue').limit(1).get();
+                if (!meritValuesSnapshot.empty) {
+                    const firstDoc = meritValuesSnapshot.docs[0];
+                    if (firstDoc.id.startsWith('level_')) {
+                        migrationState.step2Complete = true;
+                        document.getElementById('migrateEvents').disabled = false;
+                        document.getElementById('step2Status').innerHTML = '<div class="success">✓ Merit values already migrated</div>';
+                    }
+                }
+
+                updateOverallStatus();
+            } catch (error) {
+                console.log('Could not check migration status:', error);
+            }
+        });
+    </script>
+</body>
+</html>

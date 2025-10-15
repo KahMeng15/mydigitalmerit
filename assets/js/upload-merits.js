@@ -167,24 +167,27 @@ async function loadMeritValues() {
             throw new Error('Firebase not properly initialized');
         }
         
+        // Ensure level metadata is loaded first
+        await window.levelManager.ensureLevelMetadata();
+        
         const snapshot = await firestore.collection('meritvalue').get();
         const roles = {};
         const levels = {};
         
-        // Process each level document
+        // Process each level document (now using level IDs)
         snapshot.forEach(doc => {
-            const levelName = doc.id; // e.g., "Block Level", "University Level"
+            const levelId = doc.id; // e.g., "level_001", "level_002"
             const levelData = doc.data();
             
-            // Store the level with its original database name
-            levels[levelName] = levelData;
+            // Store the level with level ID as key
+            levels[levelId] = levelData;
             
             // For each role in this level, add to roles object
             Object.entries(levelData).forEach(([roleName, points]) => {
                 if (!roles[roleName]) {
                     roles[roleName] = {};
                 }
-                roles[roleName][levelName] = points;
+                roles[roleName][levelId] = points;
             });
         });
         
@@ -403,10 +406,16 @@ function calculateMeritPointsForUpload(role, eventLevel, additionalNotes = '', m
         }
     }
     
-    // Use event level directly as it now matches database level names
-    // Fall back to base role calculation
-    if (meritValues.roles && meritValues.roles[role] && meritValues.roles[role][eventLevel]) {
-        basePoints = meritValues.roles[role][eventLevel];
+    // Handle both new levelId format and legacy level format
+    let levelId = eventLevel;
+    if (eventLevel && !eventLevel.startsWith('level_')) {
+        // Legacy format - try to find level ID by name
+        levelId = window.levelManager.getLevelIdByName(eventLevel);
+    }
+    
+    // Fall back to base role calculation using level ID
+    if (meritValues.roles && meritValues.roles[role] && meritValues.roles[role][levelId]) {
+        basePoints = meritValues.roles[role][levelId];
     }
     
     // Add bonus points for achievements (if implemented)
@@ -432,9 +441,14 @@ function displayEventInfo() {
     
     // Base roles
     if (meritValues && meritValues.roles) {
-        // Use event level directly as it now matches database level names
+        // Handle both new levelId format and legacy level format
+        let levelId = selectedEvent.levelId || selectedEvent.level;
+        if (levelId && !levelId.startsWith('level_')) {
+            levelId = window.levelManager.getLevelIdByName(levelId);
+        }
+        
         Object.entries(meritValues.roles).forEach(([role, levels]) => {
-            const points = levels[selectedEvent.level] || 0;
+            const points = levels[levelId] || 0;
             meritTypesHtml += `
                 <div class="bg-gray-100 p-2 rounded text-sm">
                     <strong>${sanitizeHTML(role)}:</strong> ${points} points
@@ -461,10 +475,14 @@ function displayEventInfo() {
     const selectedChildActivityId = childActivitySelect ? childActivitySelect.value : '';
     
     // Build event info
+    const levelDisplayName = selectedEvent.levelId 
+        ? window.levelManager.getLevelName(selectedEvent.levelId)
+        : (selectedEvent.level || 'Unknown');
+    
     let eventInfoHtml = `
         <div class="grid grid-cols-2 gap-4">
             <div><strong>Event:</strong> ${sanitizeHTML(selectedEvent.name)}</div>
-            <div><strong>Level:</strong> ${sanitizeHTML(selectedEvent.level)}</div>
+            <div><strong>Level:</strong> ${sanitizeHTML(levelDisplayName)}</div>
             <div><strong>Date:</strong> ${formatDate(selectedEvent.date)}</div>
             <div><strong>Location:</strong> ${sanitizeHTML(selectedEvent.location || 'Not specified')}</div>`;
     
@@ -941,8 +959,12 @@ function populateRoleSelectionDropdown() {
     roleSelect.innerHTML = '<option value="">Select role...</option>';
     
     if (meritValues && meritValues.roles && selectedEvent) {
-        // Use event level directly as it now matches database level names
-        const dbLevel = selectedEvent.level;
+        // Handle both new levelId format and legacy level format
+        let levelId = selectedEvent.levelId || selectedEvent.level;
+        if (levelId && !levelId.startsWith('level_')) {
+            levelId = window.levelManager.getLevelIdByName(levelId);
+        }
+        const dbLevel = levelId;
         
         // Add base roles
         Object.keys(meritValues.roles).forEach(role => {
@@ -1556,13 +1578,19 @@ async function uploadMeritRecords() {
             // Find or create user
             const userId = await findOrCreateUser(record);
             // Create merit record data (remove undefined values)
+            // Get level info for storage
+            const levelDisplayName = selectedEvent.levelId 
+                ? window.levelManager.getLevelName(selectedEvent.levelId)
+                : (selectedEvent.level || 'Unknown');
+                
             const meritData = {
                 name: record.name,
                 matricNumber: record.matricNumber.toUpperCase(),
                 role: record.role,
                 meritPoints: record.meritPoints,
                 meritType: getMeritType(),
-                eventLevel: selectedEvent.level,
+                eventLevel: levelDisplayName,                    // Store display name for compatibility
+                eventLevelId: selectedEvent.levelId || null,     // Store level ID for new system
                 eventName: selectedEvent.name,
                 eventDate: selectedEvent.date,
                 uploadDate: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1726,8 +1754,12 @@ function updateProgressIndicator(stepNumber) {
 function getRoleOptions(selectedRole = '') {
     if (!meritValues || !meritValues.roles || !selectedEvent) return '';
     
-    // Use event level directly as it now matches database level names
-    const dbLevel = selectedEvent.level;
+    // Handle both new levelId format and legacy level format
+    let levelId = selectedEvent.levelId || selectedEvent.level;
+    if (levelId && !levelId.startsWith('level_')) {
+        levelId = window.levelManager.getLevelIdByName(levelId);
+    }
+    const dbLevel = levelId;
     let options = '';
     
     // Add base roles
@@ -1761,8 +1793,12 @@ function calculateMeritPoints(record) {
             return;
         }
         
-        // Use event level directly as it now matches database level names
-        const dbLevel = selectedEvent.level;
+        // Handle both new levelId format and legacy level format  
+        let levelId = selectedEvent.levelId || selectedEvent.level;
+        if (levelId && !levelId.startsWith('level_')) {
+            levelId = window.levelManager.getLevelIdByName(levelId);
+        }
+        const dbLevel = levelId;
         
         // Check if it's a custom role
         if (typeof record.role === 'string' && record.role.startsWith('custom:')) {

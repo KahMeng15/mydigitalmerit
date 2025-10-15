@@ -16,10 +16,27 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 
 
-// Initialize Firebase services
-window.auth = firebase.auth();
-window.firestore = firebase.firestore();
-window.database = firebase.database();
+// Initialize Firebase services with error handling
+try {
+    window.auth = firebase.auth ? firebase.auth() : null;
+} catch (error) {
+    console.warn('Firebase Auth not available:', error);
+    window.auth = null;
+}
+
+try {
+    window.firestore = firebase.firestore();
+} catch (error) {
+    console.error('Firebase Firestore not available:', error);
+    throw error; // Firestore is critical, so throw the error
+}
+
+try {
+    window.database = firebase.database ? firebase.database() : null;
+} catch (error) {
+    console.warn('Firebase Database not available:', error);
+    window.database = null;
+}
 
 // Also create const variables for backward compatibility
 const auth = window.auth;
@@ -121,34 +138,46 @@ async function createUserProfile(user) {
 // Get the base path for the application (handles subdirectory deployments)
 function getBasePath() {
     const path = window.location.pathname;
-    const pathParts = path.split('/');
+    const pathParts = path.split('/').filter(part => part !== ''); // Remove empty parts
     
-    // Find the index.html or remove the current page
-    let baseParts = [];
-    for (let i = 0; i < pathParts.length - 1; i++) {
-        baseParts.push(pathParts[i]);
-    }
-    
-    // If we're in a subdirectory with index.html, keep that path
-    if (path.includes('index.html')) {
-        return pathParts.slice(0, -1).join('/') + '/';
-    }
-    
-    // Otherwise, find the root by looking for common folders
+    // If we're in a subdirectory (admin, student, assets), go to root
     if (path.includes('/admin/') || path.includes('/student/') || path.includes('/assets/')) {
-        // Go up until we find the root
-        const rootIndex = Math.max(
-            pathParts.indexOf('admin') - 1,
-            pathParts.indexOf('student') - 1,
-            pathParts.indexOf('assets') - 1
+        // Find the position of these folders and get everything before them
+        let rootPath = '/';
+        
+        const adminIndex = pathParts.indexOf('admin');
+        const studentIndex = pathParts.indexOf('student');
+        const assetsIndex = pathParts.indexOf('assets');
+        
+        // Find the earliest occurrence of these folders
+        const folderIndex = Math.min(
+            adminIndex >= 0 ? adminIndex : Infinity,
+            studentIndex >= 0 ? studentIndex : Infinity,
+            assetsIndex >= 0 ? assetsIndex : Infinity
         );
-        if (rootIndex > 0) {
-            return pathParts.slice(0, rootIndex + 1).join('/') + '/';
+        
+        if (folderIndex < Infinity && folderIndex > 0) {
+            // If there are path parts before admin/student/assets, include them
+            rootPath = '/' + pathParts.slice(0, folderIndex).join('/') + '/';
         }
+        
+        return rootPath;
     }
     
-    // Default fallback
-    return baseParts.join('/') + '/';
+    // If we're at root level or in index.html
+    if (path.includes('index.html') || pathParts.length <= 1) {
+        return '/';
+    }
+    
+    // Default fallback - go up one level from current page
+    return '/' + pathParts.slice(0, -1).join('/') + '/';
+}
+
+// Debug function to test getBasePath (can be removed in production)
+function debugBasePath() {
+    console.log('Current path:', window.location.pathname);
+    console.log('Base path:', getBasePath());
+    console.log('Redirect would go to:', getBasePath() + 'index.html');
 }
 
 // Get current user data
