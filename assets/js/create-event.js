@@ -54,25 +54,13 @@ async function loadMeritValues() {
         // Ensure level metadata is loaded first
         await window.levelManager.ensureLevelMetadata();
         
-        const snapshot = await firestore.collection('meritvalue').get();
-        const roles = {};
+        // Get merit values from the consolidated levels collection
+        const roles = window.levelManager.getAllMeritValuesByRole();
         const levels = {};
         
-        // Process each level document (now using level IDs)
-        snapshot.forEach(doc => {
-            const levelId = doc.id; // e.g., "level_001", "level_002"
-            const levelData = doc.data();
-            
-            // Store the level with level ID as key
-            levels[levelId] = levelData;
-            
-            // For each role in this level, add to roles object
-            Object.entries(levelData).forEach(([roleName, points]) => {
-                if (!roles[roleName]) {
-                    roles[roleName] = {};
-                }
-                roles[roleName][levelId] = points;
-            });
+        // Build levels object for backward compatibility
+        window.levelManager.getActiveLevels().forEach(level => {
+            levels[level.id] = level.meritValues || {};
         });
         
         meritValues = { roles: roles, levels: levels, achievements: {} };

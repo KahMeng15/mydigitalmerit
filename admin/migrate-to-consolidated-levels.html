@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Migrate to Consolidated Levels - Digital Merit System</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="../assets/css/main.css" rel="stylesheet">
+    <style>
+        .migration-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+        .step-card {
+            border-left: 4px solid #007bff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .step-number {
+            background: #007bff;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        .status-success { color: #28a745; }
+        .status-error { color: #dc3545; }
+        .status-warning { color: #ffc107; }
+        .console-output {
+            background: #1a1a1a;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+        .preview-table {
+            font-size: 14px;
+        }
+        .preview-table td, .preview-table th {
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+        }
+        .comparison-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card migration-card mb-4">
+                    <div class="card-body text-center">
+                        <h1 class="card-title mb-0">
+                            <i class="fas fa-database"></i>
+                            Migrate to Consolidated Levels Structure
+                        </h1>
+                        <p class="card-text mt-2 mb-0">
+                            This tool migrates from separate <code>levelMetadata</code> and <code>meritvalue</code> collections 
+                            to a single <code>levels</code> collection with random string IDs.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Migration Steps -->
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="card step-card mb-4" id="step1">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="step-number">1</div>
+                                    <h5 class="mb-0">Analyze Current Data</h5>
+                                </div>
+                                <p>Check existing collections and preview what will be migrated.</p>
+                                <button class="btn btn-primary" onclick="analyzeCurrentData()" id="analyzeBtn">
+                                    <i class="fas fa-search"></i> Analyze Data
+                                </button>
+                                <div id="analysisResult" class="mt-3"></div>
+                            </div>
+                        </div>
+
+                        <div class="card step-card mb-4" id="step2" style="display: none;">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="step-number">2</div>
+                                    <h5 class="mb-0">Preview Migration</h5>
+                                </div>
+                                <p>See how your data will be structured in the new consolidated format.</p>
+                                <div id="previewContainer"></div>
+                                <button class="btn btn-success mt-3" onclick="startMigration()" id="migrateBtn">
+                                    <i class="fas fa-arrow-right"></i> Start Migration
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card step-card mb-4" id="step3" style="display: none;">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="step-number">3</div>
+                                    <h5 class="mb-0">Migration Progress</h5>
+                                </div>
+                                <div class="progress mb-3">
+                                    <div class="progress-bar" role="progressbar" style="width: 0%" id="progressBar"></div>
+                                </div>
+                                <div id="migrationStatus"></div>
+                                <div id="consoleOutput" class="console-output mt-3"></div>
+                            </div>
+                        </div>
+
+                        <div class="card step-card mb-4" id="step4" style="display: none;">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="step-number">4</div>
+                                    <h5 class="mb-0">Verify & Cleanup</h5>
+                                </div>
+                                <p>Verify the migration was successful and optionally clean up old collections.</p>
+                                <div id="verificationResult"></div>
+                                <div class="mt-3">
+                                    <button class="btn btn-warning" onclick="verifyMigration()" id="verifyBtn">
+                                        <i class="fas fa-check-circle"></i> Verify Migration
+                                    </button>
+                                    <button class="btn btn-danger ms-2" onclick="cleanupOldCollections()" id="cleanupBtn" style="display: none;">
+                                        <i class="fas fa-trash"></i> Cleanup Old Collections
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Side Panel -->
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-info-circle"></i> Migration Info
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <h6>What's Changing:</h6>
+                                <ul class="list-unstyled small">
+                                    <li>✅ <strong>Consolidated Structure:</strong> Combines levelMetadata + meritvalue</li>
+                                    <li>✅ <strong>Random IDs:</strong> Changes from level_001 to random strings</li>
+                                    <li>✅ <strong>Better Security:</strong> IDs are harder to guess</li>
+                                    <li>✅ <strong>Simplified Management:</strong> Single collection to manage</li>
+                                </ul>
+
+                                <h6 class="mt-4">Migration Steps:</h6>
+                                <ol class="small">
+                                    <li>Analyze existing data</li>
+                                    <li>Preview new structure</li>
+                                    <li>Migrate to new collection</li>
+                                    <li>Verify and cleanup</li>
+                                </ol>
+
+                                <div class="alert alert-warning small mt-3">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <strong>Backup Recommended:</strong> Export your data before migration.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mt-3">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-cog"></i> Actions
+                                </h6>
+                            </div>
+                            <div class="card-body">
+
+                                <button class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="exportCurrentData()">
+                                    <i class="fas fa-download"></i> Export Current Data
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm w-100 mb-2" onclick="location.reload()">
+                                    <i class="fas fa-refresh"></i> Restart Migration
+                                </button>
+                                <a href="dashboard.html" class="btn btn-outline-success btn-sm w-100">
+                                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    
+    <!-- Font Awesome -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    
+    <!-- Firebase Config (Use same config as main app) -->
+    <script src="../assets/js/firebase-config.js"></script>
+    <script>
+        // Migration tool doesn't need auth, just database access
+        console.log('Firebase initialized successfully for migration tool');
+    </script>
+    
+    <!-- Utils (Minimal) -->
+    <script>
+        // Minimal utils for migration tool
+        // No loading spinner - using button states instead
+        function showLoading() {
+            // Just log that we're processing
+            logMessage('Processing...');
+        }
+        
+        function hideLoading() {
+            // Just log that we're done
+            logMessage('Processing complete');
+        }
+        
+        function showToast(message, type = 'success') {
+            // Simple toast implementation
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type === 'error' ? 'danger' : type} position-fixed`;
+            toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            toast.textContent = message;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 5000);
+        }
+        
+        function sanitizeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+    </script>
+    
+    <!-- Level Manager (Updated) -->
+    <script src="../assets/js/level-manager.js"></script>
+
+    <script>
+        let currentData = {
+            levelMetadata: {},
+            meritValues: {},
+            migrationMap: {}
+        };
+
+        let consoleOutput = [];
+
+        function logMessage(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}`;
+            consoleOutput.push(logMessage);
+            
+            const consoleElement = document.getElementById('consoleOutput');
+            if (consoleElement) {
+                consoleElement.textContent = consoleOutput.join('\n');
+                consoleElement.scrollTop = consoleElement.scrollHeight;
+            }
+            
+            // Use the real console.log
+            window.console.log(logMessage);
+        }
+
+        async function analyzeCurrentData() {
+            try {
+                const analyzeBtn = document.getElementById('analyzeBtn');
+                analyzeBtn.disabled = true;
+                analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+                
+                logMessage('Starting data analysis...');
+
+                // Check if Firebase is initialized
+                if (!window.firestore) {
+                    throw new Error('Firebase not initialized. Please check your configuration.');
+                }
+
+                // Load existing levelMetadata
+                logMessage('Loading levelMetadata collection...');
+                const levelMetadataSnapshot = await firestore.collection('levelMetadata').get();
+                
+                levelMetadataSnapshot.forEach(doc => {
+                    currentData.levelMetadata[doc.id] = { id: doc.id, ...doc.data() };
+                });
+
+                logMessage(`Found ${Object.keys(currentData.levelMetadata).length} level metadata documents`);
+
+                // Load existing meritvalue
+                logMessage('Loading meritvalue collection...');
+                const meritValueSnapshot = await firestore.collection('meritvalue').get();
+                
+                meritValueSnapshot.forEach(doc => {
+                    currentData.meritValues[doc.id] = doc.data();
+                });
+
+                logMessage(`Found ${Object.keys(currentData.meritValues).length} merit value documents`);
+                
+                // Check if we have no data at all
+                if (Object.keys(currentData.levelMetadata).length === 0 && Object.keys(currentData.meritValues).length === 0) {
+                    logMessage('No existing data found - offering to create default levels');
+                    currentData.createDefaults = true;
+                }
+
+                // Generate migration mapping
+                generateMigrationMap();
+
+                displayAnalysisResults();
+                
+                document.getElementById('step2').style.display = 'block';
+                
+                const analyzeBtnComplete = document.getElementById('analyzeBtn');
+                analyzeBtnComplete.innerHTML = '<i class="fas fa-check"></i> Analysis Complete';
+                analyzeBtnComplete.classList.remove('btn-primary');
+                analyzeBtnComplete.classList.add('btn-success');
+                
+                logMessage('Data analysis completed successfully');
+
+            } catch (error) {
+                const analyzeBtnError = document.getElementById('analyzeBtn');
+                analyzeBtnError.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Analysis Failed';
+                analyzeBtnError.classList.remove('btn-primary');
+                analyzeBtnError.classList.add('btn-danger');
+                analyzeBtnError.disabled = false;
+                
+                logMessage(`Error during analysis: ${error.message}`, 'error');
+                showToast('Error analyzing data: ' + error.message, 'error');
+            }
+        }
+
+        function generateMigrationMap() {
+            // Generate new random IDs for each level
+            Object.keys(currentData.levelMetadata).forEach(oldLevelId => {
+                const newLevelId = generateRandomId();
+                currentData.migrationMap[oldLevelId] = newLevelId;
+                logMessage(`${oldLevelId} -> ${newLevelId}`);
+            });
+        }
+
+        async function createDefaultLevels() {
+            try {
+                const createBtn = document.querySelector('button[onclick="createDefaultLevels()"]');
+                createBtn.disabled = true;
+                createBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+                
+                logMessage('Creating default levels with consolidated structure...');
+                
+                // Use the level manager to create default levels
+                await window.levelManager.createDefaultLevels();
+                
+                logMessage('Default levels created successfully');
+                showToast('Default levels created successfully!', 'success');
+                
+                // Update button
+                createBtn.innerHTML = '<i class="fas fa-check"></i> Default Levels Created';
+                createBtn.classList.remove('btn-primary');
+                createBtn.classList.add('btn-success');
+                
+                // Show step 4 for verification
+                document.getElementById('step4').style.display = 'block';
+                
+            } catch (error) {
+                logMessage(`Error creating default levels: ${error.message}`, 'error');
+                showToast('Error creating default levels: ' + error.message, 'error');
+                
+                const createBtn = document.querySelector('button[onclick="createDefaultLevels()"]');
+                createBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Creation Failed';
+                createBtn.classList.remove('btn-primary');
+                createBtn.classList.add('btn-danger');
+                createBtn.disabled = false;
+            }
+        }
+
+        function generateRandomId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        function displayAnalysisResults() {
+            const container = document.getElementById('analysisResult');
+            
+            if (currentData.createDefaults) {
+                let html = `
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-exclamation-triangle"></i> No Existing Data Found</h6>
+                        <p class="mb-2">No levelMetadata or meritvalue collections found.</p>
+                        <p class="mb-3">Would you like to create default levels with the new consolidated structure?</p>
+                        <button class="btn btn-primary" onclick="createDefaultLevels()">
+                            <i class="fas fa-plus"></i> Create Default Levels
+                        </button>
+                    </div>
+                `;
+                container.innerHTML = html;
+            } else {
+                let html = `
+                    <div class="alert alert-success">
+                        <h6><i class="fas fa-check-circle"></i> Analysis Complete</h6>
+                        <p class="mb-2">Found data to migrate:</p>
+                        <ul class="mb-0">
+                            <li><strong>Level Metadata:</strong> ${Object.keys(currentData.levelMetadata).length} documents</li>
+                            <li><strong>Merit Values:</strong> ${Object.keys(currentData.meritValues).length} documents</li>
+                            <li><strong>New IDs Generated:</strong> ${Object.keys(currentData.migrationMap).length}</li>
+                        </ul>
+                    </div>
+                `;
+                container.innerHTML = html;
+                displayMigrationPreview();
+            }
+        }
+
+        function displayMigrationPreview() {
+            const container = document.getElementById('previewContainer');
+            
+            if (currentData.createDefaults) {
+                // Don't show preview for default creation
+                return;
+            }
+            
+            let html = '<h6>Migration Preview:</h6>';
+            html += '<div class="comparison-container">';
+            
+            // Before (Old Structure)
+            html += '<div><h6 class="text-primary">Before (Separated Collections):</h6>';
+            html += '<div class="border rounded p-3 mb-3" style="background: #f8f9fa;">';
+            html += '<strong>levelMetadata Collection:</strong><br>';
+            if (Object.keys(currentData.levelMetadata).length === 0) {
+                html += '<em class="text-muted">No documents found</em><br>';
+            } else {
+                Object.entries(currentData.levelMetadata).forEach(([id, data]) => {
+                    html += `<code>${id}</code>: ${data.name}<br>`;
+                });
+            }
+            html += '<br><strong>meritvalue Collection:</strong><br>';
+            if (Object.keys(currentData.meritValues).length === 0) {
+                html += '<em class="text-muted">No documents found</em><br>';
+            } else {
+                Object.keys(currentData.meritValues).forEach(id => {
+                    html += `<code>${id}</code>: Merit values<br>`;
+                });
+            }
+            html += '</div></div>';
+
+            // After (New Structure)
+            html += '<div><h6 class="text-success">After (Consolidated Collection):</h6>';
+            html += '<div class="border rounded p-3 mb-3" style="background: #f0f8f0;">';
+            html += '<strong>levels Collection:</strong><br>';
+            if (Object.keys(currentData.migrationMap).length === 0) {
+                html += '<em class="text-muted">No migration needed - no data found</em><br>';
+            } else {
+                Object.entries(currentData.migrationMap).forEach(([oldId, newId]) => {
+                    const metadata = currentData.levelMetadata[oldId];
+                    const meritValues = currentData.meritValues[oldId];
+                    const roleCount = meritValues ? Object.keys(meritValues).length : 0;
+                    html += `<code>${newId}</code>: ${metadata?.name} (${roleCount} roles)<br>`;
+                });
+            }
+            html += '</div></div>';
+
+            html += '</div>';
+
+            container.innerHTML = html;
+        }
+
+        async function startMigration() {
+            try {
+                const migrateBtn = document.getElementById('migrateBtn');
+                migrateBtn.disabled = true;
+                migrateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Migrating...';
+                
+                logMessage('Starting migration process...');
+                document.getElementById('step3').style.display = 'block';
+
+                // Use the level manager migration function
+                await window.levelManager.migrateToConsolidatedStructure();
+
+                updateProgress(100);
+                logMessage('Migration completed successfully!');
+                
+                document.getElementById('step4').style.display = 'block';
+                
+                const migrateBtnComplete = document.getElementById('migrateBtn');
+                migrateBtnComplete.innerHTML = '<i class="fas fa-check"></i> Migration Complete';
+                migrateBtnComplete.classList.remove('btn-success');
+                migrateBtnComplete.classList.add('btn-success');
+
+            } catch (error) {
+                const migrateBtnError = document.getElementById('migrateBtn');
+                migrateBtnError.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Migration Failed';
+                migrateBtnError.classList.remove('btn-success');
+                migrateBtnError.classList.add('btn-danger');
+                migrateBtnError.disabled = false;
+                
+                logMessage(`Migration failed: ${error.message}`, 'error');
+                showToast('Migration failed: ' + error.message, 'error');
+            }
+        }
+
+        function updateProgress(percent) {
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = percent + '%';
+            progressBar.textContent = percent + '%';
+        }
+
+        async function verifyMigration() {
+            try {
+                logMessage('Verifying migration...');
+                
+                // Check new levels collection
+                const levelsSnapshot = await firestore.collection('levels').get();
+                const newLevelsCount = levelsSnapshot.size;
+
+                // Check old collections still exist
+                const oldMetadataSnapshot = await firestore.collection('levelMetadata').get();
+                const oldMeritSnapshot = await firestore.collection('meritvalue').get();
+
+                const verificationHtml = `
+                    <div class="alert alert-${newLevelsCount > 0 ? 'success' : 'danger'}">
+                        <h6>Verification Results:</h6>
+                        <ul class="mb-0">
+                            <li><strong>New levels collection:</strong> ${newLevelsCount} documents ${newLevelsCount > 0 ? '✅' : '❌'}</li>
+                            <li><strong>Old levelMetadata:</strong> ${oldMetadataSnapshot.size} documents (should be ${Object.keys(currentData.levelMetadata).length})</li>
+                            <li><strong>Old meritvalue:</strong> ${oldMeritSnapshot.size} documents (should be ${Object.keys(currentData.meritValues).length})</li>
+                        </ul>
+                    </div>
+                `;
+
+                document.getElementById('verificationResult').innerHTML = verificationHtml;
+
+                if (newLevelsCount > 0) {
+                    document.getElementById('cleanupBtn').style.display = 'inline-block';
+                    logMessage('Migration verification passed - new data found');
+                } else {
+                    logMessage('Migration verification failed - no new data found', 'error');
+                }
+
+            } catch (error) {
+                logMessage(`Verification failed: ${error.message}`, 'error');
+                showToast('Verification failed: ' + error.message, 'error');
+            }
+        }
+
+        async function cleanupOldCollections() {
+            const confirmed = confirm(
+                'This will permanently delete the old levelMetadata and meritvalue collections. ' +
+                'Make sure the migration was successful and you have exported your data. Continue?'
+            );
+
+            if (!confirmed) return;
+
+            try {
+                const cleanupBtn = document.getElementById('cleanupBtn');
+                cleanupBtn.disabled = true;
+                cleanupBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cleaning up...';
+                
+                logMessage('Cleaning up old collections...');
+
+                const batch = firestore.batch();
+
+                // Delete old levelMetadata documents
+                const levelMetadataSnapshot = await firestore.collection('levelMetadata').get();
+                levelMetadataSnapshot.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+
+                // Delete old meritvalue documents  
+                const meritValueSnapshot = await firestore.collection('meritvalue').get();
+                meritValueSnapshot.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+
+                await batch.commit();
+
+                const cleanupBtnComplete = document.getElementById('cleanupBtn');
+                cleanupBtnComplete.innerHTML = '<i class="fas fa-check"></i> Cleanup Complete';
+                cleanupBtnComplete.classList.remove('btn-danger');
+                cleanupBtnComplete.classList.add('btn-success');
+                cleanupBtnComplete.disabled = true;
+                
+                logMessage('Old collections cleaned up successfully');
+                showToast('Migration completed! Old collections have been removed.', 'success');
+
+            } catch (error) {
+                const cleanupBtnError = document.getElementById('cleanupBtn');
+                cleanupBtnError.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Cleanup Failed';
+                cleanupBtnError.disabled = false;
+                
+                logMessage(`Cleanup failed: ${error.message}`, 'error');
+                showToast('Cleanup failed: ' + error.message, 'error');
+            }
+        }
+
+        async function exportCurrentData() {
+            try {
+                const exportData = {
+                    timestamp: new Date().toISOString(),
+                    levelMetadata: currentData.levelMetadata,
+                    meritValues: currentData.meritValues,
+                    migrationMap: currentData.migrationMap
+                };
+
+                const dataStr = JSON.stringify(exportData, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `levels-migration-backup-${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+
+                showToast('Data exported successfully', 'success');
+            } catch (error) {
+                showToast('Export failed: ' + error.message, 'error');
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            logMessage('Migration tool ready');
+            logMessage('Click "Analyze Data" to start the migration process');
+        });
+    </script>
+</body>
+</html>

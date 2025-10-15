@@ -332,26 +332,16 @@ async function loadMeritTypes() {
         // Ensure level metadata is loaded first
         await window.levelManager.ensureLevelMetadata();
         
-        // Load merit values
-        const meritValuesSnapshot = await firestore.collection('meritvalue').get();
-        let meritValues = { roles: {}, levels: {} };
+        // Load merit values from consolidated levels collection
+        const roles = window.levelManager.getAllMeritValuesByRole();
+        const levels = {};
         
-        // Process each level document (now using level IDs)
-        meritValuesSnapshot.forEach(doc => {
-            const levelId = doc.id; // e.g., "level_001", "level_002"
-            const levelData = doc.data();
-            
-            // Store the level with level ID as key
-            meritValues.levels[levelId] = levelData;
-            
-            // For each role in this level, add to roles object
-            Object.entries(levelData).forEach(([roleName, points]) => {
-                if (!meritValues.roles[roleName]) {
-                    meritValues.roles[roleName] = {};
-                }
-                meritValues.roles[roleName][levelId] = points;
-            });
+        // Build levels object for backward compatibility
+        window.levelManager.getActiveLevels().forEach(level => {
+            levels[level.id] = level.meritValues || {};
         });
+        
+        const meritValues = { roles: roles, levels: levels };
         
         // Display merit types grid
         displayMeritTypes(meritValues);
