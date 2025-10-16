@@ -37,43 +37,80 @@
             <!-- Configuration Tabs -->
             <div class="mb-6">
                 <div class="flex border-b border-gray-200">
-                    <button class="tab-btn active" data-tab="roles">Roles</button>
-                    <button class="tab-btn" data-tab="achievements">Achievements</button>
+                    <button class="tab-btn active" data-tab="event-merits">Event Merits</button>
+                    <button class="tab-btn" data-tab="competition-merits">Competition Merits</button>
+                    <button class="tab-btn" data-tab="migration">Migration Tools</button>
                     <button class="tab-btn" data-tab="import-export">Import/Export</button>
                 </div>
             </div>
 
-            <!-- Roles Configuration -->
-            <div id="rolesTab" class="tab-content active">
-                <div class="card">
+            <!-- Event Merits Configuration -->
+            <div id="event-meritsTab" class="tab-content active">
+                <!-- Committee Member Section -->
+                <div class="card mb-6">
                     <div class="card-header flex justify-between items-center">
-                        <h3 class="card-title">Role Merit Points</h3>
-                        <button id="addRoleBtn" class="btn btn-primary btn-sm">
+                        <h3 class="card-title">Committee Member Roles</h3>
+                        <button id="addCommitteeRoleBtn" class="btn btn-primary btn-sm">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                             </svg>
-                            Add Role
+                            Add Committee Role
                         </button>
                     </div>
                     <div class="card-body">
                         <div class="table-container">
                             <table class="table">
                                 <thead>
-                                    <tr id="rolesTableHeader">
-                                        <th>Role</th>
-                                        <th>College (Block/Club)</th>
-                                        <th>College (CRC)</th>
-                                        <th>Student Rep Council</th>
+                                    <tr id="committeeTableHeader">
+                                        <th>Role (BM)</th>
+                                        <th>Role (EN)</th>
+                                        <th>College</th>
+                                        <th>Block</th>
+                                        <th>University</th>
                                         <th>National</th>
                                         <th>International</th>
-                                        <th>University Club</th>
-                                        <th>Faculty Club</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody id="rolesTableBody">
+                                <tbody id="committeeTableBody">
                                     <tr>
-                                        <td colspan="9" class="text-center text-secondary">Loading roles...</td>
+                                        <td colspan="11" class="text-center text-secondary">Loading committee roles...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Non Committee Section -->
+                <div class="card">
+                    <div class="card-header flex justify-between items-center">
+                        <h3 class="card-title">Non Committee Roles</h3>
+                        <button id="addNonCommitteeRoleBtn" class="btn btn-primary btn-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                            </svg>
+                            Add Non Committee Role
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr id="nonCommitteeTableHeader">
+                                        <th>Role (BM)</th>
+                                        <th>Role (EN)</th>
+                                        <th>College</th>
+                                        <th>Block</th>
+                                        <th>University</th>
+                                        <th>National</th>
+                                        <th>International</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="nonCommitteeTableBody">
+                                    <tr>
+                                        <td colspan="11" class="text-center text-secondary">Loading non committee roles...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -82,16 +119,16 @@
                 </div>
             </div>
 
-            <!-- Achievements Configuration -->
-            <div id="achievementsTab" class="tab-content d-none">
+            <!-- Competition Merits Configuration -->
+            <div id="competition-meritsTab" class="tab-content d-none">
                 <div class="card">
                     <div class="card-header flex justify-between items-center">
-                        <h3 class="card-title">Achievement Bonus Points</h3>
-                        <button id="addAchievementBtn" class="btn btn-primary btn-sm">
+                        <h3 class="card-title">Competition Achievement Points</h3>
+                        <button id="addCompetitionBtn" class="btn btn-primary btn-sm">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                             </svg>
-                            Add Achievement
+                            Add Competition Achievement
                         </button>
                     </div>
                     <div class="card-body">
@@ -99,18 +136,22 @@
                             <table class="table">
                                 <thead>
                                     <tr>
-                                        <th>Achievement</th>
-                                        <th>University</th>
-                                        <th>Faculty</th>
+                                        <th>Achievement (BM)</th>
+                                        <th>Achievement (EN)</th>
                                         <th>College</th>
-                                        <th>Club</th>
-                                        <th>External</th>
+                                        <th>Block</th>
+                                        <th>Faculty</th>
+                                        <th>University</th>
+                                        <th>Inter-Univ</th>
+                                        <th>State</th>
+                                        <th>National</th>
+                                        <th>International</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody id="achievementsTableBody">
+                                <tbody id="competitionTableBody">
                                     <tr>
-                                        <td colspan="7" class="text-center text-secondary">Loading achievements...</td>
+                                        <td colspan="9" class="text-center text-secondary">Loading competition achievements...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -118,6 +159,44 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Migration Tools -->
+            <div id="migrationTab" class="tab-content d-none">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Migration Tools</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-6">
+                            <h4 class="font-semibold mb-3">Data Migration</h4>
+                            <p class="text-secondary mb-4">Migrate existing merit values to the new structure with separate collections for event merits and competition merits.</p>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                <div class="p-4 border rounded-lg">
+                                    <h5 class="font-medium mb-2">Create Default Event Merit Values</h5>
+                                    <p class="text-sm text-secondary mb-3">Initialize the new eventMeritValues collection with predefined committee and non-committee roles.</p>
+                                    <button id="createDefaultEventMeritsBtn" class="btn btn-primary btn-sm">Create Default Event Merits</button>
+                                </div>
+                                
+                                <div class="p-4 border rounded-lg">
+                                    <h5 class="font-medium mb-2">Create Default Competition Merit Values</h5>
+                                    <p class="text-sm text-secondary mb-3">Initialize the new competitionMeritValues collection with competition-specific achievements.</p>
+                                    <button id="createDefaultCompetitionMeritsBtn" class="btn btn-success btn-sm">Create Default Competition Merits</button>
+                                </div>
+                            </div>
+                            
+                            <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <h5 class="font-medium text-yellow-800 mb-2">⚠️ Migration Status</h5>
+                                <p class="text-sm text-yellow-700 mb-3">Check the current migration status and view what collections exist.</p>
+                                <button id="checkMigrationStatusBtn" class="btn btn-outline btn-sm">Check Status</button>
+                                <div id="migrationStatus" class="mt-3 text-sm"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
 
             <!-- Import/Export Configuration -->
             <div id="importExportTab" class="tab-content d-none">
@@ -184,110 +263,128 @@
         </div>
     </div>
 
-    <!-- Add/Edit Role Modal -->
-    <div id="roleModal" class="modal d-none">
-        <div class="modal-overlay" onclick="closeRoleModal()"></div>
+    <!-- Add/Edit Event Merit Role Modal -->
+    <div id="eventMeritModal" class="modal d-none">
+        <div class="modal-overlay" onclick="closeEventMeritModal()"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title" id="roleModalTitle">Add Role</h3>
-                <button onclick="closeRoleModal()" class="btn btn-outline btn-sm">×</button>
+                <h3 class="modal-title" id="eventMeritModalTitle">Add Event Merit Role</h3>
+                <button onclick="closeEventMeritModal()" class="btn btn-outline btn-sm">×</button>
             </div>
             <div class="modal-body">
-                <form id="roleForm">
-                    <div class="form-group">
-                        <label for="roleName" class="form-label">Role Name *</label>
-                        <input type="text" id="roleName" class="form-control" required 
-                               placeholder="e.g., Peserta, AJK, Penonton, Sukarelawanan">
+                <form id="eventMeritForm">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="form-group">
+                            <label for="eventRoleNameBM" class="form-label">Role Name (BM) *</label>
+                            <input type="text" id="eventRoleNameBM" class="form-control" required 
+                                   placeholder="e.g., Pengarah, Peserta">
+                        </div>
+                        <div class="form-group">
+                            <label for="eventRoleNameEN" class="form-label">Role Name (EN) *</label>
+                            <input type="text" id="eventRoleNameEN" class="form-control" required 
+                                   placeholder="e.g., Director, Participant">
+                        </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="form-group mb-4">
+                        <label for="eventRoleCategory" class="form-label">Category *</label>
+                        <select id="eventRoleCategory" class="form-control" required>
+                            <option value="">Select category...</option>
+                            <option value="committee">Committee Member</option>
+                            <option value="non-committee">Non Committee</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
                         <div class="form-group">
-                            <label for="roleCollegeBlock" class="form-label">College (Block/Club)</label>
-                            <input type="number" id="roleCollegeBlock" class="form-control" min="0" placeholder="0">
+                            <label for="eventRoleCollege" class="form-label">College</label>
+                            <input type="number" id="eventRoleCollege" class="form-control" min="0" placeholder="0">
                         </div>
                         <div class="form-group">
-                            <label for="roleCollegeCRC" class="form-label">College (CRC)</label>
-                            <input type="number" id="roleCollegeCRC" class="form-control" min="0" placeholder="0">
+                            <label for="eventRoleBlock" class="form-label">Block</label>
+                            <input type="number" id="eventRoleBlock" class="form-control" min="0" placeholder="0">
                         </div>
                         <div class="form-group">
-                            <label for="roleStudentRep" class="form-label">Student Rep Council</label>
-                            <input type="number" id="roleStudentRep" class="form-control" min="0" placeholder="0">
+                            <label for="eventRoleUniversity" class="form-label">University</label>
+                            <input type="number" id="eventRoleUniversity" class="form-control" min="0" placeholder="0">
                         </div>
                         <div class="form-group">
-                            <label for="roleNational" class="form-label">National</label>
-                            <input type="number" id="roleNational" class="form-control" min="0" placeholder="0">
+                            <label for="eventRoleNational" class="form-label">National</label>
+                            <input type="number" id="eventRoleNational" class="form-control" min="0" placeholder="0">
                         </div>
                         <div class="form-group">
-                            <label for="roleInternational" class="form-label">International</label>
-                            <input type="number" id="roleInternational" class="form-control" min="0" placeholder="0">
-                        </div>
-                        <div class="form-group">
-                            <label for="roleUniversityClub" class="form-label">University Club</label>
-                            <input type="number" id="roleUniversityClub" class="form-control" min="0" placeholder="0">
-                        </div>
-                        <div class="form-group">
-                            <label for="roleFacultyClub" class="form-label">Faculty Club</label>
-                            <input type="number" id="roleFacultyClub" class="form-control" min="0" placeholder="0">
+                            <label for="eventRoleInternational" class="form-label">International</label>
+                            <input type="number" id="eventRoleInternational" class="form-control" min="0" placeholder="0">
                         </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button onclick="closeRoleModal()" class="btn btn-outline">Cancel</button>
-                <button id="saveRoleBtn" class="btn btn-primary">Save Role</button>
+                <button onclick="closeEventMeritModal()" class="btn btn-outline">Cancel</button>
+                <button id="saveEventMeritBtn" class="btn btn-primary">Save Role</button>
             </div>
         </div>
     </div>
 
-    <!-- Add/Edit Achievement Modal -->
-    <div id="achievementModal" class="modal d-none">
-        <div class="modal-overlay" onclick="closeAchievementModal()"></div>
+    <!-- Add/Edit Competition Merit Modal -->
+    <div id="competitionMeritModal" class="modal d-none">
+        <div class="modal-overlay" onclick="closeCompetitionMeritModal()"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title" id="achievementModalTitle">Add Achievement</h3>
-                <button onclick="closeAchievementModal()" class="btn btn-outline btn-sm">×</button>
+                <h3 class="modal-title" id="competitionMeritModalTitle">Add Competition Achievement</h3>
+                <button onclick="closeCompetitionMeritModal()" class="btn btn-outline btn-sm">×</button>
             </div>
             <div class="modal-body">
-                <form id="achievementForm">
-                    <div class="form-group">
-                        <label for="achievementName" class="form-label">Achievement Name *</label>
-                        <input type="text" id="achievementName" class="form-control" required 
-                               placeholder="e.g., Champion, Second Place, Third Place">
+                <form id="competitionMeritForm">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="form-group">
+                            <label for="competitionNameBM" class="form-label">Achievement Name (BM) *</label>
+                            <input type="text" id="competitionNameBM" class="form-control" required 
+                                   placeholder="e.g., Johan, Naib Johan">
+                        </div>
+                        <div class="form-group">
+                            <label for="competitionNameEN" class="form-label">Achievement Name (EN) *</label>
+                            <input type="text" id="competitionNameEN" class="form-control" required 
+                                   placeholder="e.g., Champion, Runner-up">
+                        </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-4 gap-3">
                         <div class="form-group">
-                            <label for="achievementCollegeBlock" class="form-label">College (Block/Club)</label>
-                            <input type="number" id="achievementCollegeBlock" class="form-control" min="0" placeholder="0">
+                            <label for="competitionCollege" class="form-label">College</label>
+                            <input type="number" id="competitionCollege" class="form-control" min="0" placeholder="0">
                         </div>
                         <div class="form-group">
-                            <label for="achievementCollegeCRC" class="form-label">College (CRC)</label>
-                            <input type="number" id="achievementCollegeCRC" class="form-control" min="0" placeholder="0">
+                            <label for="competitionBlock" class="form-label">Block</label>
+                            <input type="number" id="competitionBlock" class="form-control" min="0" placeholder="0">
                         </div>
                         <div class="form-group">
-                            <label for="achievementStudentRep" class="form-label">Student Rep Council</label>
-                            <input type="number" id="achievementStudentRep" class="form-control" min="0" placeholder="0">
+                            <label for="competitionFaculty" class="form-label">Faculty</label>
+                            <input type="number" id="competitionFaculty" class="form-control" min="0" placeholder="0">
                         </div>
                         <div class="form-group">
-                            <label for="achievementNational" class="form-label">National</label>
-                            <input type="number" id="achievementNational" class="form-control" min="0" placeholder="0">
+                            <label for="competitionUniversity" class="form-label">University</label>
+                            <input type="number" id="competitionUniversity" class="form-control" min="0" placeholder="0">
                         </div>
                         <div class="form-group">
-                            <label for="achievementInternational" class="form-label">International</label>
-                            <input type="number" id="achievementInternational" class="form-control" min="0" placeholder="0">
+                            <label for="competitionInteruniversity" class="form-label">Inter-University</label>
+                            <input type="number" id="competitionInteruniversity" class="form-control" min="0" placeholder="0">
                         </div>
                         <div class="form-group">
-                            <label for="achievementUniversityClub" class="form-label">University Club</label>
-                            <input type="number" id="achievementUniversityClub" class="form-control" min="0" placeholder="0">
+                            <label for="competitionState" class="form-label">State</label>
+                            <input type="number" id="competitionState" class="form-control" min="0" placeholder="0">
                         </div>
                         <div class="form-group">
-                            <label for="achievementFacultyClub" class="form-label">Faculty Club</label>
-                            <input type="number" id="achievementFacultyClub" class="form-control" min="0" placeholder="0">
+                            <label for="competitionNational" class="form-label">National</label>
+                            <input type="number" id="competitionNational" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="competitionInternational" class="form-label">International</label>
+                            <input type="number" id="competitionInternational" class="form-control" min="0" placeholder="0">
                         </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button onclick="closeAchievementModal()" class="btn btn-outline">Cancel</button>
-                <button id="saveAchievementBtn" class="btn btn-primary">Save Achievement</button>
+                <button onclick="closeCompetitionMeritModal()" class="btn btn-outline">Cancel</button>
+                <button id="saveCompetitionMeritBtn" class="btn btn-primary">Save Achievement</button>
             </div>
         </div>
     </div>
@@ -309,7 +406,7 @@
     <!-- App Scripts -->
     <script src="../assets/js/firebase-config.js"></script>
     <script src="../assets/js/utils.js"></script>
-    <script src="../assets/js/merit-values.js"></script>
+    <script src="../assets/js/merit-values-new.js"></script>
 
     <style>
         .tab-btn {
