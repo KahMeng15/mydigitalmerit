@@ -365,13 +365,9 @@ function autoSelectCompetitionLevel(eventLevelId) {
         const eventLevelName = (eventLevel.nameEN || eventLevel.nameBM || eventLevel.key || '').toLowerCase().trim();
         const compLevelName = (compLevel.nameEN || compLevel.nameBM || compLevel.key || '').toLowerCase().trim();
         
-        console.log(`Comparing: "${eventLevelName}" vs "${compLevelName}"`);
-        
         // Match by key first (most reliable)
         if (eventLevel.key && compLevel.key) {
-            const keyMatch = eventLevel.key.toLowerCase() === compLevel.key.toLowerCase();
-            if (keyMatch) {
-                console.log(`Key match: ${eventLevel.key} = ${compLevel.key}`);
+            if (eventLevel.key.toLowerCase() === compLevel.key.toLowerCase()) {
                 return true;
             }
         }
@@ -381,7 +377,6 @@ function autoSelectCompetitionLevel(eventLevelId) {
         const normalizedCompName = compLevelName.replace(/[\/\-\s]+/g, ' ').trim();
         
         if (normalizedEventName === normalizedCompName) {
-            console.log(`Exact match: "${normalizedEventName}" = "${normalizedCompName}"`);
             return true;
         }
         
@@ -412,21 +407,14 @@ function autoSelectCompetitionLevel(eventLevelId) {
              !compLevelName.includes('inter'))
         );
         
-        if (isMatch) {
-            console.log(`Pattern match: "${eventLevelName}" matches "${compLevelName}"`);
-        }
-        
         return isMatch;
     });
     
     if (matchingCompLevel) {
         competitionSelect.value = matchingCompLevel.id;
-        console.log(`✅ Auto-selected competition level: "${matchingCompLevel.nameEN || matchingCompLevel.nameBM}" for event level: "${eventLevel.nameEN || eventLevel.nameBM}"`);
     } else {
         // No matching competition level found, set to "None"
         competitionSelect.value = '';
-        console.log(`❌ No matching competition level found for event level: "${eventLevel.nameEN || eventLevel.nameBM}"`);
-        console.log('Available competition levels:', currentLevelConfigs.competitionLevels.map(cl => cl.nameEN || cl.nameBM));
     }
 }
 
