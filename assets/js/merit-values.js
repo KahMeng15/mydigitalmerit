@@ -149,9 +149,33 @@ async function getNextSortOrder(category, subcategory = null) {
             });
         }
         
-        return maxSortOrder + 1;
+        // Start from 1 instead of 0
+        return Math.max(maxSortOrder + 1, 1);
     } catch (error) {
         console.error('Error getting next sort order:', error);
+        return 999; // Fallback value
+    }
+}
+
+// Get the next available sort order for levels
+async function getNextLevelSortOrder(levelType) {
+    try {
+        let maxSortOrder = 0;
+        
+        const levels = levelType === 'event' ? 
+            currentLevelConfigs.eventLevels : 
+            currentLevelConfigs.competitionLevels;
+        
+        levels.forEach(level => {
+            if (level.sortOrder !== undefined && level.sortOrder > maxSortOrder) {
+                maxSortOrder = level.sortOrder;
+            }
+        });
+        
+        // Start from 1 instead of 0
+        return Math.max(maxSortOrder + 1, 1);
+    } catch (error) {
+        console.error('Error getting next level sort order:', error);
         return 999; // Fallback value
     }
 }
@@ -198,8 +222,7 @@ async function loadLevelConfigurations() {
             // Load from hierarchical structure
             await loadLevelConfigurationsHierarchical();
         } else {
-            // Load from legacy levelConfigurations collection
-            await loadLevelConfigurationsLegacy();
+            console.warn('No level metadata found - please create levels first');
         }
 
         console.log('Loaded level configurations:', {
@@ -248,7 +271,7 @@ async function loadLevelConfigurationsHierarchical() {
         });
         
         // Sort by sortOrder after loading
-        currentLevelConfigs.eventLevels.sort((a, b) => (a.sortOrder || 999) - (b.sortOrder || 999));
+        currentLevelConfigs.eventLevels.sort((a, b) => (Number(a.sortOrder) || 999) - (Number(b.sortOrder) || 999));
         
         // Load competition levels from hierarchical structure
         const competitionLevelsSnapshot = await firestore.collection('meritValues')
@@ -267,7 +290,7 @@ async function loadLevelConfigurationsHierarchical() {
         });
         
         // Sort by sortOrder after loading
-        currentLevelConfigs.competitionLevels.sort((a, b) => (a.sortOrder || 999) - (b.sortOrder || 999));
+        currentLevelConfigs.competitionLevels.sort((a, b) => (Number(a.sortOrder) || 999) - (Number(b.sortOrder) || 999));
         
         console.log('Loaded hierarchical level configurations');
         
@@ -277,43 +300,7 @@ async function loadLevelConfigurationsHierarchical() {
     }
 }
 
-async function loadLevelConfigurationsLegacy() {
-    try {
-        const firestore = window.firestore;
-        
-        // Initialize if not exists
-        if (!currentLevelConfigs) {
-            currentLevelConfigs = { eventLevels: [], competitionLevels: [] };
-        }
-        
-        const snapshot = await firestore.collection('levelConfigurations').get();
-        
-        if (snapshot.empty) {
-            // Create default configurations if none exist
-            await createDefaultLevelConfigurations();
-            return;
-        }
 
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            if (doc.id === 'eventLevels') {
-                currentLevelConfigs.eventLevels = data.levels || [];
-                // Sort by sortOrder to maintain proper display order
-                currentLevelConfigs.eventLevels.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-            } else if (doc.id === 'competitionLevels') {
-                currentLevelConfigs.competitionLevels = data.levels || [];
-                // Sort by sortOrder to maintain proper display order
-                currentLevelConfigs.competitionLevels.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-            }
-        });
-
-        console.log('Loaded legacy level configurations');
-        
-    } catch (error) {
-        console.error('Error loading legacy level configurations:', error);
-        throw error;
-    }
-}
 
 async function createDefaultLevelConfigurations() {
     try {
@@ -492,55 +479,16 @@ async function loadMeritValuesHierarchical() {
 
     } catch (error) {
         console.error('Error loading hierarchical merit values:', error);
-        // Check if we need to migrate from old structure
-        return await loadLegacyMeritValues();
-    }
-}
-
-async function loadLegacyMeritValues() {
-    try {
-        const firestore = window.firestore;
-        const result = {
+        // Return empty structure if hierarchical data fails to load
+        return {
             committee: {},
             nonCommittee: {},
             competitions: {}
         };
-
-        // Try to load from legacy eventMeritValues collection
-        const eventSnapshot = await firestore.collection('eventMeritValues').get();
-        
-        eventSnapshot.forEach(doc => {
-            const data = doc.data();
-            if (doc.id === 'committee') {
-                result.committee = data || {};
-            } else if (doc.id === 'nonCommittee') {
-                result.nonCommittee = data || {};
-            }
-        });
-
-        // Try to load from legacy competitionMeritValues collection
-        const competitionSnapshot = await firestore.collection('competitionMeritValues').get();
-        
-        competitionSnapshot.forEach(doc => {
-            result.competitions[doc.id] = doc.data();
-        });
-
-        console.log('Loaded legacy merit data:', result);
-        
-        // If we found legacy data, offer to migrate
-        const hasLegacyData = Object.keys(result.committee).length > 0 || 
-                             Object.keys(result.nonCommittee).length > 0 || 
-                             Object.keys(result.competitions).length > 0;
-        
-        // Legacy data still exists but hierarchical system is now default
-
-        return result;
-
-    } catch (error) {
-        console.error('Error loading legacy merit values:', error);
-        throw error;
     }
 }
+
+
 
 async function initializeHierarchicalStructure() {
     try {
@@ -575,8 +523,8 @@ async function initializeLevelMetadata() {
         
         // Ensure level configurations are loaded
         if (!currentLevelConfigs || !currentLevelConfigs.eventLevels || !currentLevelConfigs.competitionLevels) {
-            console.log('Level configurations not loaded, loading them first...');
-            await loadLevelConfigurationsLegacy();
+            console.warn('Level configurations not loaded - hierarchical system is required');
+            return;
         }
         
         const batch = firestore.batch();
@@ -659,16 +607,11 @@ function displayEventMeritRoles() {
 // UI DISPLAY FUNCTIONS
 // ============================================================================
 
-// Helper function to get merit value for a level (supports both legacy and hierarchical formats)
+// Helper function to get merit value for a level (hierarchical format only)
 function getMeritValueForLevel(roleData, level) {
-    // New hierarchical format: levelValues[levelId]
+    // Hierarchical format: levelValues[levelId]
     if (roleData.levelValues && roleData.levelValues[level.id] !== undefined) {
         return roleData.levelValues[level.id];
-    }
-    
-    // Legacy format: direct level key
-    if (roleData[level.key] !== undefined) {
-        return roleData[level.key];
     }
     
     return 0;
@@ -733,24 +676,14 @@ function updateEventTableHeaders() {
     }
     
     // Add drag and drop listeners to level headers
-    addLevelHeaderDragListeners();
+    addLevelHeaderDragListeners(null, 'event');
 }
 
-// Helper function to save merit data in the appropriate format (hierarchical or legacy)
+// Helper function to save merit data to hierarchical structure
 async function saveMeritData(data, type, category = null) {
     try {
-        const firestore = window.firestore;
-        
-        // Check if hierarchical structure exists
-        const roleMetadataDoc = await firestore.collection('meritValues').doc('roleMetadata').get();
-        
-        if (roleMetadataDoc.exists) {
-            // Save to hierarchical structure
-            await saveToHierarchicalStructure(data, type, category);
-        } else {
-            // Save to legacy structure
-            await saveToLegacyStructure(data, type, category);
-        }
+        // Always use hierarchical structure - legacy support removed
+        await saveToHierarchicalStructure(data, type, category);
         
     } catch (error) {
         console.error('Error saving merit data:', error);
@@ -776,18 +709,7 @@ async function saveToHierarchicalStructure(data, type, category) {
     }
 }
 
-async function saveToLegacyStructure(data, type, category) {
-    const firestore = window.firestore;
-    
-    if (type === 'event') {
-        const collectionPath = category === 'committee' ? 'committee' : 'nonCommittee';
-        await firestore.collection('eventMeritValues').doc(collectionPath).set({
-            [data.id]: data
-        }, { merge: true });
-    } else if (type === 'competition') {
-        await firestore.collection('competitionMeritValues').doc(data.id).set(data);
-    }
-}
+
 
 // Helper function to create merit data in the appropriate format
 function createMeritDataObject(formData, type) {
@@ -799,28 +721,16 @@ function createMeritDataObject(formData, type) {
         category: formData.category || type
     };
     
-    // Check if hierarchical structure should be used
-    const useHierarchical = document.querySelector('#useHierarchicalStructure')?.checked;
+    // Always use hierarchical format: levelValues object with levelId keys
+    data.levelValues = {};
+    const levelConfigs = type === 'competition' ? currentLevelConfigs.competitionLevels : currentLevelConfigs.eventLevels;
     
-    if (useHierarchical) {
-        // New hierarchical format: levelValues object with levelId keys
-        data.levelValues = {};
-        const levelConfigs = type === 'competition' ? currentLevelConfigs.competitionLevels : currentLevelConfigs.eventLevels;
-        
-        levelConfigs.forEach(level => {
-            const value = formData.levelValues && formData.levelValues[level.id] !== undefined 
-                ? formData.levelValues[level.id] 
-                : (formData[level.key] || 0);
-            data.levelValues[level.id] = parseInt(value) || 0;
-        });
-    } else {
-        // Legacy format: direct level key properties
-        const levelConfigs = type === 'competition' ? currentLevelConfigs.competitionLevels : currentLevelConfigs.eventLevels;
-        
-        levelConfigs.forEach(level => {
-            data[level.key] = formData[level.key] !== undefined ? parseInt(formData[level.key]) || 0 : 0;
-        });
-    }
+    levelConfigs.forEach(level => {
+        const value = formData.levelValues && formData.levelValues[level.id] !== undefined 
+            ? formData.levelValues[level.id] 
+            : 0;
+        data.levelValues[level.id] = parseInt(value) || 0;
+    });
     
     return data;
 }
@@ -833,23 +743,27 @@ function updateCompetitionTableHeaders() {
             <th>Achievement (EN)</th>
         `;
         
-        // Add level headers dynamically
+        // Add level headers dynamically with drag and drop
         if (currentLevelConfigs && currentLevelConfigs.competitionLevels) {
             currentLevelConfigs.competitionLevels.forEach(level => {
                 headerHtml += `
-                    <th>
-                        <a href="#" onclick="editLevel('${level.id}', 'competition'); return false;" 
-                           class="level-header-link" 
-                           title="Click to edit ${level.nameEN} level">
-                            ${level.nameEN}
-                        </a>
+                    <th data-level-id="${level.id}" draggable="true" class="draggable-level-header">
+                        <div class="level-header-content">
+                            <span class="drag-indicator">⋮⋮</span>
+                            <a href="#" onclick="editLevel('${level.id}', 'competition'); return false;" 
+                               class="level-header-link" 
+                               title="Click to edit ${level.nameEN} level">
+                                ${level.nameEN}
+                            </a>
+                        </div>
                     </th>`;
             });
         }
         
-        headerHtml += `<th>Actions</th>`;
-        
         competitionTable.innerHTML = headerHtml;
+        
+        // Add drag and drop event listeners for level headers
+        addLevelHeaderDragListeners(competitionTable, 'competition');
     }
 }
 
@@ -864,8 +778,8 @@ function displayCommitteeRoles() {
     } else {
         // Sort roles by sortOrder field
         const sortedRoles = Object.entries(committeeRoles).sort(([, a], [, b]) => {
-            const aOrder = a.sortOrder !== undefined ? a.sortOrder : 999;
-            const bOrder = b.sortOrder !== undefined ? b.sortOrder : 999;
+            const aOrder = a.sortOrder !== undefined && a.sortOrder !== null ? Number(a.sortOrder) : 999;
+            const bOrder = b.sortOrder !== undefined && b.sortOrder !== null ? Number(b.sortOrder) : 999;
             return aOrder - bOrder;
         });
 
@@ -917,8 +831,8 @@ function displayNonCommitteeRoles() {
     } else {
         // Sort roles by sortOrder field
         const sortedRoles = Object.entries(nonCommitteeRoles).sort(([, a], [, b]) => {
-            const aOrder = a.sortOrder !== undefined ? a.sortOrder : 999;
-            const bOrder = b.sortOrder !== undefined ? b.sortOrder : 999;
+            const aOrder = a.sortOrder !== undefined && a.sortOrder !== null ? Number(a.sortOrder) : 999;
+            const bOrder = b.sortOrder !== undefined && b.sortOrder !== null ? Number(b.sortOrder) : 999;
             return aOrder - bOrder;
         });
 
@@ -964,22 +878,34 @@ function displayCompetitionMeritRoles() {
     const tbody = document.getElementById('competitionTableBody');
     let html = '';
 
-    const totalColumns = 4 + currentLevelConfigs.competitionLevels.length; // Name columns + level columns + actions + manage levels
+    const totalColumns = 2 + currentLevelConfigs.competitionLevels.length; // Name columns + level columns
     if (Object.keys(currentCompetitionMeritValues).length === 0) {
         html = `<tr><td colspan="${totalColumns}" class="text-center text-secondary">No competition achievements defined</td></tr>`;
     } else {
         // Sort achievements by sortOrder field
         const sortedAchievements = Object.entries(currentCompetitionMeritValues).sort(([, a], [, b]) => {
-            const aOrder = a.sortOrder !== undefined ? a.sortOrder : 999;
-            const bOrder = b.sortOrder !== undefined ? b.sortOrder : 999;
+            const aOrder = a.sortOrder !== undefined && a.sortOrder !== null ? Number(a.sortOrder) : 999;
+            const bOrder = b.sortOrder !== undefined && b.sortOrder !== null ? Number(b.sortOrder) : 999;
             return aOrder - bOrder;
         });
 
         sortedAchievements.forEach(([achievementId, achievementData]) => {
             html += `
                 <tr data-achievement="${achievementId}" draggable="true" class="draggable-row">
-                    <td class="font-medium drag-handle">${achievementData.nameBM || 'Unknown'}</td>
-                    <td class="text-secondary">${achievementData.nameEN || 'Unknown'}</td>
+                    <td class="font-medium drag-handle">
+                        <a href="#" onclick="editRole('${achievementId}', 'competition'); return false;" 
+                           class="role-name-link" 
+                           title="Click to edit ${achievementData.nameBM || 'Unknown'} achievement">
+                            ${achievementData.nameBM || 'Unknown'}
+                        </a>
+                    </td>
+                    <td class="text-secondary">
+                        <a href="#" onclick="editRole('${achievementId}', 'competition'); return false;" 
+                           class="role-name-link" 
+                           title="Click to edit ${achievementData.nameEN || 'Unknown'} achievement">
+                            ${achievementData.nameEN || 'Unknown'}
+                        </a>
+                    </td>
             `;
             
             // Add dynamic level columns for competition levels
@@ -990,24 +916,7 @@ function displayCompetitionMeritRoles() {
                 });
             }
             
-            html += `
-                    <td>
-                        <div class="flex gap-2">
-                            <button onclick="editCompetitionMeritRole('${achievementId}')" 
-                                    class="btn btn-outline btn-sm" style="cursor: pointer" title="Edit">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                </svg>
-                            </button>
-                            <button onclick="deleteCompetitionMeritRole('${achievementId}')" 
-                                    class="btn btn-danger btn-sm" style="cursor: pointer" title="Delete">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
+            html += `</tr>
             `;
         });
     }
@@ -1132,8 +1041,8 @@ async function reorderEventRoles(draggedRow, targetRow, category) {
     
     // Get all roles sorted by current order
     const sortedRoles = Object.entries(roles).sort(([, a], [, b]) => {
-        const aOrder = a.sortOrder !== undefined ? a.sortOrder : 999;
-        const bOrder = b.sortOrder !== undefined ? b.sortOrder : 999;
+        const aOrder = a.sortOrder !== undefined && a.sortOrder !== null ? Number(a.sortOrder) : 999;
+        const bOrder = b.sortOrder !== undefined && b.sortOrder !== null ? Number(b.sortOrder) : 999;
         return aOrder - bOrder;
     });
     
@@ -1147,20 +1056,20 @@ async function reorderEventRoles(draggedRow, targetRow, category) {
     const [draggedItem] = sortedRoles.splice(draggedIndex, 1);
     sortedRoles.splice(targetIndex, 0, draggedItem);
     
-    // Update sort orders
+    // Update sort orders (start from 1)
     const batch = [];
     sortedRoles.forEach(([roleId, roleData], index) => {
-        roles[roleId].sortOrder = index;
+        roles[roleId].sortOrder = index + 1;
         batch.push({
             path: `eventMeritValues/${collection}`,
-            data: { [roleId]: { ...roleData, sortOrder: index } }
+            data: { [roleId]: { ...roleData, sortOrder: index + 1 } }
         });
     });
     
     // Save to Firestore
     await firestore.collection('eventMeritValues').doc(collection).set(
         Object.fromEntries(sortedRoles.map(([roleId, roleData], index) => [
-            roleId, { ...roleData, sortOrder: index }
+            roleId, { ...roleData, sortOrder: index + 1 }
         ]))
     );
     
@@ -1174,8 +1083,8 @@ async function reorderCompetitionAchievements(draggedRow, targetRow) {
     
     // Get all achievements sorted by current order
     const sortedAchievements = Object.entries(currentCompetitionMeritValues).sort(([, a], [, b]) => {
-        const aOrder = a.sortOrder !== undefined ? a.sortOrder : 999;
-        const bOrder = b.sortOrder !== undefined ? b.sortOrder : 999;
+        const aOrder = a.sortOrder !== undefined && a.sortOrder !== null ? Number(a.sortOrder) : 999;
+        const bOrder = b.sortOrder !== undefined && b.sortOrder !== null ? Number(b.sortOrder) : 999;
         return aOrder - bOrder;
     });
     
@@ -1189,12 +1098,12 @@ async function reorderCompetitionAchievements(draggedRow, targetRow) {
     const [draggedItem] = sortedAchievements.splice(draggedIndex, 1);
     sortedAchievements.splice(targetIndex, 0, draggedItem);
     
-    // Update sort orders and save to Firestore
+    // Update sort orders and save to Firestore (start from 1)
     const batch = firestore.batch();
     sortedAchievements.forEach(([achievementId, achievementData], index) => {
-        currentCompetitionMeritValues[achievementId].sortOrder = index;
+        currentCompetitionMeritValues[achievementId].sortOrder = index + 1;
         const docRef = firestore.collection('competitionMeritValues').doc(achievementId);
-        batch.set(docRef, { ...achievementData, sortOrder: index });
+        batch.set(docRef, { ...achievementData, sortOrder: index + 1 });
     });
     
     await batch.commit();
@@ -1208,10 +1117,14 @@ async function reorderCompetitionAchievements(draggedRow, targetRow) {
 // ============================================================================
 let draggedLevelElement = null;
 
-function addLevelHeaderDragListeners() {
-    const levelHeaders = document.querySelectorAll('.draggable-level-header');
+function addLevelHeaderDragListeners(container = null, levelType = 'event') {
+    const selector = container ? 
+        container.querySelectorAll('.draggable-level-header') : 
+        document.querySelectorAll('.draggable-level-header');
     
-    levelHeaders.forEach(header => {
+    selector.forEach(header => {
+        // Store level type for use in drop handler
+        header.dataset.levelType = levelType;
         header.addEventListener('dragstart', handleLevelDragStart);
         header.addEventListener('dragover', handleLevelDragOver);
         header.addEventListener('drop', handleLevelDrop);
@@ -1247,7 +1160,12 @@ function handleLevelDrop(e) {
     
     const targetHeader = e.target.closest('th.draggable-level-header');
     if (targetHeader && targetHeader !== draggedLevelElement) {
-        reorderLevels(draggedLevelElement, targetHeader);
+        const levelType = targetHeader.dataset.levelType;
+        if (levelType === 'competition') {
+            reorderCompetitionLevels(draggedLevelElement, targetHeader);
+        } else {
+            reorderLevels(draggedLevelElement, targetHeader);
+        }
     }
     
     // Clear all visual indicators
@@ -1291,12 +1209,12 @@ async function reorderLevels(draggedHeader, targetHeader) {
         const batch = firestore.batch();
         
         currentLevelConfigs.eventLevels.forEach((level, index) => {
-            level.sortOrder = index;
+            level.sortOrder = index + 1; // Start from 1 instead of 0
             const levelRef = firestore.collection('meritValues')
                 .doc('levelMetadata')
                 .collection('event')
                 .doc(level.id);
-            batch.update(levelRef, { sortOrder: index });
+            batch.update(levelRef, { sortOrder: index + 1 });
         });
         
         await batch.commit();
@@ -1309,6 +1227,51 @@ async function reorderLevels(draggedHeader, targetHeader) {
     } catch (error) {
         console.error('Error reordering levels:', error);
         showToast('Error updating level order: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function reorderCompetitionLevels(draggedHeader, targetHeader) {
+    try {
+        showLoading();
+        
+        const draggedLevelId = draggedHeader.dataset.levelId;
+        const targetLevelId = targetHeader.dataset.levelId;
+        
+        // Find positions in current level array
+        const draggedIndex = currentLevelConfigs.competitionLevels.findIndex(level => level.id === draggedLevelId);
+        const targetIndex = currentLevelConfigs.competitionLevels.findIndex(level => level.id === targetLevelId);
+        
+        if (draggedIndex === -1 || targetIndex === -1) return;
+        
+        // Reorder array
+        const [draggedItem] = currentLevelConfigs.competitionLevels.splice(draggedIndex, 1);
+        currentLevelConfigs.competitionLevels.splice(targetIndex, 0, draggedItem);
+        
+        // Update sort orders and save to Firestore
+        const firestore = window.firestore;
+        const batch = firestore.batch();
+        
+        currentLevelConfigs.competitionLevels.forEach((level, index) => {
+            level.sortOrder = index + 1; // Start from 1 instead of 0
+            const levelRef = firestore.collection('meritValues')
+                .doc('levelMetadata')
+                .collection('competition')
+                .doc(level.id);
+            batch.update(levelRef, { sortOrder: index + 1 });
+        });
+        
+        await batch.commit();
+        
+        showToast('Competition level order updated successfully', 'success');
+        
+        // Refresh display
+        displayCompetitionMeritRoles();
+        
+    } catch (error) {
+        console.error('Error reordering competition levels:', error);
+        showToast('Error updating competition level order: ' + error.message, 'error');
     } finally {
         hideLoading();
     }
@@ -1701,24 +1664,9 @@ function editRoleInNewModal(roleId, category) {
             const levelId = input.dataset.levelId;
             let value = 0;
             
-            // Try to get value from hierarchical format first
+            // Get value from hierarchical format only
             if (roleData.levelValues && roleData.levelValues[levelId] !== undefined) {
                 value = roleData.levelValues[levelId];
-            } else {
-                // Fallback to legacy format - check if levelId matches any level property
-                const levels = currentLevelConfigs && currentLevelConfigs.eventLevels 
-                    ? currentLevelConfigs.eventLevels 
-                    : [];
-                
-                const matchingLevel = levels.find(level => 
-                    level.id === levelId || 
-                    level.key === levelId ||
-                    level.nameEN?.toLowerCase() === levelId.toLowerCase()
-                );
-                
-                if (matchingLevel && roleData[matchingLevel.key]) {
-                    value = roleData[matchingLevel.key];
-                }
             }
             
             input.value = value || 0;
@@ -1737,8 +1685,13 @@ function editRole(roleId, category) {
     currentEditingRoleId = roleId;
     currentEditingRoleCategory = category;
     
-    // Get role data
-    const roleData = currentEventMeritValues[category === 'committee' ? 'committee' : 'nonCommittee'][roleId];
+    // Get role data based on category
+    let roleData;
+    if (category === 'competition') {
+        roleData = currentCompetitionMeritValues[roleId];
+    } else {
+        roleData = currentEventMeritValues[category === 'committee' ? 'committee' : 'nonCommittee'][roleId];
+    }
     
     if (!roleData) {
         showToast('Role not found', 'error');
@@ -1748,7 +1701,8 @@ function editRole(roleId, category) {
     // Update modal title
     const titles = {
         committee: 'Committee Member Role',
-        nonCommittee: 'Non Committee Role'
+        nonCommittee: 'Non Committee Role',
+        competition: 'Competition Achievement'
     };
     document.getElementById('editRoleModalTitle').textContent = `Edit ${titles[category] || 'Role'}`;
     
@@ -1770,9 +1724,14 @@ function populateRoleMeritValuesForRole(roleId, roleData, category) {
     // Clear container
     levelsContainer.innerHTML = '';
     
+    // Determine which levels to use based on category
+    const levels = category === 'competition' ? 
+        currentLevelConfigs.competitionLevels : 
+        currentLevelConfigs.eventLevels;
+    
     // Generate level inputs
-    if (currentLevelConfigs && currentLevelConfigs.eventLevels) {
-        currentLevelConfigs.eventLevels.forEach(level => {
+    if (currentLevelConfigs && levels) {
+        levels.forEach(level => {
             const currentValue = (roleData.levelValues && roleData.levelValues[level.id]) || 0;
             const levelInput = createLevelMeritInput(level, currentValue);
             levelsContainer.appendChild(levelInput);
@@ -1851,11 +1810,26 @@ async function updateRole() {
         
         // Save to hierarchical structure
         const firestore = window.firestore;
+        let collectionPath;
+        if (currentEditingRoleCategory === 'competition') {
+            collectionPath = 'competition';
+        } else {
+            collectionPath = currentEditingRoleCategory === 'committee' ? 'committee' : 'nonCommittee';
+        }
+        
         await firestore.collection('meritValues')
             .doc('roleMetadata')
-            .collection(currentEditingRoleCategory === 'committee' ? 'committee' : 'nonCommittee')
+            .collection(collectionPath)
             .doc(currentEditingRoleId)
             .update(roleData);
+        
+        // Update local data
+        if (currentEditingRoleCategory === 'competition') {
+            currentCompetitionMeritValues[currentEditingRoleId] = roleData;
+        } else {
+            const localCollection = currentEditingRoleCategory === 'committee' ? 'committee' : 'nonCommittee';
+            currentEventMeritValues[localCollection][currentEditingRoleId] = roleData;
+        }
         
         console.log('Role updated successfully:', roleData);
         showToast(`${roleData.nameBM} role updated successfully!`, 'success');
@@ -1863,8 +1837,12 @@ async function updateRole() {
         // Close modal
         closeEditRoleModal();
         
-        // Reload merit values
-        await loadEventMeritValues();
+        // Refresh display
+        if (currentEditingRoleCategory === 'competition') {
+            displayCompetitionMeritRoles();
+        } else {
+            displayEventMeritRoles();
+        }
         
     } catch (error) {
         console.error('Error updating role:', error);
@@ -1881,7 +1859,12 @@ async function deleteRole() {
     }
     
     // Get role data for confirmation
-    const roleData = currentEventMeritValues[currentEditingRoleCategory === 'committee' ? 'committee' : 'nonCommittee'][currentEditingRoleId];
+    let roleData;
+    if (currentEditingRoleCategory === 'competition') {
+        roleData = currentCompetitionMeritValues[currentEditingRoleId];
+    } else {
+        roleData = currentEventMeritValues[currentEditingRoleCategory === 'committee' ? 'committee' : 'nonCommittee'][currentEditingRoleId];
+    }
     
     if (!roleData) {
         showToast('Role not found', 'error');
@@ -1896,20 +1879,42 @@ async function deleteRole() {
         showLoading();
         
         const firestore = window.firestore;
+        let collectionPath;
+        if (currentEditingRoleCategory === 'competition') {
+            collectionPath = 'competition';
+        } else {
+            collectionPath = currentEditingRoleCategory === 'committee' ? 'committee' : 'nonCommittee';
+        }
+        
         await firestore.collection('meritValues')
             .doc('roleMetadata')
-            .collection(currentEditingRoleCategory === 'committee' ? 'committee' : 'nonCommittee')
+            .collection(collectionPath)
             .doc(currentEditingRoleId)
             .delete();
+        
+        // Update local data
+        if (currentEditingRoleCategory === 'competition') {
+            delete currentCompetitionMeritValues[currentEditingRoleId];
+        } else {
+            const localCollection = currentEditingRoleCategory === 'committee' ? 'committee' : 'nonCommittee';
+            delete currentEventMeritValues[localCollection][currentEditingRoleId];
+        }
         
         console.log('Role deleted successfully:', roleData);
         showToast(`${roleData.nameBM} role deleted successfully!`, 'success');
         
+        // Store category before closing modal (as it gets cleared)
+        const categoryToRefresh = currentEditingRoleCategory;
+        
         // Close modal
         closeEditRoleModal();
         
-        // Reload merit values
-        await loadEventMeritValues();
+        // Refresh display
+        if (categoryToRefresh === 'competition') {
+            displayCompetitionMeritRoles();
+        } else {
+            displayEventMeritRoles();
+        }
         
     } catch (error) {
         console.error('Error deleting role:', error);
@@ -2170,10 +2175,12 @@ async function deleteEventMeritRole(roleId, category) {
         // Remove from local data
         delete currentEventMeritValues[collectionPath][roleId];
 
-        // Remove from Firestore
-        await firestore.collection('eventMeritValues').doc(collectionPath).update({
-            [roleId]: firebase.firestore.FieldValue.delete()
-        });
+        // Remove from Firestore hierarchical structure
+        await firestore.collection('meritValues')
+            .doc('roleMetadata')
+            .collection(collectionPath)
+            .doc(roleId)
+            .delete();
 
         showToast('Role deleted successfully', 'success');
         displayEventMeritRoles();
@@ -2197,8 +2204,12 @@ async function deleteCompetitionMeritRole(achievementId) {
         // Remove from local data
         delete currentCompetitionMeritValues[achievementId];
 
-        // Remove from Firestore
-        await firestore.collection('competitionMeritValues').doc(achievementId).delete();
+        // Remove from Firestore hierarchical structure
+        await firestore.collection('meritValues')
+            .doc('roleMetadata')
+            .collection('competition')
+            .doc(achievementId)
+            .delete();
 
         showToast('Achievement deleted successfully', 'success');
         displayCompetitionMeritRoles();
@@ -2237,184 +2248,8 @@ function exportAsJson() {
     URL.revokeObjectURL(url);
 }
 
-function exportAsCsv() {
-    showToast('CSV export functionality coming soon', 'info');
-}
-
-function importConfiguration() {
-    showToast('Import functionality coming soon', 'info');
-}
-
-function previewChanges() {
-    showToast('Preview functionality coming soon', 'info');
-}
-
 async function saveAllChanges() {
     showToast('All changes are saved automatically', 'success');
-}
-
-// Create competition merit values from the provided table
-async function createCompetitionMeritValues() {
-    try {
-        showLoading();
-        
-        const firestore = window.firestore;
-        if (!firestore) {
-            throw new Error('Firestore not available');
-        }
-
-        // First ensure we have the competition levels configured
-        const competitionLevels = [
-            { id: generateUniqueId(), key: 'blok', nameBM: 'Blok', nameEN: 'Block', sortOrder: 0 },
-            { id: generateUniqueId(), key: 'fakulti', nameBM: 'Fakulti/Kelab', nameEN: 'Faculty/Club', sortOrder: 1 },
-            { id: generateUniqueId(), key: 'persatuan', nameBM: 'Persatuan Kelab', nameEN: 'Club Association', sortOrder: 2 },
-            { id: generateUniqueId(), key: 'university', nameBM: 'Universiti', nameEN: 'University', sortOrder: 3 },
-            { id: generateUniqueId(), key: 'interuniversity', nameBM: 'Intervarsiti', nameEN: 'Inter-University', sortOrder: 4 },
-            { id: generateUniqueId(), key: 'state', nameBM: 'Negeri', nameEN: 'State', sortOrder: 5 },
-            { id: generateUniqueId(), key: 'national', nameBM: 'Kebangsaan', nameEN: 'National', sortOrder: 6 },
-            { id: generateUniqueId(), key: 'international', nameBM: 'Antarabangsa', nameEN: 'International', sortOrder: 7 }
-        ];
-
-        // Save levels to hierarchical structure
-        const batch = firestore.batch();
-
-        // Save competition levels
-        competitionLevels.forEach(level => {
-            const levelRef = firestore.collection('meritValues')
-                .doc('levelMetadata')
-                .collection('competition')
-                .doc(level.id);
-            batch.set(levelRef, level);
-        });
-
-        // Create level ID mappings for merit values
-        const levelMappings = {};
-        competitionLevels.forEach(level => {
-            levelMappings[level.key] = level.id;
-        });
-
-        // Competition merit data from the table
-        const competitionMerits = [
-            {
-                id: generateUniqueId(),
-                nameBM: 'Johan',
-                nameEN: 'Champion', 
-                sortOrder: 0,
-                category: 'competition',
-                levelValues: {
-                    [levelMappings.blok]: 5,
-                    [levelMappings.fakulti]: 10,
-                    [levelMappings.persatuan]: 10,
-                    [levelMappings.university]: 12,
-                    [levelMappings.interuniversity]: 14,
-                    [levelMappings.state]: 16,
-                    [levelMappings.national]: 18,
-                    [levelMappings.international]: 20
-                }
-            },
-            {
-                id: generateUniqueId(),
-                nameBM: 'Naib Johan',
-                nameEN: 'Runner-up',
-                sortOrder: 1,
-                category: 'competition',
-                levelValues: {
-                    [levelMappings.blok]: 4,
-                    [levelMappings.fakulti]: 8,
-                    [levelMappings.persatuan]: 8,
-                    [levelMappings.university]: 10,
-                    [levelMappings.interuniversity]: 12,
-                    [levelMappings.state]: 14,
-                    [levelMappings.national]: 16,
-                    [levelMappings.international]: 19
-                }
-            },
-            {
-                id: generateUniqueId(),
-                nameBM: 'Ketiga',
-                nameEN: 'Third Place',
-                sortOrder: 2,
-                category: 'competition',
-                levelValues: {
-                    [levelMappings.blok]: 3,
-                    [levelMappings.fakulti]: 6,
-                    [levelMappings.persatuan]: 6,
-                    [levelMappings.university]: 8,
-                    [levelMappings.interuniversity]: 10,
-                    [levelMappings.state]: 12,
-                    [levelMappings.national]: 14,
-                    [levelMappings.international]: 18
-                }
-            },
-            {
-                id: generateUniqueId(),
-                nameBM: 'Penyertaan',
-                nameEN: 'Participation',
-                sortOrder: 3,
-                category: 'competition',
-                levelValues: {
-                    [levelMappings.blok]: 2,
-                    [levelMappings.fakulti]: 2,
-                    [levelMappings.persatuan]: 2,
-                    [levelMappings.university]: 4,
-                    [levelMappings.interuniversity]: 5,
-                    [levelMappings.state]: 6,
-                    [levelMappings.national]: 7,
-                    [levelMappings.international]: 17
-                }
-            },
-            {
-                id: generateUniqueId(),
-                nameBM: 'Penyokong',
-                nameEN: 'Supporter',
-                sortOrder: 4,
-                category: 'competition',
-                levelValues: {
-                    [levelMappings.blok]: 1,
-                    [levelMappings.fakulti]: 1,
-                    [levelMappings.persatuan]: 1,
-                    [levelMappings.university]: 1,
-                    [levelMappings.interuniversity]: 1,
-                    [levelMappings.state]: 1,
-                    [levelMappings.national]: 1,
-                    [levelMappings.international]: 1
-                }
-            }
-        ];
-
-        // Save competition merits to hierarchical structure
-        competitionMerits.forEach(merit => {
-            const meritRef = firestore.collection('meritValues')
-                .doc('roleMetadata')
-                .collection('competition')
-                .doc(merit.id);
-            batch.set(meritRef, merit);
-        });
-
-        await batch.commit();
-
-        // Update local level configs
-        currentLevelConfigs.competitionLevels = competitionLevels;
-
-        // Update local competition merit values
-        const competitionMap = {};
-        competitionMerits.forEach(merit => {
-            competitionMap[merit.id] = merit;
-        });
-        currentCompetitionMeritValues = competitionMap;
-
-        console.log('Competition merit values created successfully');
-        showToast('Competition merit values added successfully!', 'success');
-        
-        // Refresh the display
-        displayCompetitionMeritRoles();
-
-    } catch (error) {
-        console.error('Error creating competition merit values:', error);
-        showToast('Error creating competition merit values: ' + error.message, 'error');
-    } finally {
-        hideLoading();
-    }
 }
 
 // Save functions for new modals
@@ -2430,13 +2265,16 @@ async function saveLevelData() {
         
         showLoading();
         
+        // Get next sort order for this level type
+        const nextSortOrder = await getNextLevelSortOrder(currentLevelType);
+        
         // Create level data
         const levelData = {
             id: generateUniqueId(),
             nameEN: nameEN,
             nameBM: nameBM,
             type: currentLevelType,
-            sortOrder: 999, // Default to end
+            sortOrder: nextSortOrder,
             created: new Date()
         };
         
@@ -2539,506 +2377,6 @@ async function saveRoleData() {
         hideLoading();
     }
 }
-
-// Function to create activity participation levels from the document
-async function createActivityLevels() {
-    try {
-        showLoading();
-        console.log('Creating activity participation levels...');
-        
-        const firestore = window.firestore;
-        
-        // Define the activity participation levels from the document
-        const activityLevels = [
-            { 
-                id: generateUniqueId(), 
-                key: 'persatuanKelab', 
-                nameBM: 'Persatuan/Kelab', 
-                nameEN: 'Club/Association', 
-                sortOrder: 0,
-                type: 'event',
-                description: 'Club or Association level activities'
-            },
-            { 
-                id: generateUniqueId(), 
-                key: 'fakulti', 
-                nameBM: 'Fakulti', 
-                nameEN: 'Faculty', 
-                sortOrder: 1,
-                type: 'event',
-                description: 'Faculty level activities'
-            },
-            { 
-                id: generateUniqueId(), 
-                key: 'kolej', 
-                nameBM: 'Kolej', 
-                nameEN: 'College', 
-                sortOrder: 2,
-                type: 'event',
-                description: 'College level activities'
-            },
-            { 
-                id: generateUniqueId(), 
-                key: 'blok', 
-                nameBM: 'Blok', 
-                nameEN: 'Block', 
-                sortOrder: 3,
-                type: 'event',
-                description: 'Block level activities'
-            },
-            { 
-                id: generateUniqueId(), 
-                key: 'universiti', 
-                nameBM: 'Universiti', 
-                nameEN: 'University', 
-                sortOrder: 4,
-                type: 'event',
-                description: 'University level activities'
-            },
-            { 
-                id: generateUniqueId(), 
-                key: 'kebangsaan', 
-                nameBM: 'Kebangsaan', 
-                nameEN: 'National', 
-                sortOrder: 5,
-                type: 'event',
-                description: 'National level activities'
-            },
-            { 
-                id: generateUniqueId(), 
-                key: 'antarabangsa', 
-                nameBM: 'Antarabangsa', 
-                nameEN: 'International', 
-                sortOrder: 6,
-                type: 'event',
-                description: 'International level activities'
-            }
-        ];
-
-        // Create batch operation
-        const batch = firestore.batch();
-
-        // Add each level to the event levels collection
-        activityLevels.forEach(level => {
-            const levelRef = firestore.collection('meritValues')
-                .doc('levelMetadata')
-                .collection('event')
-                .doc(level.id);
-            batch.set(levelRef, {
-                ...level,
-                created: new Date()
-            });
-        });
-
-        // Execute batch
-        await batch.commit();
-
-        console.log('Activity levels created successfully:', activityLevels);
-        showToast('Activity participation levels added successfully!', 'success');
-
-        // Reload configurations to show new levels
-        await loadLevelConfigurations();
-
-    } catch (error) {
-        console.error('Error creating activity levels:', error);
-        showToast('Error creating activity levels: ' + error.message, 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-// Function to create standard merit roles with values from the document
-async function createStandardMeritRoles() {
-    try {
-        showLoading();
-        console.log('Creating standard merit roles with proper values...');
-        
-        const firestore = window.firestore;
-        
-        // Wait for levels to be loaded
-        await loadLevelConfigurations();
-        
-        if (!currentLevelConfigs.eventLevels || currentLevelConfigs.eventLevels.length === 0) {
-            throw new Error('No event levels found. Please create activity levels first.');
-        }
-
-        // Create level ID mapping for easier reference
-        const levelMap = {};
-        currentLevelConfigs.eventLevels.forEach(level => {
-            levelMap[level.key] = level.id;
-        });
-
-        // Define standard committee roles with their merit values
-        const committeeRoles = [
-            {
-                id: generateUniqueId(),
-                key: 'pengarah',
-                nameBM: 'Pengarah',
-                nameEN: 'Director',
-                sortOrder: 0,
-                category: 'committee',
-                levelValues: {
-                    [levelMap.persatuanKelab]: 10,
-                    [levelMap.fakulti]: 15,
-                    [levelMap.kolej]: 20,
-                    [levelMap.blok]: 25,
-                    [levelMap.universiti]: 30,
-                    [levelMap.kebangsaan]: 35,
-                    [levelMap.antarabangsa]: 40
-                }
-            },
-            {
-                id: generateUniqueId(),
-                key: 'naibPengarah',
-                nameBM: 'Naib Pengarah',
-                nameEN: 'Deputy Director',
-                sortOrder: 1,
-                category: 'committee',
-                levelValues: {
-                    [levelMap.persatuanKelab]: 8,
-                    [levelMap.fakulti]: 12,
-                    [levelMap.kolej]: 16,
-                    [levelMap.blok]: 20,
-                    [levelMap.universiti]: 24,
-                    [levelMap.kebangsaan]: 28,
-                    [levelMap.antarabangsa]: 32
-                }
-            },
-            {
-                id: generateUniqueId(),
-                key: 'setiausaha',
-                nameBM: 'Setiausaha',
-                nameEN: 'Secretary',
-                sortOrder: 2,
-                category: 'committee',
-                levelValues: {
-                    [levelMap.persatuanKelab]: 6,
-                    [levelMap.fakulti]: 9,
-                    [levelMap.kolej]: 12,
-                    [levelMap.blok]: 15,
-                    [levelMap.universiti]: 18,
-                    [levelMap.kebangsaan]: 21,
-                    [levelMap.antarabangsa]: 24
-                }
-            },
-            {
-                id: generateUniqueId(),
-                key: 'bendahari',
-                nameBM: 'Bendahari',
-                nameEN: 'Treasurer',
-                sortOrder: 3,
-                category: 'committee',
-                levelValues: {
-                    [levelMap.persatuanKelab]: 6,
-                    [levelMap.fakulti]: 9,
-                    [levelMap.kolej]: 12,
-                    [levelMap.blok]: 15,
-                    [levelMap.universiti]: 18,
-                    [levelMap.kebangsaan]: 21,
-                    [levelMap.antarabangsa]: 24
-                }
-            },
-            {
-                id: generateUniqueId(),
-                key: 'ahliJawatankuasa',
-                nameBM: 'Ahli Jawatankuasa',
-                nameEN: 'Committee Member',
-                sortOrder: 4,
-                category: 'committee',
-                levelValues: {
-                    [levelMap.persatuanKelab]: 4,
-                    [levelMap.fakulti]: 6,
-                    [levelMap.kolej]: 8,
-                    [levelMap.blok]: 10,
-                    [levelMap.universiti]: 12,
-                    [levelMap.kebangsaan]: 14,
-                    [levelMap.antarabangsa]: 16
-                }
-            }
-        ];
-
-        // Define standard non-committee roles
-        const nonCommitteeRoles = [
-            {
-                id: generateUniqueId(),
-                key: 'peserta',
-                nameBM: 'Peserta',
-                nameEN: 'Participant',
-                sortOrder: 0,
-                category: 'nonCommittee',
-                levelValues: {
-                    [levelMap.persatuanKelab]: 2,
-                    [levelMap.fakulti]: 3,
-                    [levelMap.kolej]: 4,
-                    [levelMap.blok]: 5,
-                    [levelMap.universiti]: 6,
-                    [levelMap.kebangsaan]: 7,
-                    [levelMap.antarabangsa]: 8
-                }
-            },
-            {
-                id: generateUniqueId(),
-                key: 'sukarelawan',
-                nameBM: 'Sukarelawan',
-                nameEN: 'Volunteer',
-                sortOrder: 1,
-                category: 'nonCommittee',
-                levelValues: {
-                    [levelMap.persatuanKelab]: 3,
-                    [levelMap.fakulti]: 4,
-                    [levelMap.kolej]: 5,
-                    [levelMap.blok]: 6,
-                    [levelMap.universiti]: 7,
-                    [levelMap.kebangsaan]: 8,
-                    [levelMap.antarabangsa]: 9
-                }
-            }
-        ];
-
-        // Create batch operation
-        const batch = firestore.batch();
-
-        // Add committee roles
-        committeeRoles.forEach(role => {
-            const roleRef = firestore.collection('meritValues')
-                .doc('roleMetadata')
-                .collection('committee')
-                .doc(role.id);
-            batch.set(roleRef, {
-                ...role,
-                created: new Date()
-            });
-        });
-
-        // Add non-committee roles
-        nonCommitteeRoles.forEach(role => {
-            const roleRef = firestore.collection('meritValues')
-                .doc('roleMetadata')
-                .collection('nonCommittee')
-                .doc(role.id);
-            batch.set(roleRef, {
-                ...role,
-                created: new Date()
-            });
-        });
-
-        // Execute batch
-        await batch.commit();
-
-        console.log('Standard merit roles created successfully');
-        showToast('Standard merit roles with proper values added successfully!', 'success');
-
-        // Reload configurations to show new roles
-        await loadLevelConfigurations();
-        await loadEventMeritValues();
-
-    } catch (error) {
-        console.error('Error creating standard merit roles:', error);
-        showToast('Error creating merit roles: ' + error.message, 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-// Function to update existing roles with proper merit values
-async function updateExistingRolesWithMeritValues() {
-    try {
-        showLoading();
-        console.log('Updating existing roles with proper merit values...');
-        
-        const firestore = window.firestore;
-        
-        // Wait for levels to be loaded
-        await loadLevelConfigurations();
-        
-        if (!currentLevelConfigs.eventLevels || currentLevelConfigs.eventLevels.length === 0) {
-            throw new Error('No event levels found. Please create activity levels first.');
-        }
-
-        // Create level ID mapping for easier reference
-        const levelMap = {};
-        currentLevelConfigs.eventLevels.forEach(level => {
-            levelMap[level.key] = level.id;
-        });
-
-        // Define merit values mapping based on role names
-        const meritValuesMap = {
-            // Committee roles - exact name matching (case insensitive)
-            'pengarah': { // Director
-                persatuanKelab: 10, fakulti: 15, kolej: 20, blok: 25, 
-                universiti: 30, kebangsaan: 35, antarabangsa: 40
-            },
-            'timb. pengarah': { // Deputy Director  
-                persatuanKelab: 8, fakulti: 12, kolej: 16, blok: 20,
-                universiti: 24, kebangsaan: 28, antarabangsa: 32
-            },
-            'setiausaha': { // Secretary
-                persatuanKelab: 6, fakulti: 9, kolej: 12, blok: 15,
-                universiti: 18, kebangsaan: 21, antarabangsa: 24
-            },
-            'timb. setiausaha': { // Deputy Secretary
-                persatuanKelab: 5, fakulti: 7, kolej: 10, blok: 12,
-                universiti: 15, kebangsaan: 17, antarabangsa: 20
-            },
-            'bendahari': { // Treasurer
-                persatuanKelab: 6, fakulti: 9, kolej: 12, blok: 15,
-                universiti: 18, kebangsaan: 21, antarabangsa: 24
-            },
-            'timb. bendahari': { // Deputy Treasurer
-                persatuanKelab: 5, fakulti: 7, kolej: 10, blok: 12,
-                universiti: 15, kebangsaan: 17, antarabangsa: 20
-            },
-            'ajk tugas khas': { // Special Task Committee
-                persatuanKelab: 4, fakulti: 6, kolej: 8, blok: 10,
-                universiti: 12, kebangsaan: 14, antarabangsa: 16
-            },
-            'ajk peralatan': { // Equipment Committee
-                persatuanKelab: 4, fakulti: 6, kolej: 8, blok: 10,
-                universiti: 12, kebangsaan: 14, antarabangsa: 16
-            },
-            'ajk multimedia': { // Multimedia Committee
-                persatuanKelab: 4, fakulti: 6, kolej: 8, blok: 10,
-                universiti: 12, kebangsaan: 14, antarabangsa: 16
-            },
-            'ajk kebersihan': { // Cleanliness Committee
-                persatuanKelab: 4, fakulti: 6, kolej: 8, blok: 10,
-                universiti: 12, kebangsaan: 14, antarabangsa: 16
-            },
-            'ajk persembahan': { // Performance Committee
-                persatuanKelab: 4, fakulti: 6, kolej: 8, blok: 10,
-                universiti: 12, kebangsaan: 14, antarabangsa: 16
-            },
-            'ajk pendaftaran': { // Registration Committee
-                persatuanKelab: 4, fakulti: 6, kolej: 8, blok: 10,
-                universiti: 12, kebangsaan: 14, antarabangsa: 16
-            },
-            'ajk program': { // Programme Committee
-                persatuanKelab: 4, fakulti: 6, kolej: 8, blok: 10,
-                universiti: 12, kebangsaan: 14, antarabangsa: 16
-            },
-            'ajk keselamatan': { // Security Committee
-                persatuanKelab: 4, fakulti: 6, kolej: 8, blok: 10,
-                universiti: 12, kebangsaan: 14, antarabangsa: 16
-            },
-            'ajk protokol': { // Protocol Committee
-                persatuanKelab: 4, fakulti: 6, kolej: 8, blok: 10,
-                universiti: 12, kebangsaan: 14, antarabangsa: 16
-            },
-            'ajk dekorasi': { // Decoration Committee
-                persatuanKelab: 4, fakulti: 6, kolej: 8, blok: 10,
-                universiti: 12, kebangsaan: 14, antarabangsa: 16
-            },
-            'ajk makanan': { // Food Committee
-                persatuanKelab: 4, fakulti: 6, kolej: 8, blok: 10,
-                universiti: 12, kebangsaan: 14, antarabangsa: 16
-            },
-            // Non-committee roles
-            'peserta': { // Participant
-                persatuanKelab: 2, fakulti: 3, kolej: 4, blok: 5,
-                universiti: 6, kebangsaan: 7, antarabangsa: 8
-            },
-            'sukarelawan': { // Volunteer
-                persatuanKelab: 3, fakulti: 4, kolej: 5, blok: 6,
-                universiti: 7, kebangsaan: 8, antarabangsa: 9
-            }
-        };
-
-        // Get existing roles from both categories
-        const committeeSnapshot = await firestore.collection('meritValues')
-            .doc('roleMetadata')
-            .collection('committee')
-            .get();
-
-        const nonCommitteeSnapshot = await firestore.collection('meritValues')
-            .doc('roleMetadata')
-            .collection('nonCommittee')
-            .get();
-
-        const batch = firestore.batch();
-        let updatedCount = 0;
-
-        // Update committee roles
-        committeeSnapshot.forEach(doc => {
-            const roleData = doc.data();
-            const roleName = (roleData.nameBM || '').toLowerCase().trim();
-            
-            if (meritValuesMap[roleName]) {
-                const meritValues = meritValuesMap[roleName];
-                const levelValues = {};
-                
-                // Convert merit values to level ID format
-                Object.keys(meritValues).forEach(levelKey => {
-                    if (levelMap[levelKey]) {
-                        levelValues[levelMap[levelKey]] = meritValues[levelKey];
-                    }
-                });
-
-                // Update the role with new merit values
-                batch.update(doc.ref, {
-                    levelValues: levelValues,
-                    updated: new Date()
-                });
-                
-                updatedCount++;
-                console.log(`Updating committee role: ${roleData.nameBM} (${roleData.nameEN})`);
-            }
-        });
-
-        // Update non-committee roles
-        nonCommitteeSnapshot.forEach(doc => {
-            const roleData = doc.data();
-            const roleName = (roleData.nameBM || '').toLowerCase().trim();
-            
-            if (meritValuesMap[roleName]) {
-                const meritValues = meritValuesMap[roleName];
-                const levelValues = {};
-                
-                // Convert merit values to level ID format
-                Object.keys(meritValues).forEach(levelKey => {
-                    if (levelMap[levelKey]) {
-                        levelValues[levelMap[levelKey]] = meritValues[levelKey];
-                    }
-                });
-
-                // Update the role with new merit values
-                batch.update(doc.ref, {
-                    levelValues: levelValues,
-                    updated: new Date()
-                });
-                
-                updatedCount++;
-                console.log(`Updating non-committee role: ${roleData.nameBM} (${roleData.nameEN})`);
-            }
-        });
-
-        if (updatedCount === 0) {
-            showToast('No matching roles found to update. Please check role names.', 'warning');
-            return;
-        }
-
-        // Execute batch update
-        await batch.commit();
-
-        console.log(`Successfully updated ${updatedCount} roles with merit values`);
-        showToast(`Successfully updated ${updatedCount} roles with proper merit values!`, 'success');
-
-        // Reload configurations to show updated values
-        await loadLevelConfigurations();
-        await loadEventMeritValues();
-
-    } catch (error) {
-        console.error('Error updating existing roles:', error);
-        showToast('Error updating roles: ' + error.message, 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-// Make functions available in console
-window.createActivityLevels = createActivityLevels;
-window.createStandardMeritRoles = createStandardMeritRoles;
-window.updateExistingRolesWithMeritValues = updateExistingRolesWithMeritValues;
-
 function generateRoleKey(name) {
     return name.toLowerCase()
         .replace(/\s+/g, '')
