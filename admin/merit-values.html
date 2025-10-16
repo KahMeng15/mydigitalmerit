@@ -39,8 +39,6 @@
                 <div class="flex border-b border-gray-200">
                     <button class="tab-btn active" data-tab="event-merits">Event Merits</button>
                     <button class="tab-btn" data-tab="competition-merits">Competition Merits</button>
-                    <button class="tab-btn" data-tab="migration">Migration Tools</button>
-                    <button class="tab-btn" data-tab="import-export">Import/Export</button>
                 </div>
             </div>
 
@@ -50,12 +48,20 @@
                 <div class="card mb-6">
                     <div class="card-header flex justify-between items-center">
                         <h3 class="card-title">Committee Member Roles</h3>
-                        <button id="addCommitteeRoleBtn" class="btn btn-primary btn-sm">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                            </svg>
-                            Add Committee Role
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button onclick="openAddLevelModal('event')" class="btn btn-outline btn-sm" title="Add Event Level">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                                </svg>
+                                Add Level
+                            </button>
+                            <button onclick="openAddRoleModal('committee')" class="btn btn-primary btn-sm" title="Add Committee Role">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                </svg>
+                                Add Role
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="table-container">
@@ -86,12 +92,20 @@
                 <div class="card">
                     <div class="card-header flex justify-between items-center">
                         <h3 class="card-title">Non Committee Roles</h3>
-                        <button id="addNonCommitteeRoleBtn" class="btn btn-primary btn-sm">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                            </svg>
-                            Add Non Committee Role
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button onclick="openAddLevelModal('event')" class="btn btn-outline btn-sm" title="Add Event Level">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                                </svg>
+                                Add Level
+                            </button>
+                            <button onclick="openAddRoleModal('nonCommittee')" id="addNonCommitteeRoleBtn" class="btn btn-primary btn-sm" title="Add Non Committee Role">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                </svg>
+                                Add Role
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="table-container">
@@ -124,12 +138,20 @@
                 <div class="card">
                     <div class="card-header flex justify-between items-center">
                         <h3 class="card-title">Competition Achievement Points</h3>
-                        <button id="addCompetitionBtn" class="btn btn-primary btn-sm">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                            </svg>
-                            Add Competition Achievement
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button onclick="openAddLevelModal('competition')" class="btn btn-outline btn-sm" title="Add Competition Level">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                                </svg>
+                                Add Level
+                            </button>
+                            <button onclick="openAddRoleModal('competition')" id="addCompetitionBtn" class="btn btn-primary btn-sm" title="Add Competition Achievement">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                </svg>
+                                Add Role
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="table-container">
@@ -160,106 +182,7 @@
                 </div>
             </div>
 
-            <!-- Migration Tools -->
-            <div id="migrationTab" class="tab-content d-none">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Migration Tools</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-6">
-                            <h4 class="font-semibold mb-3">Data Migration</h4>
-                            <p class="text-secondary mb-4">Migrate existing merit values to the new structure with separate collections for event merits and competition merits.</p>
-                            
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                <div class="p-4 border rounded-lg">
-                                    <h5 class="font-medium mb-2">Create Default Event Merit Values</h5>
-                                    <p class="text-sm text-secondary mb-3">Initialize the new eventMeritValues collection with predefined committee and non-committee roles.</p>
-                                    <button id="createDefaultEventMeritsBtn" class="btn btn-primary btn-sm">Create Default Event Merits</button>
-                                </div>
-                                
-                                <div class="p-4 border rounded-lg">
-                                    <h5 class="font-medium mb-2">Create Default Competition Merit Values</h5>
-                                    <p class="text-sm text-secondary mb-3">Initialize the new competitionMeritValues collection with competition-specific achievements.</p>
-                                    <button id="createDefaultCompetitionMeritsBtn" class="btn btn-success btn-sm">Create Default Competition Merits</button>
-                                </div>
-                            </div>
-                            
-                            <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                <h5 class="font-medium text-yellow-800 mb-2">⚠️ Migration Status</h5>
-                                <p class="text-sm text-yellow-700 mb-3">Check the current migration status and view what collections exist.</p>
-                                <button id="checkMigrationStatusBtn" class="btn btn-outline btn-sm">Check Status</button>
-                                <div id="migrationStatus" class="mt-3 text-sm"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-
-
-            <!-- Import/Export Configuration -->
-            <div id="importExportTab" class="tab-content d-none">
-                <div class="grid grid-cols-2 gap-6">
-                    <!-- Export -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-title">Export Configuration</h3>
-                        </div>
-                        <div class="card-body">
-                            <p class="text-secondary mb-4">Download current merit values configuration as JSON or CSV file.</p>
-                            <div class="flex gap-2">
-                                <button id="exportJsonBtn" class="btn btn-primary">Export as JSON</button>
-                                <button id="exportCsvBtn" class="btn btn-outline">Export as CSV</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Import -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-title">Import Configuration</h3>
-                        </div>
-                        <div class="card-body">
-                            <p class="text-secondary mb-4">Upload a JSON file to import merit values configuration.</p>
-                            <div class="form-group">
-                                <input type="file" id="importFile" class="form-control" accept=".json">
-                            </div>
-                            <button id="importBtn" class="btn btn-success">Import Configuration</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Default Templates -->
-                <div class="card mt-6">
-                    <div class="card-header">
-                        <h3 class="card-title">Default Templates</h3>
-                    </div>
-                    <div class="card-body">
-                        <p class="text-secondary mb-4">Load predefined merit value templates.</p>
-                        <div class="flex gap-2">
-                            <button id="loadDefaultBtn" class="btn btn-warning">Load Default Values</button>
-                            <button id="resetAllBtn" class="btn btn-danger">Reset All Values</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Save Changes -->
-            <div class="card mt-6">
-                <div class="card-body">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <p class="font-medium">Save Changes</p>
-                            <p class="text-sm text-secondary">Make sure to save your changes before leaving this page.</p>
-                        </div>
-                        <div class="flex gap-2">
-                            <button id="previewBtn" class="btn btn-outline">Preview Changes</button>
-                            <button id="saveChangesBtn" class="btn btn-success">Save All Changes</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -285,13 +208,21 @@
                                    placeholder="e.g., Director, Participant">
                         </div>
                     </div>
-                    <div class="form-group mb-4">
-                        <label for="eventRoleCategory" class="form-label">Category *</label>
-                        <select id="eventRoleCategory" class="form-control" required>
-                            <option value="">Select category...</option>
-                            <option value="committee">Committee Member</option>
-                            <option value="non-committee">Non Committee</option>
-                        </select>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="form-group">
+                            <label for="eventRoleCategory" class="form-label">Category *</label>
+                            <select id="eventRoleCategory" class="form-control" required>
+                                <option value="">Select category...</option>
+                                <option value="committee">Committee Member</option>
+                                <option value="non-committee">Non Committee</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="eventRoleSortOrder" class="form-label">Display Order</label>
+                            <input type="number" id="eventRoleSortOrder" class="form-control" min="0" 
+                                   placeholder="Auto-assigned" 
+                                   title="Lower numbers appear first. Leave blank to add at the end.">
+                        </div>
                     </div>
                     <div class="grid grid-cols-3 gap-3">
                         <div class="form-group">
@@ -334,7 +265,7 @@
             </div>
             <div class="modal-body">
                 <form id="competitionMeritForm">
-                    <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="grid grid-cols-3 gap-4 mb-4">
                         <div class="form-group">
                             <label for="competitionNameBM" class="form-label">Achievement Name (BM) *</label>
                             <input type="text" id="competitionNameBM" class="form-control" required 
@@ -344,6 +275,12 @@
                             <label for="competitionNameEN" class="form-label">Achievement Name (EN) *</label>
                             <input type="text" id="competitionNameEN" class="form-control" required 
                                    placeholder="e.g., Champion, Runner-up">
+                        </div>
+                        <div class="form-group">
+                            <label for="competitionSortOrder" class="form-label">Display Order</label>
+                            <input type="number" id="competitionSortOrder" class="form-control" min="0" 
+                                   placeholder="Auto-assigned"
+                                   title="Lower numbers appear first. Leave blank to add at the end.">
                         </div>
                     </div>
                     <div class="grid grid-cols-4 gap-3">
@@ -389,6 +326,122 @@
         </div>
     </div>
 
+    <!-- Add Level Modal -->
+    <div id="addLevelModal" class="modal d-none">
+        <div class="modal-overlay" onclick="closeLevelModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="levelModalTitle">Add Level</h3>
+                <button onclick="closeLevelModal()" class="btn btn-outline btn-sm">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="levelForm">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="form-group">
+                            <label for="levelNameEN" class="form-label">Name (EN) *</label>
+                            <input type="text" id="levelNameEN" class="form-control" required 
+                                   placeholder="e.g., University, State">
+                        </div>
+                        <div class="form-group">
+                            <label for="levelNameBM" class="form-label">Name (BM) *</label>
+                            <input type="text" id="levelNameBM" class="form-control" required 
+                                   placeholder="e.g., Universiti, Negeri">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeLevelModal()" class="btn btn-outline">Cancel</button>
+                <button id="saveLevelBtn" class="btn btn-primary">Save Level</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Role Modal -->
+    <div id="addRoleModal" class="modal d-none">
+        <div class="modal-overlay" onclick="closeRoleModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="roleModalTitle">Add Role</h3>
+                <button onclick="closeRoleModal()" class="btn btn-outline btn-sm">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="roleForm">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="form-group">
+                            <label for="roleNameEN" class="form-label">Name (EN) *</label>
+                            <input type="text" id="roleNameEN" class="form-control" required 
+                                   placeholder="e.g., Director, Participant">
+                        </div>
+                        <div class="form-group">
+                            <label for="roleNameBM" class="form-label">Name (BM) *</label>
+                            <input type="text" id="roleNameBM" class="form-control" required 
+                                   placeholder="e.g., Pengarah, Peserta">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <h4 class="text-sm font-medium mb-3">Merit Values by Level</h4>
+                        <div id="roleLevelInputs" class="grid grid-cols-2 gap-3">
+                            <!-- Level inputs will be dynamically generated here -->
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeRoleModal()" class="btn btn-outline">Cancel</button>
+                <button id="saveRoleBtn" class="btn btn-primary">Save Role</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Level Modal -->
+    <div id="editLevelModal" class="modal d-none">
+        <div class="modal-overlay" onclick="closeEditLevelModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="editLevelModalTitle">Edit Level</h3>
+                <button onclick="closeEditLevelModal()" class="btn btn-outline btn-sm">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="editLevelForm">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="form-group">
+                            <label for="editLevelNameEN" class="form-label">Name (EN) *</label>
+                            <input type="text" id="editLevelNameEN" class="form-control" required 
+                                   placeholder="e.g., University, State">
+                        </div>
+                        <div class="form-group">
+                            <label for="editLevelNameBM" class="form-label">Name (BM) *</label>
+                            <input type="text" id="editLevelNameBM" class="form-control" required 
+                                   placeholder="e.g., Universiti, Negeri">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="editLevelSortOrder" class="form-label">Display Order</label>
+                        <input type="number" id="editLevelSortOrder" class="form-control" min="0" 
+                               placeholder="Order in table (lower numbers first)">
+                    </div>
+                </form>
+                <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded">
+                    <h4 class="text-sm font-medium text-red-800 mb-2">Danger Zone</h4>
+                    <p class="text-sm text-red-600 mb-3">
+                        Deleting this level will remove it from all roles and cannot be undone.
+                    </p>
+                    <button onclick="deleteLevel()" class="btn btn-danger btn-sm">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                        Delete Level
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeEditLevelModal()" class="btn btn-outline">Cancel</button>
+                <button id="updateLevelBtn" class="btn btn-primary">Update Level</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Loading Spinner -->
     <div id="loadingSpinner" class="d-none">
         <div class="spinner"></div>
@@ -406,7 +459,7 @@
     <!-- App Scripts -->
     <script src="../assets/js/firebase-config.js"></script>
     <script src="../assets/js/utils.js"></script>
-    <script src="../assets/js/merit-values-new.js"></script>
+    <script src="../assets/js/merit-values.js"></script>
 
     <style>
         .tab-btn {
@@ -479,6 +532,86 @@
             display: flex;
             justify-content: flex-end;
             gap: 1rem;
+        }
+        
+        /* Drag and Drop Styles */
+        .draggable-row {
+            cursor: move;
+            transition: opacity 0.2s ease;
+        }
+        
+        .draggable-row:hover {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+        
+        .drag-handle {
+            position: relative;
+        }
+        
+        .drag-handle::before {
+            content: "⋮⋮";
+            position: absolute;
+            left: -15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #ccc;
+            font-weight: bold;
+            letter-spacing: -2px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .draggable-row:hover .drag-handle::before {
+            opacity: 1;
+        }
+        
+        .draggable-row[draggable="true"] {
+            user-select: none;
+        }
+        
+        /* Drop zone indicator */
+        tr[style*="border-top"] {
+            background-color: rgba(var(--primary-color-rgb, 59, 130, 246), 0.1) !important;
+        }
+        
+        /* Level header links */
+        .level-header-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
+        .level-header-link:hover {
+            color: var(--primary-color);
+            background-color: rgba(59, 130, 246, 0.1);
+            text-decoration: none;
+            transform: translateY(-1px);
+        }
+        
+        .level-header-link:active {
+            transform: translateY(0);
+        }
+        
+        /* Edit level modal danger zone */
+        .bg-red-50 {
+            background-color: #fef2f2;
+        }
+        
+        .border-red-200 {
+            border-color: #fecaca;
+        }
+        
+        .text-red-800 {
+            color: #991b1b;
+        }
+        
+        .text-red-600 {
+            color: #dc2626;
         }
     </style>
 </body>
