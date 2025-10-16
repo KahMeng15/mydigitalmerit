@@ -1988,28 +1988,35 @@ function generateRoleLevelInputs(category) {
     let html = '';
     if (levels.length === 0) {
         html = `
-            <div class="col-span-2 text-center text-secondary py-4">
-                <p>No levels configured yet.</p>
-                <p>Use "Add Level" to create level configurations first.</p>
+            <div class="text-center text-secondary py-4">
+                <p class="text-sm text-secondary">No levels configured yet.</p>
+                <p class="text-sm text-secondary">Use "Add Level" to create level configurations first.</p>
             </div>
         `;
     } else {
         levels.forEach(level => {
-            const levelName = level.nameEN || level.name || level.key || 'Unknown';
-            const levelId = level.id || level.key || levelName.toLowerCase();
+            const levelNameBM = level.nameBM || level.name || level.key || 'Unknown';
+            const levelNameEN = level.nameEN || level.name || level.key || 'Unknown';
+            const levelId = level.id || level.key || levelNameBM.toLowerCase();
             const fieldId = `roleLevel_${levelId}`;
             
             html += `
-                <div class="form-group">
-                    <label for="${fieldId}" class="form-label">${levelName}</label>
-                    <input type="number" 
-                           id="${fieldId}" 
-                           class="form-control level-input" 
-                           min="0" 
-                           placeholder="0" 
-                           value="0"
-                           data-level-id="${levelId}"
-                           data-level-name="${levelName}">
+                <div class="role-merit-container">
+                    <div class="role-info">
+                        <div class="role-name-bm">${levelNameBM}</div>
+                        <div class="role-name-en">${levelNameEN}</div>
+                    </div>
+                    <div class="merit-input-container">
+                        <input type="number" 
+                               id="${fieldId}" 
+                               class="role-merit-input" 
+                               min="0" 
+                               step="1"
+                               placeholder="0" 
+                               value="0"
+                               data-level-id="${levelId}"
+                               data-level-name="${levelNameBM}">
+                    </div>
                 </div>
             `;
         });
