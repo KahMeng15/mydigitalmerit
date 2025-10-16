@@ -39,6 +39,8 @@ let currentLevelConfigs = {
 };
 let editingEventRole = null;
 let editingCompetitionRole = null;
+let currentEditingRoleId = null;
+let currentEditingRoleCategory = null;
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -682,21 +684,22 @@ function updateEventTableHeaders() {
             <th>Role (EN)</th>
         `;
         
-        // Add level headers dynamically
+        // Add level headers dynamically with drag and drop
         if (currentLevelConfigs && currentLevelConfigs.eventLevels) {
             currentLevelConfigs.eventLevels.forEach(level => {
                 headerHtml += `
-                    <th>
-                        <a href="#" onclick="editLevel('${level.id}', 'event'); return false;" 
-                           class="level-header-link" 
-                           title="Click to edit ${level.nameEN} level">
-                            ${level.nameEN}
-                        </a>
+                    <th data-level-id="${level.id}" draggable="true" class="draggable-level-header">
+                        <div class="level-header-content">
+                            <span class="drag-indicator">⋮⋮</span>
+                            <a href="#" onclick="editLevel('${level.id}', 'event'); return false;" 
+                               class="level-header-link" 
+                               title="Click to edit ${level.nameEN} level">
+                                ${level.nameEN}
+                            </a>
+                        </div>
                     </th>`;
             });
         }
-        
-        headerHtml += `<th>Actions</th>`;
         
         committeeHeader.innerHTML = headerHtml;
     }
@@ -709,24 +712,28 @@ function updateEventTableHeaders() {
             <th>Role (EN)</th>
         `;
         
-        // Add level headers dynamically
+        // Add level headers dynamically with drag and drop
         if (currentLevelConfigs && currentLevelConfigs.eventLevels) {
             currentLevelConfigs.eventLevels.forEach(level => {
                 headerHtml += `
-                    <th>
-                        <a href="#" onclick="editLevel('${level.id}', 'event'); return false;" 
-                           class="level-header-link" 
-                           title="Click to edit ${level.nameEN} level">
-                            ${level.nameEN}
-                        </a>
+                    <th data-level-id="${level.id}" draggable="true" class="draggable-level-header">
+                        <div class="level-header-content">
+                            <span class="drag-indicator">⋮⋮</span>
+                            <a href="#" onclick="editLevel('${level.id}', 'event'); return false;" 
+                               class="level-header-link" 
+                               title="Click to edit ${level.nameEN} level">
+                                ${level.nameEN}
+                            </a>
+                        </div>
                     </th>`;
             });
         }
         
-        headerHtml += `<th>Actions</th>`;
-        
         nonCommitteeHeader.innerHTML = headerHtml;
     }
+    
+    // Add drag and drop listeners to level headers
+    addLevelHeaderDragListeners();
 }
 
 // Helper function to save merit data in the appropriate format (hierarchical or legacy)
@@ -865,8 +872,20 @@ function displayCommitteeRoles() {
         sortedRoles.forEach(([roleId, roleData]) => {
             html += `
                 <tr data-role="${roleId}" data-category="committee" draggable="true" class="draggable-row">
-                    <td class="font-medium drag-handle">${roleData.nameBM || 'Unknown'}</td>
-                    <td class="text-secondary">${roleData.nameEN || 'Unknown'}</td>
+                    <td class="font-medium drag-handle">
+                        <a href="#" onclick="editRole('${roleId}', 'committee'); return false;" 
+                           class="role-name-link" 
+                           title="Click to edit ${roleData.nameBM || 'Unknown'} role">
+                            ${roleData.nameBM || 'Unknown'}
+                        </a>
+                    </td>
+                    <td class="text-secondary">
+                        <a href="#" onclick="editRole('${roleId}', 'committee'); return false;" 
+                           class="role-name-link" 
+                           title="Click to edit ${roleData.nameEN || 'Unknown'} role">
+                            ${roleData.nameEN || 'Unknown'}
+                        </a>
+                    </td>
             `;
             
             // Add dynamic level columns
@@ -877,25 +896,7 @@ function displayCommitteeRoles() {
                 });
             }
             
-            html += `
-                    <td>
-                        <div class="flex gap-2">
-                            <button onclick="editRoleInNewModal('${roleId}', 'committee')" 
-                                    class="btn btn-outline btn-sm" style="cursor: pointer" title="Edit">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                </svg>
-                            </button>
-                            <button onclick="deleteEventMeritRole('${roleId}', 'committee')" 
-                                    class="btn btn-danger btn-sm" style="cursor: pointer" title="Delete">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
+            html += `</tr>`;
         });
     }
 
@@ -924,8 +925,20 @@ function displayNonCommitteeRoles() {
         sortedRoles.forEach(([roleId, roleData]) => {
             html += `
                 <tr data-role="${roleId}" data-category="non-committee" draggable="true" class="draggable-row">
-                    <td class="font-medium drag-handle">${roleData.nameBM || 'Unknown'}</td>
-                    <td class="text-secondary">${roleData.nameEN || 'Unknown'}</td>
+                    <td class="font-medium drag-handle">
+                        <a href="#" onclick="editRole('${roleId}', 'nonCommittee'); return false;" 
+                           class="role-name-link" 
+                           title="Click to edit ${roleData.nameBM || 'Unknown'} role">
+                            ${roleData.nameBM || 'Unknown'}
+                        </a>
+                    </td>
+                    <td class="text-secondary">
+                        <a href="#" onclick="editRole('${roleId}', 'nonCommittee'); return false;" 
+                           class="role-name-link" 
+                           title="Click to edit ${roleData.nameEN || 'Unknown'} role">
+                            ${roleData.nameEN || 'Unknown'}
+                        </a>
+                    </td>
             `;
             
             // Add dynamic level columns
@@ -936,25 +949,7 @@ function displayNonCommitteeRoles() {
                 });
             }
             
-            html += `
-                    <td>
-                        <div class="flex gap-2">
-                            <button onclick="editRoleInNewModal('${roleId}', 'nonCommittee')" 
-                                    class="btn btn-outline btn-sm" style="cursor: pointer" title="Edit">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                </svg>
-                            </button>
-                            <button onclick="deleteEventMeritRole('${roleId}', 'non-committee')" 
-                                    class="btn btn-danger btn-sm" style="cursor: pointer" title="Delete">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
+            html += `</tr>`;
         });
     }
 
@@ -1209,6 +1204,117 @@ async function reorderCompetitionAchievements(draggedRow, targetRow) {
 }
 
 // ============================================================================
+// LEVEL HEADER DRAG AND DROP
+// ============================================================================
+let draggedLevelElement = null;
+
+function addLevelHeaderDragListeners() {
+    const levelHeaders = document.querySelectorAll('.draggable-level-header');
+    
+    levelHeaders.forEach(header => {
+        header.addEventListener('dragstart', handleLevelDragStart);
+        header.addEventListener('dragover', handleLevelDragOver);
+        header.addEventListener('drop', handleLevelDrop);
+        header.addEventListener('dragend', handleLevelDragEnd);
+    });
+}
+
+function handleLevelDragStart(e) {
+    draggedLevelElement = e.target.closest('th');
+    e.target.style.opacity = '0.5';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', draggedLevelElement.outerHTML);
+}
+
+function handleLevelDragOver(e) {
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
+    
+    const targetHeader = e.target.closest('th.draggable-level-header');
+    if (targetHeader && targetHeader !== draggedLevelElement) {
+        e.dataTransfer.dropEffect = 'move';
+        targetHeader.style.borderLeft = '3px solid var(--primary-color)';
+    }
+    
+    return false;
+}
+
+function handleLevelDrop(e) {
+    if (e.stopPropagation) {
+        e.stopPropagation();
+    }
+    
+    const targetHeader = e.target.closest('th.draggable-level-header');
+    if (targetHeader && targetHeader !== draggedLevelElement) {
+        reorderLevels(draggedLevelElement, targetHeader);
+    }
+    
+    // Clear all visual indicators
+    document.querySelectorAll('th.draggable-level-header').forEach(header => {
+        header.style.borderLeft = '';
+    });
+    
+    return false;
+}
+
+function handleLevelDragEnd(e) {
+    e.target.style.opacity = '';
+    
+    // Clear all visual indicators
+    document.querySelectorAll('th.draggable-level-header').forEach(header => {
+        header.style.borderLeft = '';
+    });
+    
+    draggedLevelElement = null;
+}
+
+async function reorderLevels(draggedHeader, targetHeader) {
+    try {
+        showLoading();
+        
+        const draggedLevelId = draggedHeader.dataset.levelId;
+        const targetLevelId = targetHeader.dataset.levelId;
+        
+        // Find positions in current level array
+        const draggedIndex = currentLevelConfigs.eventLevels.findIndex(level => level.id === draggedLevelId);
+        const targetIndex = currentLevelConfigs.eventLevels.findIndex(level => level.id === targetLevelId);
+        
+        if (draggedIndex === -1 || targetIndex === -1) return;
+        
+        // Reorder array
+        const [draggedItem] = currentLevelConfigs.eventLevels.splice(draggedIndex, 1);
+        currentLevelConfigs.eventLevels.splice(targetIndex, 0, draggedItem);
+        
+        // Update sort orders and save to Firestore
+        const firestore = window.firestore;
+        const batch = firestore.batch();
+        
+        currentLevelConfigs.eventLevels.forEach((level, index) => {
+            level.sortOrder = index;
+            const levelRef = firestore.collection('meritValues')
+                .doc('levelMetadata')
+                .collection('event')
+                .doc(level.id);
+            batch.update(levelRef, { sortOrder: index });
+        });
+        
+        await batch.commit();
+        
+        showToast('Level order updated successfully', 'success');
+        
+        // Refresh display
+        displayEventMeritRoles();
+        
+    } catch (error) {
+        console.error('Error reordering levels:', error);
+        showToast('Error updating level order: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// ============================================================================
 // MODAL MANAGEMENT
 // ============================================================================
 function openEventMeritModal(category = null) {
@@ -1298,8 +1404,67 @@ function editLevel(levelId, type) {
     document.getElementById('editLevelNameBM').value = levelData.nameBM || '';
     document.getElementById('editLevelSortOrder').value = levelData.sortOrder !== undefined ? levelData.sortOrder : '';
     
+    // Populate merit values for all roles at this level
+    if (type === 'event') {
+        populateRoleMeritValuesForLevel(levelId);
+    }
+    
     // Show modal
     document.getElementById('editLevelModal').classList.remove('d-none');
+}
+
+function populateRoleMeritValuesForLevel(levelId) {
+    const committeeContainer = document.getElementById('editLevelCommitteeRoles');
+    const nonCommitteeContainer = document.getElementById('editLevelNonCommitteeRoles');
+    
+    // Clear containers
+    committeeContainer.innerHTML = '';
+    nonCommitteeContainer.innerHTML = '';
+    
+    // Generate committee role inputs
+    if (currentEventMeritValues.committee) {
+        Object.entries(currentEventMeritValues.committee).forEach(([roleId, roleData]) => {
+            const currentValue = (roleData.levelValues && roleData.levelValues[levelId]) || 0;
+            const roleInput = createRoleMeritInput(roleId, roleData, levelId, currentValue, 'committee');
+            committeeContainer.appendChild(roleInput);
+        });
+    }
+    
+    // Generate non-committee role inputs
+    if (currentEventMeritValues.nonCommittee) {
+        Object.entries(currentEventMeritValues.nonCommittee).forEach(([roleId, roleData]) => {
+            const currentValue = (roleData.levelValues && roleData.levelValues[levelId]) || 0;
+            const roleInput = createRoleMeritInput(roleId, roleData, levelId, currentValue, 'nonCommittee');
+            nonCommitteeContainer.appendChild(roleInput);
+        });
+    }
+}
+
+function createRoleMeritInput(roleId, roleData, levelId, currentValue, category) {
+    const div = document.createElement('div');
+    div.className = 'role-merit-container';
+    
+    div.innerHTML = `
+        <div class="role-info">
+            <div class="role-name-bm">${roleData.nameBM || 'Unknown Role'}</div>
+            <div class="role-name-en">${roleData.nameEN || 'Unknown'}</div>
+        </div>
+        <div class="merit-input-container">
+            <input 
+                type="number" 
+                min="0" 
+                step="1"
+                class="role-merit-input" 
+                value="${currentValue}"
+                data-role-id="${roleId}"
+                data-level-id="${levelId}"
+                data-category="${category}"
+                placeholder="0"
+            >
+        </div>
+    `;
+    
+    return div;
 }
 
 function closeEditLevelModal() {
@@ -1336,13 +1501,18 @@ async function updateLevel() {
             updated: new Date()
         };
         
-        // Save to hierarchical structure
+        // Save level data to hierarchical structure
         const firestore = window.firestore;
         await firestore.collection('meritValues')
             .doc('levelMetadata')
             .collection(currentEditingLevelType)
             .doc(currentEditingLevelId)
             .update(levelData);
+        
+        // Update merit values for all roles at this level (for event levels only)
+        if (currentEditingLevelType === 'event') {
+            await updateRoleMeritValuesForLevel();
+        }
         
         console.log('Level updated successfully:', levelData);
         showToast(`${levelData.nameEN} level updated successfully!`, 'success');
@@ -1351,13 +1521,54 @@ async function updateLevel() {
         closeEditLevelModal();
         hideLoading();
         
-        // Reload level configurations
+        // Reload level configurations and merit values
         await loadLevelConfigurations();
+        await loadEventMeritValues();
         
     } catch (error) {
         console.error('Error updating level:', error);
         showToast('Error updating level: ' + error.message, 'error');
         hideLoading();
+    }
+}
+
+async function updateRoleMeritValuesForLevel() {
+    const firestore = window.firestore;
+    const batch = firestore.batch();
+    
+    // Get all role merit inputs
+    const meritInputs = document.querySelectorAll('.role-merit-input');
+    
+    meritInputs.forEach(input => {
+        const roleId = input.dataset.roleId;
+        const levelId = input.dataset.levelId;
+        const category = input.dataset.category;
+        const newValue = parseInt(input.value) || 0;
+        
+        // Update the local data structure
+        if (currentEventMeritValues[category] && currentEventMeritValues[category][roleId]) {
+            if (!currentEventMeritValues[category][roleId].levelValues) {
+                currentEventMeritValues[category][roleId].levelValues = {};
+            }
+            currentEventMeritValues[category][roleId].levelValues[levelId] = newValue;
+            
+            // Add to batch update
+            const roleRef = firestore.collection('meritValues')
+                .doc('roleMetadata')
+                .collection(category)
+                .doc(roleId);
+            
+            batch.update(roleRef, {
+                [`levelValues.${levelId}`]: newValue,
+                updated: new Date()
+            });
+        }
+    });
+    
+    // Execute batch update
+    if (meritInputs.length > 0) {
+        await batch.commit();
+        console.log('Role merit values updated successfully');
     }
 }
 
@@ -1519,6 +1730,193 @@ function editRoleInNewModal(roleId, category) {
     
     // Open modal
     document.getElementById('addRoleModal').classList.remove('d-none');
+}
+
+// New editRole function similar to editLevel
+function editRole(roleId, category) {
+    currentEditingRoleId = roleId;
+    currentEditingRoleCategory = category;
+    
+    // Get role data
+    const roleData = currentEventMeritValues[category === 'committee' ? 'committee' : 'nonCommittee'][roleId];
+    
+    if (!roleData) {
+        showToast('Role not found', 'error');
+        return;
+    }
+    
+    // Update modal title
+    const titles = {
+        committee: 'Committee Member Role',
+        nonCommittee: 'Non Committee Role'
+    };
+    document.getElementById('editRoleModalTitle').textContent = `Edit ${titles[category] || 'Role'}`;
+    
+    // Populate basic fields
+    document.getElementById('editRoleNameEN').value = roleData.nameEN || '';
+    document.getElementById('editRoleNameBM').value = roleData.nameBM || '';
+    document.getElementById('editRoleSortOrder').value = roleData.sortOrder !== undefined ? roleData.sortOrder : '';
+    
+    // Populate merit values for all levels for this role
+    populateRoleMeritValuesForRole(roleId, roleData, category);
+    
+    // Show modal
+    document.getElementById('editRoleModal').classList.remove('d-none');
+}
+
+function populateRoleMeritValuesForRole(roleId, roleData, category) {
+    const levelsContainer = document.getElementById('editRoleLevels');
+    
+    // Clear container
+    levelsContainer.innerHTML = '';
+    
+    // Generate level inputs
+    if (currentLevelConfigs && currentLevelConfigs.eventLevels) {
+        currentLevelConfigs.eventLevels.forEach(level => {
+            const currentValue = (roleData.levelValues && roleData.levelValues[level.id]) || 0;
+            const levelInput = createLevelMeritInput(level, currentValue);
+            levelsContainer.appendChild(levelInput);
+        });
+    }
+}
+
+function createLevelMeritInput(level, currentValue) {
+    const div = document.createElement('div');
+    div.className = 'role-merit-container';
+    
+    div.innerHTML = `
+        <div class="role-info">
+            <div class="role-name-bm">${level.nameBM || 'Unknown Level'}</div>
+            <div class="role-name-en">${level.nameEN || 'Unknown'}</div>
+        </div>
+        <div class="merit-input-container">
+            <input 
+                type="number" 
+                min="0" 
+                step="1"
+                class="role-level-merit-input" 
+                value="${currentValue}"
+                data-level-id="${level.id}"
+                placeholder="0"
+            >
+        </div>
+    `;
+    
+    return div;
+}
+
+function closeEditRoleModal() {
+    document.getElementById('editRoleModal').classList.add('d-none');
+    currentEditingRoleId = null;
+    currentEditingRoleCategory = null;
+}
+
+async function updateRole() {
+    try {
+        const nameEN = document.getElementById('editRoleNameEN').value.trim();
+        const nameBM = document.getElementById('editRoleNameBM').value.trim();
+        const sortOrder = parseInt(document.getElementById('editRoleSortOrder').value) || 999;
+        
+        if (!nameEN || !nameBM) {
+            showToast('Please fill in both English and Malay names', 'error');
+            return;
+        }
+        
+        if (!currentEditingRoleId || !currentEditingRoleCategory) {
+            showToast('Invalid role data', 'error');
+            return;
+        }
+        
+        showLoading();
+        
+        // Collect merit values from inputs
+        const levelValues = {};
+        const levelInputs = document.querySelectorAll('.role-level-merit-input');
+        levelInputs.forEach(input => {
+            const levelId = input.dataset.levelId;
+            const value = parseInt(input.value) || 0;
+            levelValues[levelId] = value;
+        });
+        
+        // Update role data
+        const roleData = {
+            id: currentEditingRoleId,
+            nameEN: nameEN,
+            nameBM: nameBM,
+            sortOrder: sortOrder,
+            levelValues: levelValues,
+            category: currentEditingRoleCategory,
+            updated: new Date()
+        };
+        
+        // Save to hierarchical structure
+        const firestore = window.firestore;
+        await firestore.collection('meritValues')
+            .doc('roleMetadata')
+            .collection(currentEditingRoleCategory === 'committee' ? 'committee' : 'nonCommittee')
+            .doc(currentEditingRoleId)
+            .update(roleData);
+        
+        console.log('Role updated successfully:', roleData);
+        showToast(`${roleData.nameBM} role updated successfully!`, 'success');
+        
+        // Close modal
+        closeEditRoleModal();
+        
+        // Reload merit values
+        await loadEventMeritValues();
+        
+    } catch (error) {
+        console.error('Error updating role:', error);
+        showToast('Error updating role: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function deleteRole() {
+    if (!currentEditingRoleId || !currentEditingRoleCategory) {
+        showToast('Invalid role data', 'error');
+        return;
+    }
+    
+    // Get role data for confirmation
+    const roleData = currentEventMeritValues[currentEditingRoleCategory === 'committee' ? 'committee' : 'nonCommittee'][currentEditingRoleId];
+    
+    if (!roleData) {
+        showToast('Role not found', 'error');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete the role "${roleData.nameBM}" (${roleData.nameEN})? This action cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        const firestore = window.firestore;
+        await firestore.collection('meritValues')
+            .doc('roleMetadata')
+            .collection(currentEditingRoleCategory === 'committee' ? 'committee' : 'nonCommittee')
+            .doc(currentEditingRoleId)
+            .delete();
+        
+        console.log('Role deleted successfully:', roleData);
+        showToast(`${roleData.nameBM} role deleted successfully!`, 'success');
+        
+        // Close modal
+        closeEditRoleModal();
+        
+        // Reload merit values
+        await loadEventMeritValues();
+        
+    } catch (error) {
+        console.error('Error deleting role:', error);
+        showToast('Error deleting role: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
 }
 
 function generateRoleLevelInputs(category) {
@@ -2679,6 +3077,10 @@ window.editLevel = editLevel;
 window.closeEditLevelModal = closeEditLevelModal;
 window.updateLevel = updateLevel;
 window.deleteLevel = deleteLevel;
+window.editRole = editRole;
+window.closeEditRoleModal = closeEditRoleModal;
+window.updateRole = updateRole;
+window.deleteRole = deleteRole;
 window.editEventMeritRole = editEventMeritRole;
 window.editCompetitionMeritRole = editCompetitionMeritRole;
 window.deleteEventMeritRole = deleteEventMeritRole;

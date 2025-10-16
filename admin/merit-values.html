@@ -192,7 +192,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3 class="modal-title" id="eventMeritModalTitle">Add Event Merit Role</h3>
-                <button onclick="closeEventMeritModal()" class="btn btn-outline btn-sm">×</button>
+                <button onclick="closeEventMeritModal()" class="modal-close-btn">×</button>
             </div>
             <div class="modal-body">
                 <form id="eventMeritForm">
@@ -261,7 +261,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3 class="modal-title" id="competitionMeritModalTitle">Add Competition Achievement</h3>
-                <button onclick="closeCompetitionMeritModal()" class="btn btn-outline btn-sm">×</button>
+                <button onclick="closeCompetitionMeritModal()" class="modal-close-btn">×</button>
             </div>
             <div class="modal-body">
                 <form id="competitionMeritForm">
@@ -332,7 +332,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3 class="modal-title" id="levelModalTitle">Add Level</h3>
-                <button onclick="closeLevelModal()" class="btn btn-outline btn-sm">×</button>
+                <button onclick="closeLevelModal()" class="modal-close-btn">×</button>
             </div>
             <div class="modal-body">
                 <form id="levelForm">
@@ -363,7 +363,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3 class="modal-title" id="roleModalTitle">Add Role</h3>
-                <button onclick="closeRoleModal()" class="btn btn-outline btn-sm">×</button>
+                <button onclick="closeRoleModal()" class="modal-close-btn">×</button>
             </div>
             <div class="modal-body">
                 <form id="roleForm">
@@ -400,7 +400,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3 class="modal-title" id="editLevelModalTitle">Edit Level</h3>
-                <button onclick="closeEditLevelModal()" class="btn btn-outline btn-sm">×</button>
+                <button onclick="closeEditLevelModal()" class="modal-close-btn">×</button>
             </div>
             <div class="modal-body">
                 <form id="editLevelForm">
@@ -422,6 +422,29 @@
                                placeholder="Order in table (lower numbers first)">
                     </div>
                 </form>
+                
+                <!-- Merit Values Section -->
+                <div class="mt-6 mb-4">
+                    <h4 class="text-lg font-medium mb-3">Merit Values for This Level</h4>
+                    <p class="text-sm text-secondary mb-4">Edit the merit points that roles receive at this level</p>
+                    
+                    <!-- Committee Roles -->
+                    <div class="mb-4">
+                        <h5 class="font-medium text-sm mb-2">Committee Member Roles</h5>
+                        <div id="editLevelCommitteeRoles" class="space-y-2">
+                            <!-- Committee role inputs will be generated here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Non-Committee Roles -->
+                    <div class="mb-4">
+                        <h5 class="font-medium text-sm mb-2">Non Committee Roles</h5>
+                        <div id="editLevelNonCommitteeRoles" class="space-y-2">
+                            <!-- Non-committee role inputs will be generated here -->
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded">
                     <h4 class="text-sm font-medium text-red-800 mb-2">Danger Zone</h4>
                     <p class="text-sm text-red-600 mb-3">
@@ -438,6 +461,65 @@
             <div class="modal-footer">
                 <button onclick="closeEditLevelModal()" class="btn btn-outline">Cancel</button>
                 <button id="updateLevelBtn" class="btn btn-primary">Update Level</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Role Modal -->
+    <div id="editRoleModal" class="modal d-none">
+        <div class="modal-overlay" onclick="closeEditRoleModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="editRoleModalTitle">Edit Role</h3>
+                <button onclick="closeEditRoleModal()" class="modal-close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="editRoleForm">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="form-group">
+                            <label for="editRoleNameEN" class="form-label">Name (EN) *</label>
+                            <input type="text" id="editRoleNameEN" class="form-control" required 
+                                   placeholder="e.g., Director, Participant">
+                        </div>
+                        <div class="form-group">
+                            <label for="editRoleNameBM" class="form-label">Name (BM) *</label>
+                            <input type="text" id="editRoleNameBM" class="form-control" required 
+                                   placeholder="e.g., Pengarah, Peserta">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="editRoleSortOrder" class="form-label">Display Order</label>
+                        <input type="number" id="editRoleSortOrder" class="form-control" min="0" 
+                               placeholder="Order in table (lower numbers first)">
+                    </div>
+                </form>
+                
+                <!-- Merit Values Section -->
+                <div class="mt-6 mb-4">
+                    <h4 class="text-lg font-medium mb-3">Merit Values for This Role</h4>
+                    <p class="text-sm text-secondary mb-4">Edit the merit points this role receives at each level</p>
+                    
+                    <div id="editRoleLevels" class="space-y-2">
+                        <!-- Level inputs will be generated here -->
+                    </div>
+                </div>
+                
+                <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded">
+                    <h4 class="text-sm font-medium text-red-800 mb-2">Danger Zone</h4>
+                    <p class="text-sm text-red-600 mb-3">
+                        Deleting this role will remove it from the system and cannot be undone.
+                    </p>
+                    <button onclick="deleteRole()" class="btn btn-danger btn-sm">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                        Delete Role
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeEditRoleModal()" class="btn btn-outline">Cancel</button>
+                <button onclick="updateRole()" class="btn btn-primary">Update Role</button>
             </div>
         </div>
     </div>
@@ -520,6 +602,23 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+        
+        .modal-close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 4px;
+            line-height: 1;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .modal-close-btn:hover {
+            background-color: #f3f4f6;
+            color: #374151;
         }
         
         .modal-body {
@@ -612,6 +711,166 @@
         
         .text-red-600 {
             color: #dc2626;
+        }
+        
+        /* Draggable Level Headers */
+        .draggable-level-header {
+            cursor: move;
+            user-select: none;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        
+        .draggable-level-header:hover {
+            background-color: rgba(59, 130, 246, 0.05);
+        }
+        
+        .level-header-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            position: relative;
+        }
+        
+        .drag-indicator {
+            color: #ccc;
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: -2px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            position: absolute;
+            left: -10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .draggable-level-header:hover .drag-indicator {
+            opacity: 1;
+        }
+        
+        .draggable-level-header[draggable="true"] {
+            user-select: none;
+        }
+        
+        /* Drop zone indicator for level headers */
+        th[style*="border-left"] {
+            background-color: rgba(59, 130, 246, 0.1) !important;
+        }
+        
+        /* Merit Values in Edit Level Modal */
+        .role-merit-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background-color: #f9fafb;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 8px;
+        }
+        
+        .role-info {
+            flex: 1;
+        }
+        
+        .role-name-bm {
+            font-weight: 500;
+            font-size: 14px;
+            color: #111827;
+            line-height: 1.2;
+        }
+        
+        .role-name-en {
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.2;
+            margin-top: 2px;
+        }
+        
+        .merit-input-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .merit-input-label {
+            font-size: 12px;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+        
+        .role-merit-input {
+            width: 80px !important;
+            height: 36px;
+            font-size: 14px;
+            border-radius: 4px;
+            border: 1px solid #d1d5db;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .role-merit-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            outline: none;
+        }
+        
+        .space-y-2 > * + * {
+            margin-top: 0.5rem;
+        }
+        
+        .bg-gray-50 {
+            background-color: #f9fafb;
+        }
+        
+        .text-secondary {
+            color: #6b7280;
+        }
+        
+        .w-20 {
+            width: 5rem;
+        }
+        
+        /* Role name links */
+        .role-name-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: inline-block;
+            padding: 2px 0;
+            border-radius: 2px;
+        }
+        
+        .role-name-link:hover {
+            color: var(--primary-color);
+            background-color: rgba(59, 130, 246, 0.1);
+            text-decoration: none;
+            transform: translateY(-1px);
+            padding: 2px 4px;
+        }
+        
+        .role-name-link:active {
+            transform: translateY(0);
+        }
+        
+        /* Role level merit input styling */
+        .role-level-merit-input {
+            width: 80px !important;
+            height: 36px;
+            font-size: 14px;
+            border-radius: 4px;
+            border: 1px solid #d1d5db;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .role-level-merit-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            outline: none;
         }
     </style>
 </body>
