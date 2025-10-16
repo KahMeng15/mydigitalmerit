@@ -176,7 +176,8 @@ async function loadSubActivities() {
             return a.name.localeCompare(b.name);
         });
         
-        displaySubActivities(childActivities);
+        // Child activities are now handled by loadMeritRecords function
+        // displaySubActivities(childActivities); // Removed as we use new merit records structure
         
     } catch (error) {
         console.error('Error loading child activities:', error);
@@ -374,13 +375,31 @@ async function loadMeritTypes() {
         
     } catch (error) {
         console.error('Error loading merit types:', error);
-        document.getElementById('meritTypesGrid').innerHTML = '<p class="text-secondary col-span-3 text-center">Error loading merit types</p>';
+        const errorMsg = '<div class="text-center py-8"><p class="text-secondary">Error loading merit types</p></div>';
+        document.getElementById('committeeMeritsList').innerHTML = errorMsg;
+        document.getElementById('participantMeritsList').innerHTML = errorMsg;
+        document.getElementById('customMeritsList').innerHTML = errorMsg;
     }
 }
 
 function displayMeritTypes(meritValues) {
-    const grid = document.getElementById('meritTypesGrid');
-    let html = '';
+    const committeeContainer = document.getElementById('committeeMeritsList');
+    const participantContainer = document.getElementById('participantMeritsList');
+    const customContainer = document.getElementById('customMeritsList');
+    
+    let committeeHtml = '';
+    let participantHtml = '';
+    let customHtml = '';
+    
+    // Define which roles are committee members vs participants
+    const committeeRoles = [
+        'President', 'Vice President', 'Secretary', 'Assistant Secretary', 
+        'Treasurer', 'Assistant Treasurer', 'Committee Member', 'Director',
+        'Co-Director', 'Project Manager', 'Event Manager', 'Chairman',
+        'Vice Chairman', 'Chairperson', 'Vice Chairperson', 'Head',
+        'Deputy Head', 'Coordinator', 'Assistant Coordinator', 'Emcee',
+        'MC', 'Master of Ceremony', 'Jury', 'Judge', 'Volunteer', 'Facilitator'
+    ];
     
     // Base roles
     if (meritValues.roles && (currentEventData.levelId || currentEventData.level)) {
@@ -393,54 +412,75 @@ function displayMeritTypes(meritValues) {
         const sortedRoles = Object.entries(meritValues.roles)
             .map(([role, levels]) => ({
                 role: role,
-                points: levels[levelId] || 0
+                points: levels[levelId] || 0,
+                type: 'base'
             }))
             .sort((a, b) => b.points - a.points);
         
         sortedRoles.forEach(({ role, points }) => {
-            html += `
-                <div class="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div class="font-semibold text-gray-800 mb-2">${sanitizeHTML(role)}</div>
-                    <div class="text-2xl font-bold text-blue-600 mb-1">${points} points</div>
-                    <div class="text-xs text-gray-500 font-medium uppercase tracking-wide">Base Role</div>
+            const isCommittee = committeeRoles.some(committeeRole => 
+                role.toLowerCase().includes(committeeRole.toLowerCase()) ||
+                committeeRole.toLowerCase().includes(role.toLowerCase())
+            );
+            
+            const roleHtml = `
+                <div class="bg-white flex justify-between items-center hover:shadow-sm transition-shadow">
+                    <div class="text-gray-800">${sanitizeHTML(role)}</div>
+                    <div class="text-blue-600">${points} pts</div>
                 </div>
             `;
+            
+            if (isCommittee) {
+                committeeHtml += roleHtml;
+            } else {
+                participantHtml += roleHtml;
+            }
         });
     }
     
-    // Custom roles
+    // Custom roles - always go to custom roles section
     if (currentEventData.customRoles && currentEventData.customRoles.length > 0) {
         const sortedCustomRoles = [...currentEventData.customRoles]
             .sort((a, b) => b.value - a.value);
         
         sortedCustomRoles.forEach(role => {
-            html += `
-                <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-300 shadow-sm hover:shadow-md transition-shadow">
-                    <div class="font-semibold text-blue-800 mb-2">${sanitizeHTML(role.name)}</div>
-                    <div class="text-2xl font-bold text-blue-600 mb-1">${role.value} points</div>
-                    <div class="text-xs text-blue-500 font-medium uppercase tracking-wide">Custom Role</div>
+            const roleHtml = `
+                <div class="bg-white p-3 rounded border border-purple-300 flex justify-between items-center hover:shadow-sm transition-shadow">
+                    <div class="text-purple-800">${sanitizeHTML(role.name)}</div>
+                    <div class="text-purple-600">${role.value} pts</div>
                 </div>
             `;
+            
+            customHtml += roleHtml;
         });
     }
     
-    if (!html) {
-        html = '<div class="col-span-3 flex items-center justify-center h-32"><p class="text-secondary text-center">No merit types configured for this event</p></div>';
+    // Display results or fallback messages
+    if (!committeeHtml) {
+        committeeHtml = '<div class="text-center py-8"><p class="text-secondary">No committee member roles configured</p></div>';
     }
     
-    grid.innerHTML = html;
+    if (!participantHtml) {
+        participantHtml = '<div class="text-center py-8"><p class="text-secondary">No participant roles configured</p></div>';
+    }
+    
+    if (!customHtml) {
+        customHtml = '<div class="text-center py-8"><p class="text-secondary">No custom roles configured</p></div>';
+    }
+    
+    committeeContainer.innerHTML = committeeHtml;
+    participantContainer.innerHTML = participantHtml;
+    customContainer.innerHTML = customHtml;
 }
 
 async function loadUploadedMerits() {
     try {
-        const tableBody = document.getElementById('uploadedMeritsTable');
-        tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-secondary">Loading merits...</td></tr>';
-        
+        // Load merit data
         const uploadedMerits = [];
         let totalMerits = 0;
         const meritBreakdown = {};
         
-        // Load from event participants list (ULTRA-FAST - Single Query)
+        // Load from event participants list
         const participantsSnapshot = await firestore
             .collection('events')
             .doc(currentEventId)
@@ -475,64 +515,202 @@ async function loadUploadedMerits() {
         document.getElementById('totalMerits').textContent = totalMerits.toLocaleString();
         displayMeritBreakdown(meritBreakdown);
         
-        // Display uploaded merits table
-        if (uploadedMerits.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-secondary">No merits uploaded yet</td></tr>';
-        } else {
-            // Sort by upload date (newest first)
-            uploadedMerits.sort((a, b) => {
-                if (!a.uploadDate) return 1;
-                if (!b.uploadDate) return -1;
-                
-                let dateA, dateB;
-                
-                // Handle Firestore Timestamps
-                if (a.uploadDate && typeof a.uploadDate.toDate === 'function') {
-                    dateA = a.uploadDate.toDate();
-                } else {
-                    dateA = new Date(a.uploadDate);
-                }
-                
-                if (b.uploadDate && typeof b.uploadDate.toDate === 'function') {
-                    dateB = b.uploadDate.toDate();
-                } else {
-                    dateB = new Date(b.uploadDate);
-                }
-                
-                // Check for invalid dates
-                if (isNaN(dateA.getTime())) return 1;
-                if (isNaN(dateB.getTime())) return -1;
-                
-                return dateB - dateA;
-            });
-            
-            tableBody.innerHTML = uploadedMerits.map(merit => {
-                let formattedDate = 'N/A';
-                if (merit.uploadDate) {
-                    formattedDate = formatDate(merit.uploadDate);
-                    // If formatDate returns 'Invalid Date', show a fallback
-                    if (formattedDate === 'Invalid Date') {
-                        formattedDate = 'Unknown Date';
-                    }
-                }
-                
-                return `
-                <tr>
-                    <td>${sanitizeHTML(merit.studentName)}</td>
-                    <td>${sanitizeHTML(merit.matricNumber)}</td>
-                    <td>${sanitizeHTML(merit.role)}</td>
-                    <td class="font-medium">${merit.points} points</td>
-                    <td>${formattedDate}</td>
-                </tr>
-                `;
-            }).join('');
-        }
+        // Load and display merit records structure
+        await loadMeritRecords();
+        
         
     } catch (error) {
         console.error('Error loading uploaded merits:', error);
-        document.getElementById('uploadedMeritsTable').innerHTML = 
-            '<tr><td colspan="5" class="text-center text-danger">Error loading merits</td></tr>';
+        // Error handling for merit records
+        const recordsContainer = document.getElementById('meritRecordsList');
+        if (recordsContainer) {
+            recordsContainer.innerHTML = '<div class="text-center py-4 text-danger">Error loading merit records</div>';
+        }
     }
+}
+
+// Removed displayMeritSummaryByRole function as merit summary section was removed
+// function displayMeritSummaryByRole(breakdown) { ... }
+
+async function loadMeritRecords() {
+    try {
+        const container = document.getElementById('meritRecordsList');
+        container.innerHTML = '<div class="text-center py-4"><p class="text-secondary">Loading merit records...</p></div>';
+        
+        let recordsHtml = '';
+        
+        // Add parent event merit records (committee members)
+        const parentMerits = await getParentEventMerits();
+        if (parentMerits.length > 0) {
+            recordsHtml += generateParentMeritRecords(parentMerits);
+        }
+        
+        // Load child activities and their merit records
+        const childActivities = await getChildActivities();
+        if (childActivities.length > 0) {
+            recordsHtml += await generateChildActivitiesMeritRecords(childActivities);
+        }
+        
+        if (!recordsHtml) {
+            recordsHtml = '<div class="text-center py-8"><p class="text-secondary">No merit records found</p></div>';
+        }
+        
+        container.innerHTML = recordsHtml;
+        
+    } catch (error) {
+        console.error('Error loading merit records:', error);
+        document.getElementById('meritRecordsList').innerHTML = 
+            '<div class="text-center py-4 text-danger">Error loading merit records</div>';
+    }
+}
+
+function generateParentMeritRecords(parentMerits) {
+    const committeeCount = parentMerits.filter(m => isCommitteeRole(m.role)).length;
+    
+    if (committeeCount === 0) return '';
+    
+    return `
+        <div class="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+            <div class="flex justify-between items-center mb-3">
+                <h4 class="font-semibold text-indigo-800">Parent Event Committee</h4>
+            </div>
+            <div class="ml-4">
+                <div class="bg-indigo-100 border border-indigo-300 rounded-lg p-4 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.196-2.121L17 20zM9 12a4 4 0 100-8 4 4 0 000 8zm8 0a4 4 0 100-8 4 4 0 000 8zm-8 8a6 6 0 006-6H3a6 6 0 006 6z"/>
+                        </svg>
+                        <div>
+                            <div class="font-medium text-indigo-800">Committee Members</div>
+                            <div class="text-sm text-indigo-600">${committeeCount} records</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <div onclick="viewMeritDetails('parent-committee')" 
+                             class="text-blue-600 hover:text-blue-800 transition-colors" style="cursor: pointer" title="View Details">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                            </svg>
+                        </div>
+                        <div onclick="deleteMeritRecords('parent-committee')" 
+                             class="text-red-600 hover:text-red-800 transition-colors" style="cursor: pointer" title="Delete Records">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function generateChildActivitiesMeritRecords(childActivities) {
+    let html = '';
+    
+    for (const activity of childActivities) {
+        const merits = await getActivityMerits(activity.id);
+        const participantCount = merits.filter(m => !isCommitteeRole(m.role)).length;
+        const committeeCount = merits.filter(m => isCommitteeRole(m.role)).length;
+        
+        html += `
+            <div class="mb-6 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <div class="mb-3">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-gray-800 text-lg">${sanitizeHTML(activity.name)}</h4>
+                            <div class="mt-2 text-sm text-gray-600 space-y-1">
+                                ${activity.date ? `<div><strong>Date:</strong> ${formatDate(activity.date)}</div>` : ''}
+                                ${activity.time ? `<div><strong>Time:</strong> ${activity.time}</div>` : ''}
+                                ${activity.location ? `<div><strong>Location:</strong> ${sanitizeHTML(activity.location)}</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="flex gap-3 ml-4">
+                            <div onclick="editChildActivity('${activity.id}')" 
+                                 class="text-blue-600 hover:text-blue-800 transition-colors" style="cursor: pointer" title="Edit Activity">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                            </div>
+                            <div onclick="uploadMeritsForChildActivity('${activity.id}')" 
+                                 class="text-green-600 hover:text-green-800 transition-colors" style="cursor: pointer" title="Upload Merits">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                                </svg>
+                            </div>
+                            <div onclick="deleteChildActivity('${activity.id}')" 
+                                 class="text-red-600 hover:text-red-800 transition-colors" style="cursor: pointer" title="Delete Activity">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="ml-4 space-y-3">
+                    ${participantCount > 0 ? `
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-4 flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                                </svg>
+                                <div>
+                                    <div class="font-medium text-green-800">Participants</div>
+                                    <div class="text-sm text-green-600">${participantCount} records</div>
+                                </div>
+                            </div>
+                            <div class="flex gap-3">
+                                <div onclick="viewMeritDetails('${activity.id}', 'participants')" 
+                                     class="text-green-600 hover:text-green-800 transition-colors" style="cursor: pointer" title="View Details">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                    </svg>
+                                </div>
+                                <div onclick="deleteMeritRecords('${activity.id}', 'participants')" 
+                                     class="text-red-600 hover:text-red-800 transition-colors" style="cursor: pointer" title="Delete Records">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    ${committeeCount > 0 ? `
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.196-2.121L17 20zM9 12a4 4 0 100-8 4 4 0 000 8zm8 0a4 4 0 100-8 4 4 0 000 8zm-8 8a6 6 0 006-6H3a6 6 0 006 6z"/>
+                                </svg>
+                                <div>
+                                    <div class="font-medium text-blue-800">Committee Members</div>
+                                    <div class="text-sm text-blue-600">${committeeCount} records</div>
+                                </div>
+                            </div>
+                            <div class="flex gap-3">
+                                <div onclick="viewMeritDetails('${activity.id}', 'committee')" 
+                                     class="text-blue-600 hover:text-blue-800 transition-colors" style="cursor: pointer" title="View Details">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                    </svg>
+                                </div>
+                                <div onclick="deleteMeritRecords('${activity.id}', 'committee')" 
+                                     class="text-red-600 hover:text-red-800 transition-colors" style="cursor: pointer" title="Delete Records">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+    
+    return html;
 }
 
 function displayMeritBreakdown(breakdown) {
@@ -789,4 +967,193 @@ async function confirmDelete() {
 function exportMerits() {
     // This function can be implemented to export merits to CSV/Excel
     showToast('Export functionality coming soon', 'info');
+}
+
+// Helper functions for new merit records structure
+function isCommitteeRole(role) {
+    const committeeRoles = [
+        'President', 'Vice President', 'Secretary', 'Assistant Secretary', 
+        'Treasurer', 'Assistant Treasurer', 'Committee Member', 'Director',
+        'Co-Director', 'Project Manager', 'Event Manager', 'Chairman',
+        'Vice Chairman', 'Chairperson', 'Vice Chairperson', 'Head',
+        'Deputy Head', 'Coordinator', 'Assistant Coordinator', 'Emcee',
+        'MC', 'Master of Ceremony', 'Jury', 'Judge', 'Volunteer', 'Facilitator'
+    ];
+    
+    return committeeRoles.some(committeeRole => 
+        role.toLowerCase().includes(committeeRole.toLowerCase()) ||
+        committeeRole.toLowerCase().includes(role.toLowerCase())
+    );
+}
+
+async function getChildActivities() {
+    try {
+        const activitiesSnapshot = await firestore
+            .collection('events')
+            .doc(currentEventId)
+            .collection('activities')
+            .get();
+        
+        const childActivities = [];
+        activitiesSnapshot.forEach(doc => {
+            childActivities.push({ id: doc.id, ...doc.data() });
+        });
+        
+        // Sort child activities
+        childActivities.sort((a, b) => {
+            if (a.activityOrder && b.activityOrder) {
+                return a.activityOrder - b.activityOrder;
+            }
+            return a.name.localeCompare(b.name);
+        });
+        
+        return childActivities;
+    } catch (error) {
+        console.error('Error loading child activities:', error);
+        return [];
+    }
+}
+
+async function getParentEventMerits() {
+    try {
+        const participantsSnapshot = await firestore
+            .collection('events')
+            .doc(currentEventId)
+            .collection('participants')
+            .get();
+        
+        const merits = [];
+        participantsSnapshot.forEach(participantDoc => {
+            const data = participantDoc.data();
+            merits.push({
+                matricNumber: participantDoc.id,
+                studentName: data.studentName || 'Unknown',
+                role: data.meritType || 'Participant',
+                points: data.meritPoints || 0,
+                uploadDate: data.uploadDate || null
+            });
+        });
+        
+        return merits;
+    } catch (error) {
+        console.error('Error loading parent event merits:', error);
+        return [];
+    }
+}
+
+async function getActivityMerits(activityId) {
+    try {
+        const participantsSnapshot = await firestore
+            .collection('events')
+            .doc(activityId)
+            .collection('participants')
+            .get();
+        
+        const merits = [];
+        participantsSnapshot.forEach(participantDoc => {
+            const data = participantDoc.data();
+            merits.push({
+                matricNumber: participantDoc.id,
+                studentName: data.studentName || 'Unknown',
+                role: data.meritType || 'Participant',
+                points: data.meritPoints || 0,
+                uploadDate: data.uploadDate || null
+            });
+        });
+        
+        return merits;
+    } catch (error) {
+        console.error('Error loading activity merits:', error);
+        return [];
+    }
+}
+
+function viewRoleDetails(roleName) {
+    // Navigate to a detailed view of all records for this role
+    const params = new URLSearchParams({
+        eventId: currentEventId,
+        role: roleName,
+        view: 'role-details'
+    });
+    window.open(`merit-records.html?${params.toString()}`, '_blank');
+}
+
+function viewMeritDetails(activityId, category = 'all') {
+    // Navigate to a detailed view of merit records for this activity/category
+    const params = new URLSearchParams({
+        eventId: activityId,
+        category: category,
+        view: 'activity-details'
+    });
+    window.open(`merit-records.html?${params.toString()}`, '_blank');
+}
+
+async function deleteMeritRecords(activityId, category = 'all') {
+    const categoryText = category === 'all' ? 'all merit records' : 
+                        category === 'participants' ? 'participant records' :
+                        category === 'committee' ? 'committee member records' : 'records';
+    
+    const activityText = activityId === 'parent-committee' ? 'parent event' : 'this activity';
+    
+    if (!confirm(`Are you sure you want to delete ${categoryText} for ${activityText}? This action cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        const eventId = activityId === 'parent-committee' ? currentEventId : activityId;
+        
+        // Get all participants for this event/activity
+        const participantsSnapshot = await firestore
+            .collection('events')
+            .doc(eventId)
+            .collection('participants')
+            .get();
+        
+        const batch = firestore.batch();
+        let deletionCount = 0;
+        
+        participantsSnapshot.forEach(participantDoc => {
+            const data = participantDoc.data();
+            const role = data.meritType || 'Participant';
+            
+            // Filter by category if specified
+            if (category === 'participants' && isCommitteeRole(role)) {
+                return; // Skip committee roles
+            }
+            if (category === 'committee' && !isCommitteeRole(role)) {
+                return; // Skip non-committee roles
+            }
+            
+            // Delete from participants collection
+            batch.delete(participantDoc.ref);
+            deletionCount++;
+            
+            // Also delete from student's events subcollection
+            const studentEventRef = firestore
+                .collection('students')
+                .doc(participantDoc.id)
+                .collection('events')
+                .doc(eventId);
+            batch.delete(studentEventRef);
+        });
+        
+        if (deletionCount > 0) {
+            await batch.commit();
+            showToast(`${deletionCount} ${categoryText} deleted successfully`, 'success');
+            
+            // Reload merit records to reflect changes
+            await loadMeritRecords();
+            await loadUploadedMerits(); // Refresh statistics
+        } else {
+            showToast(`No ${categoryText} found to delete`, 'info');
+        }
+        
+    } catch (error) {
+        console.error('Error deleting merit records:', error);
+        showToast('Error deleting records: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
 }
