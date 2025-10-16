@@ -479,7 +479,7 @@
                                 </svg>
                                 Back: Preview & Validation
                             </button>
-                            <button id="confirmUploadBtn" class="btn btn-success">
+                            <button id="nextFromStep7" class="btn btn-success">
                                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                                 </svg>
@@ -512,6 +512,22 @@
                         </p>
                         <p class="text-sm text-secondary mt-2">Please do not close this window while uploading...</p>
                     </div>
+                    <div class="card-footer">
+                        <div class="flex justify-between">
+                            <button id="backFromStep8" class="btn btn-outline">
+                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                                Back: Final Confirmation
+                            </button>
+                            <button id="finishUploadBtn" class="btn btn-primary">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Finish & Return to Events
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -537,7 +553,6 @@
     <!-- App Scripts -->
     <script src="../assets/js/firebase-config.js"></script>
     <script src="../assets/js/utils.js"></script>
-    <script src="../assets/js/level-manager.js"></script>
     <script src="../assets/js/upload-merits.js"></script>
 
     <style>
