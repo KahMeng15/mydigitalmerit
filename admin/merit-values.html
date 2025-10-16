@@ -348,7 +348,42 @@
                                    placeholder="e.g., Universiti, Negeri">
                         </div>
                     </div>
+                    <div class="form-group">
+                        <label for="levelSortOrder" class="form-label">Display Order</label>
+                        <input type="number" id="levelSortOrder" class="form-control" min="0" 
+                               placeholder="Order in table (lower numbers first)">
+                    </div>
                 </form>
+                
+                <!-- Merit Values Section -->
+                <div class="mt-6 mb-4">
+                    <h4 class="text-lg font-medium mb-3">Merit Values for This Level</h4>
+                    <p class="text-sm text-secondary mb-4">Set the merit points that roles receive at this level</p>
+                    
+                    <!-- Committee Roles -->
+                    <div class="mb-4" id="addLevelCommitteeSection">
+                        <h5 class="font-medium text-sm mb-2">Committee Member Roles</h5>
+                        <div id="addLevelCommitteeRoles" class="space-y-2">
+                            <!-- Committee role inputs will be generated here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Non-Committee Roles -->
+                    <div class="mb-4" id="addLevelNonCommitteeSection">
+                        <h5 class="font-medium text-sm mb-2">Non Committee Roles</h5>
+                        <div id="addLevelNonCommitteeRoles" class="space-y-2">
+                            <!-- Non-committee role inputs will be generated here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Competition Roles -->
+                    <div class="mb-4" id="addLevelCompetitionSection">
+                        <h5 class="font-medium text-sm mb-2">Competition Achievements</h5>
+                        <div id="addLevelCompetitionRoles" class="space-y-2">
+                            <!-- Competition role inputs will be generated here -->
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button onclick="closeLevelModal()" class="btn btn-outline">Cancel</button>
@@ -379,13 +414,22 @@
                                    placeholder="e.g., Pengarah, Peserta">
                         </div>
                     </div>
-                    <div class="mb-4">
-                        <h4 class="text-sm font-medium mb-3">Merit Values by Level</h4>
-                        <div id="roleLevelInputs" class="grid grid-cols-2 gap-3">
-                            <!-- Level inputs will be dynamically generated here -->
-                        </div>
+                    <div class="form-group">
+                        <label for="roleSortOrder" class="form-label">Display Order</label>
+                        <input type="number" id="roleSortOrder" class="form-control" min="0" 
+                               placeholder="Order in table (lower numbers first)">
                     </div>
                 </form>
+                
+                <!-- Merit Values Section -->
+                <div class="mt-6 mb-4">
+                    <h4 class="text-lg font-medium mb-3">Merit Values for This Role</h4>
+                    <p class="text-sm text-secondary mb-4">Set the merit points this role receives at each level</p>
+                    
+                    <div id="roleLevelInputs" class="space-y-2">
+                        <!-- Level inputs will be dynamically generated here -->
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button onclick="closeRoleModal()" class="btn btn-outline">Cancel</button>

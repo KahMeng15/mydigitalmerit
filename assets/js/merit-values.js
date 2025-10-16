@@ -375,7 +375,6 @@ function setupEventListeners() {
     safeAddEventListener('saveEventMeritBtn', 'click', saveEventMeritRole);
     
     // Competition Merit management
-    safeAddEventListener('addCompetitionBtn', 'click', () => openCompetitionMeritModal());
     safeAddEventListener('saveCompetitionMeritBtn', 'click', saveCompetitionMeritRole);
     
     // New modal save buttons
@@ -1299,16 +1298,6 @@ function closeEventMeritModal() {
     document.getElementById('eventMeritModal').classList.add('d-none');
 }
 
-function openCompetitionMeritModal() {
-    editingCompetitionRole = null;
-    document.getElementById('competitionMeritModalTitle').textContent = 'Add Competition Achievement';
-    
-    // Reset form
-    document.getElementById('competitionMeritForm').reset();
-    
-    document.getElementById('competitionMeritModal').classList.remove('d-none');
-}
-
 function closeCompetitionMeritModal() {
     document.getElementById('competitionMeritModal').classList.add('d-none');
 }
@@ -1334,12 +1323,66 @@ function openAddLevelModal(type) {
     // Reset form
     document.getElementById('levelForm').reset();
     
+    // Populate merit values sections based on level type
+    populateAddLevelMeritValues(type);
+    
     document.getElementById('addLevelModal').classList.remove('d-none');
 }
 
 function closeLevelModal() {
     document.getElementById('addLevelModal').classList.add('d-none');
     currentLevelType = null;
+}
+
+function populateAddLevelMeritValues(type) {
+    if (type === 'event') {
+        // Show event sections, hide competition section
+        document.getElementById('addLevelCommitteeSection').style.display = 'block';
+        document.getElementById('addLevelNonCommitteeSection').style.display = 'block';
+        document.getElementById('addLevelCompetitionSection').style.display = 'none';
+        
+        // Populate committee roles
+        populateAddLevelRoleSection('addLevelCommitteeRoles', currentEventMeritValues.committee);
+        
+        // Populate non-committee roles  
+        populateAddLevelRoleSection('addLevelNonCommitteeRoles', currentEventMeritValues.nonCommittee);
+    } else if (type === 'competition') {
+        // Show competition section, hide event sections
+        document.getElementById('addLevelCommitteeSection').style.display = 'none';
+        document.getElementById('addLevelNonCommitteeSection').style.display = 'none';
+        document.getElementById('addLevelCompetitionSection').style.display = 'block';
+        
+        // Populate competition roles
+        populateAddLevelRoleSection('addLevelCompetitionRoles', currentCompetitionMeritValues);
+    }
+}
+
+function populateAddLevelRoleSection(containerId, roles) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    
+    if (!roles || Object.keys(roles).length === 0) {
+        container.innerHTML = '<p class="text-sm text-secondary">No roles defined yet</p>';
+        return;
+    }
+    
+    Object.entries(roles).forEach(([roleId, roleData]) => {
+        const roleInput = document.createElement('div');
+        roleInput.className = 'role-merit-container';
+        roleInput.innerHTML = `
+            <div class="flex flex-col">
+                <span class="font-medium text-sm">${roleData.nameBM || 'Unknown'}</span>
+                <span class="text-xs text-secondary">${roleData.nameEN || 'Unknown'}</span>
+            </div>
+            <input type="number" 
+                   class="form-control w-20 role-level-merit-input" 
+                   data-role-id="${roleId}"
+                   min="0" 
+                   value="0" 
+                   placeholder="0">
+        `;
+        container.appendChild(roleInput);
+    });
 }
 
 // Variables for editing levels
@@ -2265,8 +2308,9 @@ async function saveLevelData() {
         
         showLoading();
         
-        // Get next sort order for this level type
-        const nextSortOrder = await getNextLevelSortOrder(currentLevelType);
+        // Get sort order from form or use next available
+        const formSortOrder = document.getElementById('levelSortOrder').value;
+        const sortOrder = formSortOrder ? parseInt(formSortOrder) : await getNextLevelSortOrder(currentLevelType);
         
         // Create level data
         const levelData = {
@@ -2274,7 +2318,7 @@ async function saveLevelData() {
             nameEN: nameEN,
             nameBM: nameBM,
             type: currentLevelType,
-            sortOrder: nextSortOrder,
+            sortOrder: sortOrder,
             created: new Date()
         };
         
@@ -2285,6 +2329,9 @@ async function saveLevelData() {
             .collection(currentLevelType)
             .doc(levelData.id)
             .set(levelData);
+        
+        // Update existing roles with merit values for this level
+        await updateRolesWithNewLevel(levelData);
         
         console.log('Level saved successfully:', levelData);
         showToast(`${levelData.nameEN} level added successfully!`, 'success');
@@ -2300,6 +2347,80 @@ async function saveLevelData() {
         console.error('Error saving level:', error);
         showToast('Error saving level: ' + error.message, 'error');
         hideLoading();
+    }
+}
+
+async function updateRolesWithNewLevel(levelData) {
+    try {
+        const firestore = window.firestore;
+        const batch = firestore.batch();
+        
+        // Get merit values from the form
+        const meritValueInputs = document.querySelectorAll('.role-level-merit-input');
+        const meritValues = {};
+        
+        meritValueInputs.forEach(input => {
+            const roleId = input.dataset.roleId;
+            const value = parseInt(input.value) || 0;
+            meritValues[roleId] = value;
+        });
+        
+        // Update roles based on level type
+        if (levelData.type === 'event') {
+            // Update committee roles
+            if (currentEventMeritValues.committee) {
+                for (const [roleId, roleData] of Object.entries(currentEventMeritValues.committee)) {
+                    if (meritValues[roleId] !== undefined) {
+                        if (!roleData.levelValues) roleData.levelValues = {};
+                        roleData.levelValues[levelData.id] = meritValues[roleId];
+                        
+                        const docRef = firestore.collection('meritValues')
+                            .doc('roleMetadata')
+                            .collection('committee')
+                            .doc(roleId);
+                        batch.update(docRef, { levelValues: roleData.levelValues });
+                    }
+                }
+            }
+            
+            // Update non-committee roles
+            if (currentEventMeritValues.nonCommittee) {
+                for (const [roleId, roleData] of Object.entries(currentEventMeritValues.nonCommittee)) {
+                    if (meritValues[roleId] !== undefined) {
+                        if (!roleData.levelValues) roleData.levelValues = {};
+                        roleData.levelValues[levelData.id] = meritValues[roleId];
+                        
+                        const docRef = firestore.collection('meritValues')
+                            .doc('roleMetadata')
+                            .collection('nonCommittee')
+                            .doc(roleId);
+                        batch.update(docRef, { levelValues: roleData.levelValues });
+                    }
+                }
+            }
+        } else if (levelData.type === 'competition') {
+            // Update competition roles
+            if (currentCompetitionMeritValues) {
+                for (const [roleId, roleData] of Object.entries(currentCompetitionMeritValues)) {
+                    if (meritValues[roleId] !== undefined) {
+                        if (!roleData.levelValues) roleData.levelValues = {};
+                        roleData.levelValues[levelData.id] = meritValues[roleId];
+                        
+                        const docRef = firestore.collection('meritValues')
+                            .doc('roleMetadata')
+                            .collection('competition')
+                            .doc(roleId);
+                        batch.update(docRef, { levelValues: roleData.levelValues });
+                    }
+                }
+            }
+        }
+        
+        await batch.commit();
+        console.log('Updated roles with new level merit values');
+        
+    } catch (error) {
+        console.error('Error updating roles with new level:', error);
     }
 }
 
@@ -2341,13 +2462,16 @@ async function saveRoleData() {
             };
         } else {
             // Create new role
+            const formSortOrder = document.getElementById('roleSortOrder').value;
+            const sortOrder = formSortOrder ? parseInt(formSortOrder) : await getNextSortOrder(currentRoleCategory === 'competition' ? 'competition' : 'event', currentRoleCategory);
+            
             roleData = {
                 id: generateUniqueId(),
                 nameEN: nameEN,
                 nameBM: nameBM,
                 category: currentRoleCategory,
                 levelValues: levelValues,
-                sortOrder: 999, // Add to end by default
+                sortOrder: sortOrder,
                 created: new Date()
             };
         }
@@ -2403,7 +2527,6 @@ function exportAsJson() {
 // Make functions globally available
 window.openEventMeritModal = openEventMeritModal;
 window.closeEventMeritModal = closeEventMeritModal;
-window.openCompetitionMeritModal = openCompetitionMeritModal;
 window.closeCompetitionMeritModal = closeCompetitionMeritModal;
 window.openLevelModal = openLevelModal;
 window.openAddLevelModal = openAddLevelModal;
