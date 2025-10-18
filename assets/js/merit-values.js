@@ -1483,7 +1483,8 @@ async function updateLevel() {
     try {
         const nameEN = document.getElementById('editLevelNameEN').value.trim();
         const nameBM = document.getElementById('editLevelNameBM').value.trim();
-        const sortOrder = parseInt(document.getElementById('editLevelSortOrder').value) || 999;
+        const sortOrderInput = document.getElementById('editLevelSortOrder').value;
+        const sortOrder = sortOrderInput ? Math.max(parseInt(sortOrderInput), 1) : 999;
         
         if (!nameEN || !nameBM) {
             showToast('Please fill in both English and Malay names', 'error');
@@ -1817,7 +1818,8 @@ async function updateRole() {
     try {
         const nameEN = document.getElementById('editRoleNameEN').value.trim();
         const nameBM = document.getElementById('editRoleNameBM').value.trim();
-        const sortOrder = parseInt(document.getElementById('editRoleSortOrder').value) || 999;
+        const sortOrderInput = document.getElementById('editRoleSortOrder').value;
+        const sortOrder = sortOrderInput ? Math.max(parseInt(sortOrderInput), 1) : 999;
         
         if (!nameEN || !nameBM) {
             showToast('Please fill in both English and Malay names', 'error');
@@ -2102,8 +2104,8 @@ async function saveEventMeritRole() {
         // Handle sort order - use user input or auto-assign
         const sortOrderInput = document.getElementById('eventRoleSortOrder').value;
         if (sortOrderInput && !isNaN(sortOrderInput)) {
-            // Use user-provided sort order
-            roleData.sortOrder = parseInt(sortOrderInput);
+            // Use user-provided sort order (minimum value of 1)
+            roleData.sortOrder = Math.max(parseInt(sortOrderInput), 1);
         } else if (editingEventRole) {
             // Keep existing sort order when editing without input
             const existingRole = currentEventMeritValues[category === 'committee' ? 'committee' : 'nonCommittee'][roleId];
@@ -2174,8 +2176,8 @@ async function saveCompetitionMeritRole() {
         // Handle sort order - use user input or auto-assign
         const sortOrderInput = document.getElementById('competitionSortOrder').value;
         if (sortOrderInput && !isNaN(sortOrderInput)) {
-            // Use user-provided sort order
-            achievementData.sortOrder = parseInt(sortOrderInput);
+            // Use user-provided sort order (minimum value of 1)
+            achievementData.sortOrder = Math.max(parseInt(sortOrderInput), 1);
         } else if (editingCompetitionRole) {
             // Keep existing sort order when editing without input
             const existingAchievement = currentCompetitionMeritValues[achievementId];
@@ -2315,9 +2317,9 @@ async function saveLevelData() {
         
         showLoading();
         
-        // Get sort order from form or use next available
+        // Get sort order from form or use next available (minimum value of 1)
         const formSortOrder = document.getElementById('levelSortOrder').value;
-        const sortOrder = formSortOrder ? parseInt(formSortOrder) : await getNextLevelSortOrder(currentLevelType);
+        const sortOrder = formSortOrder ? Math.max(parseInt(formSortOrder), 1) : await getNextLevelSortOrder(currentLevelType);
         
         // Create level data
         const levelData = {
@@ -2470,7 +2472,7 @@ async function saveRoleData() {
         } else {
             // Create new role
             const formSortOrder = document.getElementById('roleSortOrder').value;
-            const sortOrder = formSortOrder ? parseInt(formSortOrder) : await getNextSortOrder(currentRoleCategory === 'competition' ? 'competition' : 'event', currentRoleCategory);
+            const sortOrder = formSortOrder ? Math.max(parseInt(formSortOrder), 1) : await getNextSortOrder(currentRoleCategory === 'competition' ? 'competition' : 'event', currentRoleCategory);
             
             roleData = {
                 id: generateUniqueId(),

@@ -100,27 +100,22 @@ function setupEventListeners() {
     addEventListenerSafely('backFromStep4', 'click', () => goToStep(3));
     addEventListenerSafely('nextFromStep4', 'click', handleSheetSelectionNext);
     addEventListenerSafely('backFromStep5', 'click', () => goToStep(4));
-    addEventListenerSafely('nextFromStep5', 'click', proceedToValidation);
+    addEventListenerSafely('nextFromStep5', 'click', proceedToRoleAssignment);
     addEventListenerSafely('backFromStep6', 'click', () => goToStep(5));
-    addEventListenerSafely('nextFromStep6', 'click', () => {
-        updateUploadSummary();
-        goToStep(7);
-    });
+    addEventListenerSafely('nextFromStep6', 'click', proceedToValidation);
     addEventListenerSafely('backFromStep7', 'click', () => goToStep(6));
     addEventListenerSafely('nextFromStep7', 'click', () => {
+        updateUploadSummary();
         goToStep(8);
-        finalizeUpload();
     });
     addEventListenerSafely('backFromStep8', 'click', () => goToStep(7));
+    addEventListenerSafely('nextFromStep8', 'click', () => {
+        goToStep(9);
+        finalizeUpload();
+    });
     addEventListenerSafely('finishUploadBtn', 'click', () => window.location.href = 'events.html');
     
-    // Role assignment radios (may not exist)
-    const roleAssignmentRadios = document.querySelectorAll('input[name="roleAssignment"]');
-    if (roleAssignmentRadios.length > 0) {
-        roleAssignmentRadios.forEach(radio => {
-            radio.addEventListener('change', handleRoleAssignmentChange);
-        });
-    }
+    // Role assignment will be handled in Step 6
 }
 
 async function loadEvents() {
@@ -782,50 +777,8 @@ function handleMeritTypeChange() {
 }
 
 function updateRoleDefinitionVisibility() {
-    const meritType = document.getElementById('meritType').value;
-    const committeeRoleOptions = document.getElementById('committeeRoleOptions');
-    const nonCommitteeRoleInfo = document.getElementById('nonCommitteeRoleInfo');
-    const roleColumnGroup = document.getElementById('roleColumnGroup');
-    
-    if (meritType === 'committee') {
-        // Show committee role definition options and role column selection
-        committeeRoleOptions.classList.remove('d-none');
-        nonCommitteeRoleInfo.classList.add('d-none');
-        roleColumnGroup.classList.remove('d-none');
-        
-        // Update text for committee
-        const infoText = nonCommitteeRoleInfo.querySelector('p');
-        if (infoText) {
-            infoText.textContent = 'Committee roles will be assigned during the upload process based on the role column in your Excel file.';
-        }
-    } else if (meritType === 'competition') {
-        // Show competition info, hide committee options and role column
-        committeeRoleOptions.classList.add('d-none');
-        nonCommitteeRoleInfo.classList.remove('d-none');
-        roleColumnGroup.classList.remove('d-none');
-        
-        // Update text for competition
-        const infoText = nonCommitteeRoleInfo.querySelector('p');
-        if (infoText) {
-            infoText.textContent = 'Competition results will be assigned during the upload process based on the role column in your Excel file (e.g., "1st Place", "2nd Place", "Participation").';
-        }
-    } else if (meritType && meritType !== 'custom') {
-        // Show individual role info, hide committee options and role column
-        committeeRoleOptions.classList.add('d-none');
-        nonCommitteeRoleInfo.classList.remove('d-none');
-        roleColumnGroup.classList.add('d-none');
-        
-        // Update text for individual roles
-        const infoText = nonCommitteeRoleInfo.querySelector('p');
-        if (infoText) {
-            infoText.textContent = `All students will be assigned the role: ${meritType}`;
-        }
-    } else {
-        // Hide all for no selection or custom
-        committeeRoleOptions.classList.add('d-none');
-        nonCommitteeRoleInfo.classList.add('d-none');
-        roleColumnGroup.classList.add('d-none');
-    }
+    // Role assignment is now handled in Step 6, so this function is simplified
+    // The role column is always available for reference
 }
 
 function handleOverrideToggle() {
@@ -1054,8 +1007,7 @@ async function processFileData() {
         // Populate column mapping dropdowns
         populateColumnMappingDropdowns();
         
-        // Populate role selection dropdown
-        populateRoleSelectionDropdown();
+        // Role selection now handled in Step 6
         
         // Display file preview
         displayFilePreview();
@@ -1125,8 +1077,7 @@ async function processFile() {
         // Populate column mapping dropdowns
         populateColumnMappingDropdowns();
         
-        // Populate role selection dropdown
-        populateRoleSelectionDropdown();
+        // Role selection now handled in Step 6
         
         // Display file preview
         displayFilePreview();
@@ -1216,6 +1167,7 @@ function populateSheetSelector(sheetNames) {
 
 function populateColumnMappingDropdowns() {
     const dropdowns = ['nameColumnSelect', 'matricColumnSelect', 'roleColumnSelect', 'notesColumnSelect', 'proofLinkColumnSelect'];
+    let autoDetectedCount = 0;
     
     dropdowns.forEach(dropdownId => {
         const dropdown = document.getElementById(dropdownId);
@@ -1230,29 +1182,199 @@ function populateColumnMappingDropdowns() {
             dropdown.appendChild(option);
         });
         
+        // Clear any existing auto-detection styling
+        clearAutoDetectionStyling(dropdown);
+        
         // Auto-detect common columns
-        autoDetectColumn(dropdown, dropdownId);
+        const wasAutoDetected = autoDetectColumn(dropdown, dropdownId);
+        if (wasAutoDetected) {
+            autoDetectedCount++;
+        }
+        
+        // Add change event listener to clear auto-detection styling when manually changed
+        dropdown.addEventListener('change', function() {
+            if (this.style.borderColor) {
+                clearAutoDetectionStyling(this);
+            }
+        });
     });
+    
+    // Show auto-detection summary
+    showAutoDetectionSummary(autoDetectedCount, dropdowns.length);
+}
+
+function clearAutoDetectionStyling(dropdown) {
+    dropdown.style.borderColor = '';
+    dropdown.style.backgroundColor = '';
+    
+    const indicator = dropdown.parentElement.querySelector('.auto-detected-indicator');
+    if (indicator) {
+        indicator.remove();
+    }
+}
+
+function showAutoDetectionSummary(detectedCount, totalCount) {
+    // Remove existing summary
+    const existingSummary = document.querySelector('.auto-detect-summary');
+    if (existingSummary) {
+        existingSummary.remove();
+    }
+    
+    if (detectedCount > 0) {
+        // Find the column mapping section
+        const columnMappingSection = document.querySelector('.mb-6 h4');
+        if (columnMappingSection && columnMappingSection.textContent.includes('Column Mapping')) {
+            const summary = document.createElement('div');
+            summary.className = 'auto-detect-summary';
+            summary.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 success-icon mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <div>
+                        <h5 class="font-medium text-success mb-1">Auto-Detection Results</h5>
+                        <p class="text-sm text-secondary mb-0">
+                            Successfully auto-detected ${detectedCount} out of ${totalCount} columns. 
+                            ${detectedCount === totalCount ? 'All columns mapped automatically!' : 'Please verify and map any remaining columns manually.'}
+                        </p>
+                        ${detectedCount < totalCount ? '<p class="text-xs text-secondary mt-1"><em>Tip: Auto-detection works best with column headers in English or Bahasa Malaysia.</em></p>' : ''}
+                    </div>
+                </div>
+            `;
+            
+            // Insert after the column mapping heading
+            const columnMappingDiv = columnMappingSection.closest('.mb-6');
+            const nextSibling = columnMappingDiv.nextElementSibling;
+            if (nextSibling && nextSibling.classList.contains('grid')) {
+                columnMappingDiv.insertBefore(summary, nextSibling);
+            } else {
+                columnMappingDiv.appendChild(summary);
+            }
+        }
+    }
 }
 
 function autoDetectColumn(dropdown, dropdownId) {
     const detectionRules = {
-        'nameColumnSelect': ['name', 'student name', 'full name', 'nama'],
-        'matricColumnSelect': ['matric', 'student id', 'id', 'matric number', 'no matric'],
-        'roleColumnSelect': ['role', 'position', 'jawatan', 'committee'],
-        'notesColumnSelect': ['notes', 'note', 'remarks', 'catatan', 'additional notes']
+        'nameColumnSelect': [
+            // English variations
+            'name', 'student name', 'full name', 'student full name', 'participant name',
+            'first name', 'last name', 'full_name', 'student_name', 'participant_name',
+            // Bahasa Malaysia variations
+            'nama', 'nama pelajar', 'nama penuh', 'nama peserta', 'nama lengkap'
+        ],
+        'matricColumnSelect': [
+            // English variations
+            'matric', 'matric number', 'matric no', 'student id', 'student number', 
+            'id', 'student_id', 'matric_number', 'matriculation number', 'registration number',
+            'reg no', 'regno', 'student no', 'no', 'number', 'ic', 'nric', 'identity',
+            // Common patterns with prefixes/suffixes
+            'matric no.', 'matric_no', 'matric-no', 'student-id', 'student.id',
+            // Bahasa Malaysia variations  
+            'matriks', 'no matriks', 'nombor matriks', 'no matrik', 'matrik',
+            'no pelajar', 'nombor pelajar', 'id pelajar', 'no peserta', 'nombor peserta',
+            // Common BM abbreviations and variations
+            'no. matriks', 'no.matriks', 'no_matriks', 'no-matriks', 'matriks no',
+            'no. matrik', 'no.matrik', 'no_matrik', 'no-matrik', 'matrik no'
+        ],
+        'roleColumnSelect': [
+            // English variations
+            'role', 'position', 'committee', 'committee role', 'responsibility', 
+            'designation', 'title', 'job title', 'function', 'duty', 'post',
+            'committee position', 'rank', 'level', 'achievement', 'result', 'placing',
+            'award', 'competition result', 'competition placing', 'prize',
+            // Common committee abbreviations and roles
+            'ajk', 'ahli', 'ketua', 'naib', 'setiausaha', 'bendahari', 'pengarah',
+            'president', 'vice', 'secretary', 'treasurer', 'director', 'member',
+            'chairman', 'chairperson', 'advisor', 'adviser', 'coordinator',
+            // Competition terms
+            '1st', '2nd', '3rd', 'first', 'second', 'third', 'winner', 'champion',
+            'participant', 'participation', 'bronze', 'silver', 'gold', 'merit',
+            // Bahasa Malaysia variations
+            'jawatan', 'peranan', 'tanggungjawab', 'gelaran', 'pangkat', 'kedudukan',
+            'ahli jawatankuasa', 'jawatan ajk', 'pencapaian', 'keputusan', 'hadiah',
+            'keputusan pertandingan', 'kedudukan pertandingan', 'juara', 'tempat',
+            // BM competition terms
+            'pertama', 'kedua', 'ketiga', 'penyertaan', 'gangsa', 'perak', 'emas',
+            'johan', 'naib johan', 'tempat ketiga', 'peserta', 'pemenang'
+        ],
+        'notesColumnSelect': [
+            // English variations
+            'notes', 'note', 'remarks', 'comments', 'additional notes', 'description',
+            'details', 'information', 'memo', 'observation', 'comment', 'remark',
+            'additional information', 'extra notes', 'misc', 'miscellaneous',
+            // Bahasa Malaysia variations
+            'catatan', 'nota', 'komen', 'ulasan', 'keterangan', 'maklumat tambahan',
+            'butiran', 'penerangan', 'pemerhatian', 'tambahan', 'lain-lain'
+        ],
+        'proofLinkColumnSelect': [
+            // English variations
+            'proof', 'proof link', 'link', 'url', 'evidence', 'documentation',
+            'certificate', 'cert', 'attachment', 'file', 'document', 'photo',
+            'image', 'pic', 'picture', 'screenshot', 'scan', 'pdf', 'verification',
+            'bukti', 'pautan bukti', 'sijil', 'gambar', 'foto', 'dokumen',
+            // Bahasa Malaysia variations
+            'bukti', 'pautan', 'pautan bukti', 'sijil', 'dokumentasi', 'lampiran',
+            'fail', 'dokumen', 'gambar', 'foto', 'tangkapan skrin', 'imbasan',
+            'pengesahan', 'verifikasi'
+        ]
     };
     
     const rules = detectionRules[dropdownId];
     if (!rules) return;
     
+    // Enhanced matching with priority scoring
+    let bestMatch = null;
+    let bestScore = 0;
+    
     for (const header of columnHeaders) {
-        const headerLower = header.name.toLowerCase();
-        if (rules.some(rule => headerLower.includes(rule))) {
-            dropdown.value = header.index;
-            break;
+        const headerLower = header.name.toLowerCase().trim();
+        
+        for (let i = 0; i < rules.length; i++) {
+            const rule = rules[i];
+            let score = 0;
+            
+            // Exact match gets highest priority
+            if (headerLower === rule) {
+                score = 1000 - i; // Earlier rules get higher priority
+            }
+            // Contains match gets medium priority
+            else if (headerLower.includes(rule)) {
+                score = 500 - i;
+            }
+            // Word boundary match gets slightly lower priority
+            else if (new RegExp(`\\b${rule}\\b`).test(headerLower)) {
+                score = 300 - i;
+            }
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = header;
+            }
         }
     }
+    
+    if (bestMatch) {
+        dropdown.value = bestMatch.index;
+        
+        // Visual feedback for auto-detected columns
+        dropdown.style.borderColor = '#10b981';
+        dropdown.style.backgroundColor = '#f0fdf4';
+        
+        // Add a small indicator
+        const existingIndicator = dropdown.parentElement.querySelector('.auto-detected-indicator');
+        if (!existingIndicator) {
+            const indicator = document.createElement('small');
+            indicator.className = 'text-success auto-detected-indicator';
+            indicator.innerHTML = '✓ Auto-detected';
+            indicator.style.fontSize = '0.75rem';
+            dropdown.parentElement.appendChild(indicator);
+        }
+        
+        return true; // Successfully auto-detected
+    }
+    
+    return false; // No match found
 }
 
 function populateRoleSelectionDropdown() {
@@ -1315,11 +1437,20 @@ function displayFilePreview() {
     head.innerHTML = '';
     body.innerHTML = '';
     
-    if (!excelData || excelData.length < 2) return;
+    if (!excelData || excelData.length < 1) return;
     
-    // Create header row
+    // Create header row with action column
     const headerRow = document.createElement('tr');
-    excelData[0].forEach((header, index) => {
+    
+    // Add row number/action header
+    const actionTh = document.createElement('th');
+    actionTh.textContent = 'Row';
+    actionTh.style.width = '80px';
+    actionTh.style.textAlign = 'center';
+    headerRow.appendChild(actionTh);
+    
+    // Add data column headers
+    (excelData[0] || []).forEach((header, index) => {
         const th = document.createElement('th');
         th.textContent = header || `Column ${index + 1}`;
         headerRow.appendChild(th);
@@ -1327,10 +1458,45 @@ function displayFilePreview() {
     head.appendChild(headerRow);
     
     // Create data rows (show all rows, but limit for performance)
-    const maxRowsToShow = Math.min(20, excelData.length - 1); // Show up to 20 rows
-    for (let i = 1; i <= maxRowsToShow; i++) {
+    const maxRowsToShow = Math.min(20, excelData.length);
+    for (let i = 0; i < maxRowsToShow; i++) {
         const row = document.createElement('tr');
-        excelData[i].forEach(cell => {
+        row.setAttribute('data-row-index', i);
+        
+        // Add row number and delete button
+        const actionTd = document.createElement('td');
+        actionTd.style.textAlign = 'center';
+        actionTd.style.verticalAlign = 'middle';
+        
+        if (i === 0) {
+            // Header row - show as "Header"
+            actionTd.innerHTML = `
+                <div class="d-flex flex-column align-items-center gap-1">
+                    <small class="text-primary fw-bold">Header</small>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteExcelRow(${i})" title="Delete this row">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                        </svg>
+                    </button>
+                </div>
+            `;
+        } else {
+            // Data row - show row number
+            actionTd.innerHTML = `
+                <div class="d-flex flex-column align-items-center gap-1">
+                    <small class="text-secondary">${i}</small>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteExcelRow(${i})" title="Delete this row">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                        </svg>
+                    </button>
+                </div>
+            `;
+        }
+        row.appendChild(actionTd);
+        
+        // Add data cells
+        (excelData[i] || []).forEach(cell => {
             const td = document.createElement('td');
             td.textContent = cell || '';
             td.style.maxWidth = '150px';
@@ -1343,61 +1509,543 @@ function displayFilePreview() {
     }
     
     // Add row count info if there are more rows
-    if (excelData.length - 1 > maxRowsToShow) {
+    if (excelData.length > maxRowsToShow) {
         const infoRow = document.createElement('tr');
         const infoCell = document.createElement('td');
-        infoCell.colSpan = excelData[0].length;
-        infoCell.innerHTML = `<em class="text-secondary">... and ${excelData.length - 1 - maxRowsToShow} more rows</em>`;
+        infoCell.colSpan = (excelData[0]?.length || 0) + 1; // +1 for action column
+        infoCell.innerHTML = `<em class="text-secondary">... and ${excelData.length - maxRowsToShow} more rows (not shown in preview)</em>`;
         infoCell.style.textAlign = 'center';
         infoCell.style.padding = '10px';
         infoRow.appendChild(infoCell);
         body.appendChild(infoRow);
     }
+    
+    // Update header column count display
+    updateColumnMappingOptions();
 }
 
-function handleRoleAssignmentChange() {
-    const selectedValue = document.querySelector('input[name="roleAssignment"]:checked').value;
-    const singleRoleSection = document.getElementById('singleRoleSection');
-    const manualRoleSection = document.getElementById('manualRoleSection');
+function deleteExcelRow(rowIndex) {
+    if (!excelData || rowIndex < 0 || rowIndex >= excelData.length) return;
     
-    if (selectedValue === 'single') {
-        singleRoleSection.classList.remove('d-none');
-        manualRoleSection.classList.add('d-none');
-    } else if (selectedValue === 'manual') {
-        singleRoleSection.classList.add('d-none');
-        manualRoleSection.classList.remove('d-none');
-    } else {
-        singleRoleSection.classList.add('d-none');
-        manualRoleSection.classList.add('d-none');
+    if (confirm(`Are you sure you want to delete row ${rowIndex === 0 ? '(Header)' : rowIndex}? This action cannot be undone.`)) {
+        // Remove the row from excelData
+        excelData.splice(rowIndex, 1);
+        
+        // Refresh the preview
+        displayFilePreview();
+        
+        // Show success message
+        showToast(`Row ${rowIndex === 0 ? '(Header)' : rowIndex} deleted successfully`, 'success');
     }
 }
 
-async function proceedToValidation() {
+function updateColumnMappingOptions() {
+    // Repopulate column mapping dropdowns with updated headers
+    if (excelData && excelData.length > 0) {
+        // Rebuild columnHeaders array with proper structure
+        columnHeaders = excelData[0].map((header, index) => ({
+            index: index,
+            name: header || `Column ${index + 1}`
+        }));
+        populateColumnMappingDropdowns();
+    }
+}
+
+function displayRoleAssignment() {
+    const tableBody = document.getElementById('roleMappingTableBody');
+    const recordCount = document.getElementById('recordCount');
+    
+    // Update record count
+    recordCount.textContent = `${processedData.length} records to assign roles`;
+    
+    // Get available roles based on merit type
+    const availableRoles = getAvailableRoles();
+    
+    // Auto-map roles before displaying
+    autoMapRoles(availableRoles);
+    
+    tableBody.innerHTML = processedData.map((record, index) => {
+        const statusClass = record.assignedRole ? 'text-success' : 'text-warning';
+        const statusIcon = record.assignedRole ? '✓' : '⚠';
+        const points = record.assignedRole ? calculateMeritPointsForUpload(record.assignedRole, selectedEvent.level, record.additionalNotes, meritValues, selectedEvent) : 0;
+        
+        // Check if this was auto-mapped
+        const wasAutoMapped = record.autoMapped;
+        const autoMappedClass = wasAutoMapped ? 'auto-mapped-role' : '';
+        const autoMappedIndicator = wasAutoMapped ? '<small class="text-success auto-mapped-indicator">✓ Auto-mapped</small>' : '';
+        
+        return `
+            <tr data-record-index="${index}">
+                <td class="text-center">${index + 1}</td>
+                <td>${sanitizeHTML(record.name)}</td>
+                <td>${sanitizeHTML(record.matricNumber)}</td>
+                <td class="text-muted">${sanitizeHTML(record.originalRole || 'Not specified')}</td>
+                <td>
+                    <div class="role-search-container position-relative">
+                        <input type="text" 
+                               class="form-control role-search-input ${autoMappedClass}" 
+                               id="roleInput_${index}"
+                               placeholder="Type to search roles..." 
+                               value="${sanitizeHTML(record.assignedRole)}"
+                               data-record-index="${index}"
+                               autocomplete="off">
+                        <div class="role-suggestions d-none position-absolute bg-white border rounded shadow-sm w-100" 
+                             id="roleSuggestions_${index}" 
+                             style="top: 100%; z-index: 1000; max-height: 200px; overflow-y: auto;">
+                        </div>
+                        ${autoMappedIndicator}
+                    </div>
+                </td>
+                <td class="text-center" id="points_${index}">${points}</td>
+                <td class="text-center ${statusClass}" id="status_${index}">${statusIcon}</td>
+            </tr>
+        `;
+    }).join('');
+    
+    // Add event listeners for role search inputs
+    processedData.forEach((record, index) => {
+        setupRoleSearchInput(index, availableRoles);
+    });
+    
+    // Show auto-mapping summary
+    showAutoMappingSummary();
+}
+
+function getAvailableRoles() {
+    const meritType = document.getElementById('meritType').value;
+    let roles = [];
+    
+    if (meritType === 'committee' && meritValues.committeeRoles) {
+        roles = Object.keys(meritValues.committeeRoles);
+    } else if (meritType === 'competition' && meritValues.achievements) {
+        roles = Object.keys(meritValues.achievements);
+    } else if (meritType && meritType !== 'custom' && meritType !== 'committee' && meritType !== 'competition') {
+        // Individual role
+        roles = [meritType];
+    } else if (meritValues.roles) {
+        // All non-committee roles
+        roles = Object.keys(meritValues.roles);
+    }
+    
+    // Add custom roles from event
+    if (selectedEvent && selectedEvent.customRoles) {
+        selectedEvent.customRoles.forEach(customRole => {
+            roles.push(customRole.name);
+        });
+    }
+    
+    return roles.sort();
+}
+
+function setupRoleSearchInput(recordIndex, availableRoles) {
+    const input = document.getElementById(`roleInput_${recordIndex}`);
+    const suggestions = document.getElementById(`roleSuggestions_${recordIndex}`);
+    
+    if (!input || !suggestions) return;
+    
+    // Handle input changes
+    input.addEventListener('input', function() {
+        const query = this.value.toLowerCase();
+        
+        if (query.length === 0) {
+            suggestions.classList.add('d-none');
+            return;
+        }
+        
+        // Filter roles based on input
+        const filtered = availableRoles.filter(role => 
+            role.toLowerCase().includes(query)
+        );
+        
+        if (filtered.length > 0) {
+            suggestions.innerHTML = filtered.map(role => `
+                <div class="role-suggestion p-2 border-bottom cursor-pointer hover:bg-light" 
+                     data-role="${sanitizeHTML(role)}"
+                     data-record-index="${recordIndex}">
+                    ${sanitizeHTML(role)}
+                </div>
+            `).join('');
+            suggestions.classList.remove('d-none');
+            
+            // Add click handlers for suggestions
+            suggestions.querySelectorAll('.role-suggestion').forEach(suggestion => {
+                suggestion.addEventListener('click', function() {
+                    selectRole(recordIndex, this.dataset.role);
+                });
+            });
+        } else {
+            suggestions.classList.add('d-none');
+        }
+    });
+    
+    // Handle focus and blur
+    input.addEventListener('focus', function() {
+        if (this.value.length > 0) {
+            this.dispatchEvent(new Event('input'));
+        }
+    });
+    
+    input.addEventListener('blur', function() {
+        // Delay hiding to allow for clicks
+        setTimeout(() => {
+            suggestions.classList.add('d-none');
+        }, 200);
+    });
+    
+    // Handle enter key
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const firstSuggestion = suggestions.querySelector('.role-suggestion');
+            if (firstSuggestion) {
+                selectRole(recordIndex, firstSuggestion.dataset.role);
+            }
+        }
+    });
+}
+
+function selectRole(recordIndex, role) {
+    const input = document.getElementById(`roleInput_${recordIndex}`);
+    const suggestions = document.getElementById(`roleSuggestions_${recordIndex}`);
+    const pointsCell = document.getElementById(`points_${recordIndex}`);
+    const statusCell = document.getElementById(`status_${recordIndex}`);
+    
+    // Update input value
+    input.value = role;
+    suggestions.classList.add('d-none');
+    
+    // Clear auto-mapped styling if user manually changes
+    if (processedData[recordIndex].autoMapped) {
+        input.classList.remove('auto-mapped-role');
+        const autoIndicator = input.parentElement.querySelector('.auto-mapped-indicator');
+        if (autoIndicator) {
+            autoIndicator.remove();
+        }
+        processedData[recordIndex].autoMapped = false;
+    }
+    
+    // Update record
+    processedData[recordIndex].assignedRole = role;
+    
+    // Calculate and display merit points
+    const points = calculateMeritPointsForUpload(role, selectedEvent.level, processedData[recordIndex].additionalNotes, meritValues, selectedEvent);
+    processedData[recordIndex].meritPoints = points;
+    pointsCell.textContent = points;
+    
+    // Update status
+    statusCell.innerHTML = '✓';
+    statusCell.className = 'text-center text-success';
+}
+
+function validateRoleAssignments() {
+    const unassignedRecords = processedData.filter(record => !record.assignedRole);
+    
+    if (unassignedRecords.length > 0) {
+        showToast(`Please assign roles to all ${unassignedRecords.length} remaining students`, 'warning');
+        hideLoading();
+        return false;
+    }
+    
+    return true;
+}
+
+function autoMapRoles(availableRoles) {
+    let autoMappedCount = 0;
+    
+    console.log('=== AUTO-MAPPING DEBUG ===');
+    console.log('Available roles:', availableRoles);
+    console.log('Records to process:', processedData.length);
+    
+    // Define comprehensive role mapping rules
+    const roleMappingRules = {
+        // Committee Roles - English
+        'president': ['president', 'chairman', 'chairperson', 'chair', 'ketua'],
+        'vice president': ['vice president', 'vice chairman', 'vice chairperson', 'vp', 'naib ketua', 'timbalan ketua'],
+        'secretary': ['secretary', 'setiausaha'],
+        'treasurer': ['treasurer', 'bendahari'],
+        'committee member': ['committee member', 'member', 'ahli', 'ahli jawatankuasa', 'ajk'],
+        'director': ['director', 'pengarah'],
+        'coordinator': ['coordinator', 'penyelaras'],
+        'advisor': ['advisor', 'adviser', 'penasihat'],
+        
+        // Competition Results - English
+        '1st place': ['1st', 'first', '1st place', 'first place', 'winner', 'champion', 'gold', 'johan', 'juara', 'tempat pertama', 'naib johan'],
+        '2nd place': ['2nd', 'second', '2nd place', 'second place', 'runner up', 'runner-up', 'silver', 'tempat kedua'],
+        '3rd place': ['3rd', 'third', '3rd place', 'third place', 'bronze', 'tempat ketiga'],
+        'participation': ['participation', 'participant', 'peserta', 'penyertaan'],
+        'merit': ['merit', 'commendation', 'kepujian'],
+        'excellence': ['excellence', 'kecemerlangan', 'excellent'],
+        
+        // Committee Roles - Bahasa Malaysia
+        'ketua': ['ketua', 'pengerusi', 'president', 'chairman'],
+        'naib ketua': ['naib ketua', 'timbalan ketua', 'vice president', 'vice chairman', 'timbalan pengarah'],
+        'setiausaha': ['setiausaha', 'secretary'],
+        'bendahari': ['bendahari', 'treasurer'],
+        'ahli jawatankuasa': ['ahli jawatankuasa', 'ahli', 'ajk', 'committee member', 'member'],
+        'pengarah': ['pengarah', 'director', 'pengarah program'],
+        'penyelaras': ['penyelaras', 'coordinator'],
+        
+        // Specific Committee Roles
+        'programme committee': ['programme committee', 'program committee', 'program', 'programme'],
+        'multimedia committee': ['multimedia committee', 'multimedia'],
+        'performance committee': ['performance committee', 'persembahan', 'entertainment committee'],
+        'decoration committee': ['decoration committee', 'dekorasi', 'deco committee'],
+        'food committee': ['food committee', 'makanan', 'catering committee'],
+        'equipment committee': ['equipment committee', 'peralatan', 'logistics committee'],
+        'protocol committee': ['protocol committee', 'protokol'],
+        'cleanliness committee': ['cleanliness committee', 'kebersihan', 'cleaning committee'],
+        'security committee': ['security committee', 'keselamatan', 'safety committee'],
+        'registration committee': ['registration committee', 'pendaftaran'],
+        'general committee': ['general committee', 'ahli jawatankuasa', 'committee member'],
+        
+        // Competition Results - Bahasa Malaysia
+        'johan': ['johan', 'juara', '1st', 'first', 'pertama', 'tempat pertama'],
+        'naib johan': ['naib johan', '2nd', 'second', 'kedua', 'tempat kedua'],
+        'tempat ketiga': ['tempat ketiga', '3rd', 'third', 'ketiga'],
+        'penyertaan': ['penyertaan', 'peserta', 'participation', 'participant']
+    };
+    
+    // Special patterns for AJK sub-committees (all should map to committee member/ahli jawatankuasa)
+    const ajkPatterns = [
+        'ajk', 'ahli jawatankuasa', 'committee member'
+    ];
+    
+    processedData.forEach((record, index) => {
+        console.log(`\n--- Processing record ${index + 1} ---`);
+        console.log('Original role:', record.originalRole);
+        console.log('Already assigned:', record.assignedRole);
+        
+        if (!record.originalRole || record.assignedRole) {
+            console.log('Skipping: No original role or already assigned');
+            return; // Skip if no original role or already assigned
+        }
+        
+        const originalRoleLower = record.originalRole.toLowerCase().trim();
+        console.log('Original role (lowercase):', originalRoleLower);
+        let bestMatch = null;
+        let bestScore = 0;
+        
+        // Special handling for AJK roles - map to specific committee roles
+        if (originalRoleLower.startsWith('ajk ') || originalRoleLower === 'ajk') {
+            console.log('AJK pattern detected!');
+            
+            // Extract the committee type from "AJK [type]"
+            const ajkType = originalRoleLower.replace('ajk ', '').trim();
+            console.log('AJK type extracted:', ajkType);
+            
+            // Map AJK types to specific committee roles
+            const ajkMappings = {
+                'dekorasi': ['decoration committee', 'decoration'],
+                'hadiah': ['prize committee', 'gift committee', 'hadiah committee'],
+                'kebajikan': ['welfare committee', 'kebajikan committee'],
+                'kebersihan': ['cleanliness committee', 'cleaning committee'],
+                'makanan': ['food committee', 'catering committee'],
+                'multimedia': ['multimedia committee'],
+                'peralatan': ['equipment committee', 'logistics committee'],
+                'persembahan': ['performance committee', 'entertainment committee'],
+                'program': ['programme committee', 'program committee'],
+                'protokol': ['protocol committee'],
+                'keselamatan': ['security committee', 'safety committee'],
+                'pendaftaran': ['registration committee'],
+                'tugas khas': ['special task committee', 'special committee']
+            };
+            
+            // First try to find specific committee match
+            if (ajkMappings[ajkType]) {
+                console.log('Looking for specific committee matches for:', ajkMappings[ajkType]);
+                for (const mapping of ajkMappings[ajkType]) {
+                    const matchingRole = availableRoles.find(role => 
+                        role.toLowerCase().includes(mapping.toLowerCase())
+                    );
+                    if (matchingRole) {
+                        bestMatch = matchingRole;
+                        bestScore = 1000;
+                        console.log('Specific AJK match found:', bestMatch);
+                        break;
+                    }
+                }
+            }
+            
+            // If no specific match, try generic committee member roles
+            if (!bestMatch) {
+                console.log('No specific match, trying generic committee roles...');
+                const committeeMemberRoles = availableRoles.filter(role => 
+                    role.toLowerCase().includes('committee member') || 
+                    role.toLowerCase().includes('ahli jawatankuasa') ||
+                    role.toLowerCase().includes('ahli') ||
+                    role.toLowerCase().includes('general committee')
+                );
+                
+                console.log('Committee member roles found:', committeeMemberRoles);
+                
+                if (committeeMemberRoles.length > 0) {
+                    bestMatch = committeeMemberRoles[0]; // Take the first match
+                    bestScore = 1000; // High priority for AJK pattern
+                    console.log('Generic AJK match found:', bestMatch);
+                }
+            }
+        }
+        
+        // If no AJK match found, try regular mapping
+        if (!bestMatch) {
+            console.log('Trying regular mapping...');
+            // Check each available role against mapping rules
+            for (const availableRole of availableRoles) {
+                const availableRoleLower = availableRole.toLowerCase();
+                
+                // Check if this available role has mapping rules
+                const mappingPatterns = roleMappingRules[availableRoleLower] || [availableRoleLower];
+                console.log(`Checking ${availableRole} with patterns:`, mappingPatterns);
+                
+                for (const pattern of mappingPatterns) {
+                    let score = 0;
+                    
+                    // Exact match
+                    if (originalRoleLower === pattern) {
+                        score = 1000;
+                        console.log(`Exact match with pattern "${pattern}": score ${score}`);
+                    }
+                    // Contains match
+                    else if (originalRoleLower.includes(pattern)) {
+                        score = 500;
+                        console.log(`Contains match with pattern "${pattern}": score ${score}`);
+                    }
+                    // Word boundary match
+                    else if (new RegExp(`\\b${pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(originalRoleLower)) {
+                        score = 300;
+                        console.log(`Word boundary match with pattern "${pattern}": score ${score}`);
+                    }
+                    // Fuzzy match for numbers (1st, first, etc.)
+                    else if (pattern.match(/\d/) && originalRoleLower.match(/\d/)) {
+                        const patternNum = pattern.match(/\d+/)?.[0];
+                        const originalNum = originalRoleLower.match(/\d+/)?.[0];
+                        if (patternNum === originalNum) {
+                            score = 400;
+                            console.log(`Number match with pattern "${pattern}": score ${score}`);
+                        }
+                    }
+                    // Partial match for common abbreviations
+                    else if (checkAbbreviationMatch(originalRoleLower, pattern)) {
+                        score = 200;
+                        console.log(`Abbreviation match with pattern "${pattern}": score ${score}`);
+                    }
+                    
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMatch = availableRole;
+                        console.log(`New best match: ${bestMatch} with score ${bestScore}`);
+                    }
+                }
+            }
+        }
+        
+        // Auto-assign if we found a good match
+        if (bestMatch && bestScore >= 200) {
+            console.log(`✅ Auto-assigning: ${bestMatch} (score: ${bestScore})`);
+            record.assignedRole = bestMatch;
+            record.autoMapped = true;
+            record.meritPoints = calculateMeritPointsForUpload(bestMatch, selectedEvent.level, record.additionalNotes, meritValues, selectedEvent);
+            autoMappedCount++;
+        } else {
+            console.log(`❌ No match found (best score: ${bestScore})`);
+        }
+    });
+    
+    console.log(`\n=== AUTO-MAPPING COMPLETE ===`);
+    console.log(`Total auto-mapped: ${autoMappedCount} out of ${processedData.length}`);
+    
+    return autoMappedCount;
+}
+
+function checkAbbreviationMatch(original, pattern) {
+    // Handle common abbreviations
+    const abbreviations = {
+        'ajk': ['ahli jawatankuasa', 'committee member', 'ahli'],
+        'vp': ['vice president', 'naib ketua'],
+        'sec': ['secretary', 'setiausaha'],
+        'tres': ['treasurer', 'bendahari'],
+        'dir': ['director', 'pengarah'],
+        'coord': ['coordinator', 'penyelaras'],
+        'timbalan': ['naib', 'vice', 'deputy'],
+        'pengarah program': ['director', 'pengarah'],
+        'timbalan pengarah': ['naib ketua', 'vice president', 'vice director']
+    };
+    
+    for (const [abbr, fullForms] of Object.entries(abbreviations)) {
+        if (original.includes(abbr) && fullForms.some(form => pattern.includes(form))) {
+            return true;
+        }
+        if (pattern.includes(abbr) && fullForms.some(form => original.includes(form))) {
+            return true;
+        }
+    }
+    
+    // Special handling for "timbalan pengarah" and similar compound roles
+    if (original.includes('timbalan') && pattern.includes('naib')) {
+        return true;
+    }
+    if (original.includes('pengarah') && pattern.includes('director')) {
+        return true;
+    }
+    
+    return false;
+}
+
+function showAutoMappingSummary() {
+    const autoMappedCount = processedData.filter(record => record.autoMapped).length;
+    const totalRecords = processedData.length;
+    
+    if (autoMappedCount > 0) {
+        // Find a good place to insert the summary
+        const roleAssignmentSection = document.querySelector('#step6 .card-body');
+        if (roleAssignmentSection) {
+            // Remove existing summary
+            const existingSummary = roleAssignmentSection.querySelector('.auto-mapping-summary');
+            if (existingSummary) {
+                existingSummary.remove();
+            }
+            
+            const summary = document.createElement('div');
+            summary.className = 'auto-mapping-summary mb-4';
+            summary.innerHTML = `
+                <div class="alert alert-success border-success">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-success mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <div>
+                            <h5 class="font-medium text-success mb-1">Auto-Mapping Results</h5>
+                            <p class="text-sm mb-0">
+                                Successfully auto-mapped <strong>${autoMappedCount}</strong> out of <strong>${totalRecords}</strong> roles based on Excel data.
+                                ${autoMappedCount === totalRecords ? ' All roles mapped automatically!' : ` Please review and assign the remaining ${totalRecords - autoMappedCount} roles manually.`}
+                            </p>
+                            ${autoMappedCount < totalRecords ? '<p class="text-xs text-secondary mt-1 mb-0"><em>Auto-mapping works with both English and Bahasa Malaysia role names.</em></p>' : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Insert after the role assignment instructions
+            const instructions = roleAssignmentSection.querySelector('.bg-warning-light');
+            if (instructions) {
+                instructions.parentNode.insertBefore(summary, instructions.nextSibling);
+            } else {
+                roleAssignmentSection.insertBefore(summary, roleAssignmentSection.firstChild);
+            }
+        }
+    }
+}
+
+// Role assignment functionality moved to Step 6
+
+async function proceedToRoleAssignment() {
     // Validate column mapping
     const nameColumn = document.getElementById('nameColumnSelect').value;
     const matricColumn = document.getElementById('matricColumnSelect').value;
-    const meritType = document.getElementById('meritType').value;
     
     if (!nameColumn || !matricColumn) {
         showToast('Please select columns for student name and matric number', 'error');
         return;
-    }
-    
-    // For committee and competition merit types, validate role assignment
-    if (meritType === 'committee' || meritType === 'competition') {
-        const roleAssignment = document.querySelector('input[name="roleAssignment"]:checked')?.value;
-        const singleRole = document.getElementById('singleRoleSelect').value;
-        
-        if (roleAssignment === 'single' && !singleRole) {
-            const typeLabel = meritType === 'committee' ? 'committee role' : 'competition result';
-            showToast(`Please select a ${typeLabel} for all students`, 'error');
-            return;
-        }
-        
-        if (roleAssignment === 'column' && !document.getElementById('roleColumnSelect').value) {
-            showToast('Please select a role column or choose a different assignment method', 'error');
-            return;
-        }
     }
     
     // Store column mapping
@@ -1412,14 +2060,11 @@ async function proceedToValidation() {
     try {
         showLoading();
         
-        // Process data with column mapping
-        processedData = await processExcelDataWithMapping();
+        // Process data with column mapping (without role assignment yet)
+        processedData = await processExcelDataForRoleAssignment();
         
-        // Validate records
-        validateRecords();
-        
-        // Display preview
-        displayPreview();
+        // Display role assignment interface
+        displayRoleAssignment();
         goToStep(6);
         
     } catch (error) {
@@ -1430,17 +2075,34 @@ async function proceedToValidation() {
     }
 }
 
-async function processExcelDataWithMapping() {
-    const meritType = document.getElementById('meritType').value;
-    let roleAssignment = 'single';  // Default for non-committee
-    let singleRole = meritType;     // Use merit type as role for non-committee
-    
-    // For committee and competition merit types, get the role assignment method
-    if (meritType === 'committee' || meritType === 'competition') {
-        roleAssignment = document.querySelector('input[name="roleAssignment"]:checked')?.value || 'column';
-        singleRole = document.getElementById('singleRoleSelect').value;
+async function proceedToValidation() {
+    try {
+        showLoading();
+        
+        // Validate that all roles are assigned
+        if (!validateRoleAssignments()) {
+            return;
+        }
+        
+        // Process final data with assigned roles
+        await processFinalDataWithRoles();
+        
+        // Validate records
+        validateRecords();
+        
+        // Display preview
+        displayPreview();
+        goToStep(7);
+        
+    } catch (error) {
+        console.error('Error processing data:', error);
+        showToast('Error processing data: ' + error.message, 'error');
+    } finally {
+        hideLoading();
     }
-    
+}
+
+async function processExcelDataForRoleAssignment() {
     const processed = [];
     
     // Process data rows (skip header)
@@ -1449,23 +2111,6 @@ async function processExcelDataWithMapping() {
         
         // Skip empty rows
         if (!row || row.every(cell => !cell)) continue;
-        
-        let assignedRole = '';
-        
-        // Determine role based on merit type and assignment method
-        if (meritType === 'committee' || meritType === 'competition') {
-            // Committee/Competition merit type - use role assignment method
-            if (roleAssignment === 'column' && columnMapping.role !== null) {
-                assignedRole = row[columnMapping.role] || '';
-            } else if (roleAssignment === 'single' && singleRole) {
-                assignedRole = singleRole;
-            }
-            // For manual assignment, role will be empty and handled in preview
-        } else {
-            // Individual merit type - use merit type as role
-            assignedRole = meritType;
-            roleAssignment = 'single'; // Force single assignment for consistency
-        }
         
         // Auto-format name and matric number
         const rawName = row[columnMapping.name] || '';
@@ -1481,28 +2126,36 @@ async function processExcelDataWithMapping() {
         // Format and validate matric number
         const formattedMatricNumber = formatMatricNumber(rawMatricNumber);
         
+        // Get original role from Excel for reference
+        const originalRole = columnMapping.role !== null ? (row[columnMapping.role] || '') : '';
+        
         const record = {
             rowNumber: i + 1,
             name: formattedName,
             matricNumber: formattedMatricNumber,
-            role: assignedRole,
+            originalRole: originalRole,
+            assignedRole: '', // Will be set in role assignment step
             notes: columnMapping.notes !== null ? (row[columnMapping.notes] || '') : '',
-            issues: [],
-            roleAssignmentMethod: roleAssignment,
-            meritPoints: 0,
             additionalNotes: columnMapping.notes !== null ? (row[columnMapping.notes] || '') : '',
-            linkProof: columnMapping.proofLink !== null ? (row[columnMapping.proofLink] || '') : ''
+            linkProof: columnMapping.proofLink !== null ? (row[columnMapping.proofLink] || '') : '',
+            meritPoints: 0,
+            issues: []
         };
-        
-        // Calculate merit points if role is assigned
-        if (assignedRole) {
-            calculateMeritPoints(record);
-        }
         
         processed.push(record);
     }
     
     return processed;
+}
+
+async function processFinalDataWithRoles() {
+    // Update merit points for all records based on assigned roles
+    processedData.forEach(record => {
+        if (record.assignedRole) {
+            record.role = record.assignedRole;
+            calculateMeritPoints(record);
+        }
+    });
 }
 
 function validateRecords() {
@@ -2174,3 +2827,6 @@ function proceedToConfirm() {
     updateUploadSummary();
     goToStep(8);
 }
+
+// Make deleteExcelRow function globally available
+window.deleteExcelRow = deleteExcelRow;

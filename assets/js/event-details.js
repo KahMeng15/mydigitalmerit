@@ -99,7 +99,7 @@ async function loadEventDetails() {
         await loadOrganizerDetails(currentEventData);
         
         // Display event information
-        displayEventInfo(currentEventData);
+        await displayEventInfo(currentEventData);
         
         // Load merit types for this event
         await loadMeritTypes();
@@ -283,15 +283,19 @@ async function deleteChildActivity(childActivityId) {
 
 
 
-function displayEventInfo(event) {
+async function displayEventInfo(event) {
     // Update page title and breadcrumb
     document.title = `${event.name} - Event Details`;
     document.getElementById('eventBreadcrumb').textContent = event.name;
     
     // Header information
     document.getElementById('eventTitle').textContent = event.name;
-    document.getElementById('eventLevel').textContent = event.level;
-    document.getElementById('eventLevel').className = `badge bg-primary`;
+    
+    // Display event level
+    await displayEventLevel(event);
+    
+    // Display competition level
+    await displayCompetitionLevel(event);
     
     // Status badge
     const statusBadge = document.getElementById('eventStatus');
@@ -354,24 +358,165 @@ function displayEventInfo(event) {
     document.getElementById('uploadMeritsBtn').href = `upload-merits.html?eventId=${event.id}`;
 }
 
+// Helper function to display event level
+async function displayEventLevel(event) {
+    const eventLevelElement = document.getElementById('eventLevel');
+    if (!eventLevelElement) return;
+    
+    console.log('Displaying event level for event:', event);
+    
+    try {
+        let levelDisplayName = 'Not Set';
+        
+        // First try to use the level name directly if available
+        if (event.level) {
+            levelDisplayName = event.level;
+            console.log('Using event.level:', levelDisplayName);
+        }
+        // If we have a levelId, try to get the proper display name from database
+        else if (event.levelId) {
+            console.log('Using event.levelId:', event.levelId);
+            const levelDoc = await firestore.collection('meritValues')
+                .doc('levelMetadata')
+                .collection('event')
+                .doc(event.levelId)
+                .get();
+            
+            if (levelDoc.exists) {
+                const levelData = levelDoc.data();
+                levelDisplayName = levelData.nameEN || levelData.nameBM || event.levelId;
+                console.log('Found level data:', levelData, 'Display name:', levelDisplayName);
+            } else {
+                console.log('Level document not found for ID:', event.levelId);
+            }
+        } else {
+            console.log('No level or levelId found in event data');
+        }
+        
+        eventLevelElement.textContent = levelDisplayName;
+        eventLevelElement.className = `badge bg-primary`;
+        console.log('Set event level display to:', levelDisplayName);
+        
+    } catch (error) {
+        console.error('Error displaying event level:', error);
+        eventLevelElement.textContent = event.level || 'Error';
+        eventLevelElement.className = `badge bg-primary`;
+    }
+}
+
+// Helper function to display competition level
+async function displayCompetitionLevel(event) {
+    const competitionLevelElement = document.getElementById('competitionLevel');
+    if (!competitionLevelElement) return;
+    
+    console.log('Displaying competition level for event:', event);
+    
+    try {
+        let levelDisplayName = 'Not Set';
+        
+        // Check if event has competition level information
+        if (event.competitionLevel) {
+            levelDisplayName = event.competitionLevel;
+            console.log('Using event.competitionLevel:', levelDisplayName);
+        }
+        // If we have a competitionLevelId, try to get the proper display name from database
+        else if (event.competitionLevelId) {
+            console.log('Using event.competitionLevelId:', event.competitionLevelId);
+            const levelDoc = await firestore.collection('meritValues')
+                .doc('levelMetadata')
+                .collection('competition')
+                .doc(event.competitionLevelId)
+                .get();
+            
+            if (levelDoc.exists) {
+                const levelData = levelDoc.data();
+                levelDisplayName = levelData.nameEN || levelData.nameBM || event.competitionLevelId;
+                console.log('Found competition level data:', levelData, 'Display name:', levelDisplayName);
+            } else {
+                console.log('Competition level document not found for ID:', event.competitionLevelId);
+            }
+        }
+        // If no competition level is set, it might use the same as event level
+        else if (event.level) {
+            console.log('No competition level set, trying to map from event level:', event.level);
+            // Try to map event level to competition level
+            const competitionLevelsSnapshot = await firestore.collection('meritValues')
+                .doc('levelMetadata')
+                .collection('competition')
+                .get();
+            
+            let foundLevel = false;
+            competitionLevelsSnapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.key === event.level.toLowerCase() || 
+                    data.nameEN?.toLowerCase() === event.level.toLowerCase() ||
+                    data.nameBM?.toLowerCase() === event.level.toLowerCase()) {
+                    levelDisplayName = data.nameEN || data.nameBM || event.level;
+                    foundLevel = true;
+                    console.log('Mapped event level to competition level:', levelDisplayName);
+                }
+            });
+            
+            if (!foundLevel) {
+                levelDisplayName = event.level; // Fallback to event level
+                console.log('No competition level mapping found, using event level as fallback:', levelDisplayName);
+            }
+        } else {
+            console.log('No competition level or event level found');
+        }
+        
+        competitionLevelElement.textContent = levelDisplayName;
+        competitionLevelElement.className = `badge bg-warning`;
+        console.log('Set competition level display to:', levelDisplayName);
+        
+    } catch (error) {
+        console.error('Error displaying competition level:', error);
+        competitionLevelElement.textContent = event.competitionLevel || event.level || 'Error';
+        competitionLevelElement.className = `badge bg-warning`;
+    }
+}
+
 async function loadMeritTypes() {
     try {
-        // Ensure level metadata is loaded first
-        await window.levelManager.ensureLevelMetadata();
+        console.log('Loading merit types from hierarchical database...');
         
-        // Load merit values from consolidated levels collection
-        const roles = window.levelManager.getAllMeritValuesByRole();
-        const levels = {};
+        // Load merit values from hierarchical structure
+        const [committeeSnapshot, nonCommitteeSnapshot, competitionSnapshot] = await Promise.all([
+            firestore.collection('meritValues').doc('roleMetadata').collection('committee').get(),
+            firestore.collection('meritValues').doc('roleMetadata').collection('nonCommittee').get(),
+            firestore.collection('meritValues').doc('roleMetadata').collection('competition').get()
+        ]);
         
-        // Build levels object for backward compatibility
-        window.levelManager.getActiveLevels().forEach(level => {
-            levels[level.id] = level.meritValues || {};
+        const committeeRoles = {};
+        const nonCommitteeRoles = {}; // Separate non-committee from competition
+        const competitionRoles = {}; // Competition achievements
+        
+        // Process committee roles
+        committeeSnapshot.forEach(doc => {
+            const data = doc.data();
+            committeeRoles[doc.id] = data;
         });
         
-        const meritValues = { roles: roles, levels: levels };
+        // Process non-committee roles (participants)
+        nonCommitteeSnapshot.forEach(doc => {
+            const data = doc.data();
+            nonCommitteeRoles[doc.id] = data;
+        });
+        
+        // Process competition achievements
+        competitionSnapshot.forEach(doc => {
+            const data = doc.data();
+            competitionRoles[doc.id] = data;
+        });
+        
+        console.log('Loaded roles:', { 
+            committee: Object.keys(committeeRoles).length,
+            nonCommittee: Object.keys(nonCommitteeRoles).length,
+            competition: Object.keys(competitionRoles).length
+        });
         
         // Display merit types grid
-        displayMeritTypes(meritValues);
+        await displayMeritTypesHierarchical(committeeRoles, nonCommitteeRoles, competitionRoles);
         
     } catch (error) {
         console.error('Error loading merit types:', error);
@@ -382,95 +527,264 @@ async function loadMeritTypes() {
     }
 }
 
-function displayMeritTypes(meritValues) {
+async function displayMeritTypesHierarchical(committeeRoles, nonCommitteeRoles, competitionRoles) {
     const committeeContainer = document.getElementById('committeeMeritsList');
     const participantContainer = document.getElementById('participantMeritsList');
     const customContainer = document.getElementById('customMeritsList');
     
+    // Get the current event's level IDs
+    const eventLevelId = await getEventLevelId();
+    const competitionLevelId = await getCompetitionLevelId();
+    
+    console.log('Event level ID:', eventLevelId);
+    console.log('Competition level ID:', competitionLevelId);
+    console.log('Current event data:', currentEventData);
+    
+    // Display Committee Roles
     let committeeHtml = '';
-    let participantHtml = '';
-    let customHtml = '';
-    
-    // Define which roles are committee members vs participants
-    const committeeRoles = [
-        'President', 'Vice President', 'Secretary', 'Assistant Secretary', 
-        'Treasurer', 'Assistant Treasurer', 'Committee Member', 'Director',
-        'Co-Director', 'Project Manager', 'Event Manager', 'Chairman',
-        'Vice Chairman', 'Chairperson', 'Vice Chairperson', 'Head',
-        'Deputy Head', 'Coordinator', 'Assistant Coordinator', 'Emcee',
-        'MC', 'Master of Ceremony', 'Jury', 'Judge', 'Volunteer', 'Facilitator'
-    ];
-    
-    // Base roles
-    if (meritValues.roles && (currentEventData.levelId || currentEventData.level)) {
-        // Use levelId if available, otherwise try to map old level name to ID
-        let levelId = currentEventData.levelId;
-        if (!levelId && currentEventData.level) {
-            levelId = window.levelManager.getLevelIdByName(currentEventData.level);
-        }
+    if (Object.keys(committeeRoles).length > 0) {
+        // Sort by sortOrder, then by name
+        const sortedCommitteeRoles = Object.entries(committeeRoles)
+            .sort(([, a], [, b]) => {
+                const aOrder = a.sortOrder !== undefined ? a.sortOrder : 999;
+                const bOrder = b.sortOrder !== undefined ? b.sortOrder : 999;
+                if (aOrder !== bOrder) return aOrder - bOrder;
+                return (a.nameEN || '').localeCompare(b.nameEN || '');
+            });
         
-        const sortedRoles = Object.entries(meritValues.roles)
-            .map(([role, levels]) => ({
-                role: role,
-                points: levels[levelId] || 0,
-                type: 'base'
-            }))
-            .sort((a, b) => b.points - a.points);
-        
-        sortedRoles.forEach(({ role, points }) => {
-            const isCommittee = committeeRoles.some(committeeRole => 
-                role.toLowerCase().includes(committeeRole.toLowerCase()) ||
-                committeeRole.toLowerCase().includes(role.toLowerCase())
-            );
-            
-            const roleHtml = `
-                <div class="bg-white flex justify-between items-center hover:shadow-sm transition-shadow">
-                    <div class="text-gray-800">${sanitizeHTML(role)}</div>
+        sortedCommitteeRoles.forEach(([roleId, roleData]) => {
+            const points = getMeritPointsForLevel(roleData, eventLevelId);
+            committeeHtml += `
+                <div class="bg-white border-blue-200 flex justify-between items-center hover:shadow-sm transition-shadow">
+                    <div class="text-blue-800">${sanitizeHTML(roleData.nameEN || 'Unknown')}</div>
                     <div class="text-blue-600">${points} pts</div>
                 </div>
             `;
-            
-            if (isCommittee) {
-                committeeHtml += roleHtml;
-            } else {
-                participantHtml += roleHtml;
-            }
         });
     }
     
-    // Custom roles - always go to custom roles section
+    // Display Participant Roles (Non-committee first, then Competition)
+    let participantHtml = '';
+    
+    // Add non-committee roles first (using event level ID)
+    if (Object.keys(nonCommitteeRoles).length > 0) {
+        const sortedNonCommitteeRoles = Object.entries(nonCommitteeRoles)
+            .sort(([, a], [, b]) => {
+                // Primary sort: sortOrder (handle null/undefined as highest number)
+                const aOrder = (a.sortOrder !== undefined && a.sortOrder !== null) ? Number(a.sortOrder) : 999;
+                const bOrder = (b.sortOrder !== undefined && b.sortOrder !== null) ? Number(b.sortOrder) : 999;
+                if (aOrder !== bOrder) return aOrder - bOrder;
+                
+                // Secondary sort: nameEN alphabetically
+                const aName = a.nameEN || a.nameBM || '';
+                const bName = b.nameEN || b.nameBM || '';
+                return aName.localeCompare(bName);
+            });
+        
+        // Add section header for non-committee roles
+        if (sortedNonCommitteeRoles.length > 0) {
+            participantHtml += `
+                <div class="text-sm font-medium text-gray-600 mb-2 border-b pb-1">Participant Roles</div>
+            `;
+        }
+        
+        sortedNonCommitteeRoles.forEach(([roleId, roleData]) => {
+            const points = getMeritPointsForLevel(roleData, eventLevelId);
+            participantHtml += `
+                <div class="bg-white border-blue-200 flex justify-between items-center hover:shadow-sm transition-shadow">
+                    <div class="text-green-800">${sanitizeHTML(roleData.nameEN || 'Unknown')}</div>
+                    <div class="text-green-600">${points} pts</div>
+                </div>
+            `;
+        });
+    }
+    
+    // Add competition achievements after non-committee roles (using competition level ID, only if event has competition level)
+    if (competitionLevelId && Object.keys(competitionRoles).length > 0) {
+        const sortedCompetitionRoles = Object.entries(competitionRoles)
+            .sort(([, a], [, b]) => {
+                // Primary sort: sortOrder (handle null/undefined as highest number)
+                const aOrder = (a.sortOrder !== undefined && a.sortOrder !== null) ? Number(a.sortOrder) : 999;
+                const bOrder = (b.sortOrder !== undefined && b.sortOrder !== null) ? Number(b.sortOrder) : 999;
+                if (aOrder !== bOrder) return aOrder - bOrder;
+                
+                // Secondary sort: nameEN alphabetically
+                const aName = a.nameEN || a.nameBM || '';
+                const bName = b.nameEN || b.nameBM || '';
+                return aName.localeCompare(bName);
+            });
+        
+        // Filter to only include roles with points for this competition level
+        const validCompetitionRoles = sortedCompetitionRoles.filter(([roleId, roleData]) => {
+            const points = getMeritPointsForLevel(roleData, competitionLevelId);
+            return points > 0;
+        });
+        
+        // Add section header for competition achievements (with spacing if there were non-committee roles)
+        if (validCompetitionRoles.length > 0) {
+            const spacingClass = Object.keys(nonCommitteeRoles).length > 0 ? 'mt-4' : '';
+            participantHtml += `
+                <div class="text-sm font-medium text-gray-600 mb-2 border-b pb-1 ${spacingClass}">Competition Achievements</div>
+            `;
+        }
+        
+        validCompetitionRoles.forEach(([roleId, roleData]) => {
+            const points = getMeritPointsForLevel(roleData, competitionLevelId);
+            participantHtml += `
+                <div class="bg-white border-blue-200 flex justify-between items-center hover:shadow-sm transition-shadow">
+                    <div class="text-orange-800">${sanitizeHTML(roleData.nameEN || 'Unknown')}</div>
+                    <div class="text-orange-600">${points} pts</div>
+                </div>
+            `;
+        });
+    }
+    
+    // Display Custom Roles (from event-specific custom roles)
+    let customHtml = '';
     if (currentEventData.customRoles && currentEventData.customRoles.length > 0) {
         const sortedCustomRoles = [...currentEventData.customRoles]
             .sort((a, b) => b.value - a.value);
         
         sortedCustomRoles.forEach(role => {
-            const roleHtml = `
-                <div class="bg-white p-3 rounded border border-purple-300 flex justify-between items-center hover:shadow-sm transition-shadow">
-                    <div class="text-purple-800">${sanitizeHTML(role.name)}</div>
-                    <div class="text-purple-600">${role.value} pts</div>
+            customHtml += `
+                <div class="bg-white p-3 rounded border border-purple-200 flex justify-between items-center hover:shadow-sm transition-shadow">
+                    <div class="text-purple-800 font-medium">${sanitizeHTML(role.name)}</div>
+                    <div class="text-purple-600 font-semibold">${role.value} pts</div>
                 </div>
             `;
-            
-            customHtml += roleHtml;
         });
     }
     
-    // Display results or fallback messages
+    // Set fallback messages if no data
     if (!committeeHtml) {
-        committeeHtml = '<div class="text-center py-8"><p class="text-secondary">No committee member roles configured</p></div>';
+        committeeHtml = '<div class="text-center py-8"><p class="text-blue-600">No committee roles configured</p></div>';
     }
     
     if (!participantHtml) {
-        participantHtml = '<div class="text-center py-8"><p class="text-secondary">No participant roles configured</p></div>';
+        participantHtml = '<div class="text-center py-8"><p class="text-green-600">No participant roles configured</p></div>';
     }
     
     if (!customHtml) {
-        customHtml = '<div class="text-center py-8"><p class="text-secondary">No custom roles configured</p></div>';
+        customHtml = '<div class="text-center py-8"><p class="text-purple-600">No custom roles for this event</p></div>';
     }
     
+    // Update the containers
     committeeContainer.innerHTML = committeeHtml;
     participantContainer.innerHTML = participantHtml;
     customContainer.innerHTML = customHtml;
+}
+
+// Helper function to get merit points for a specific level
+function getMeritPointsForLevel(roleData, levelId) {
+    if (!roleData.levelValues) {
+        return 0;
+    }
+    
+    // Return the merit points for the specific level
+    return roleData.levelValues[levelId] || 0;
+}
+
+// Helper function to get event level ID
+async function getEventLevelId() {
+    // If we have a levelId, use it directly
+    if (currentEventData.levelId) {
+        return currentEventData.levelId;
+    }
+    
+    // Otherwise, try to map the old level name to a level ID from the database
+    const levelName = currentEventData.level;
+    if (!levelName) {
+        console.warn('No level information found for event');
+        return null;
+    }
+    
+    try {
+        // Load level metadata to get proper ID mapping
+        const eventLevelsSnapshot = await firestore.collection('meritValues')
+            .doc('levelMetadata')
+            .collection('event')
+            .get();
+        
+        // Check event levels
+        let levelId = null;
+        eventLevelsSnapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.key === levelName.toLowerCase() || 
+                data.nameEN?.toLowerCase() === levelName.toLowerCase() ||
+                data.nameBM?.toLowerCase() === levelName.toLowerCase()) {
+                levelId = doc.id;
+            }
+        });
+        
+        return levelId;
+        
+    } catch (error) {
+        console.error('Error loading level metadata:', error);
+        
+        // Fallback to basic mapping if database call fails
+        const levelNameToIdMap = {
+            'college': 'level_college',
+            'block': 'level_block', 
+            'university': 'level_university',
+            'national': 'level_national',
+            'international': 'level_international'
+        };
+        
+        return levelNameToIdMap[levelName.toLowerCase()] || null;
+    }
+}
+
+// Helper function to get competition level ID
+async function getCompetitionLevelId() {
+    // If we have a competitionLevelId, use it directly
+    if (currentEventData.competitionLevelId) {
+        return currentEventData.competitionLevelId;
+    }
+    
+    // Otherwise, try to map the old competition level name to a level ID from the database
+    const levelName = currentEventData.competitionLevel;
+    if (!levelName) {
+        console.log('No competition level information found for event');
+        return null;
+    }
+    
+    try {
+        // Load level metadata to get proper ID mapping
+        const competitionLevelsSnapshot = await firestore.collection('meritValues')
+            .doc('levelMetadata')
+            .collection('competition')
+            .get();
+        
+        // Check competition levels
+        let levelId = null;
+        competitionLevelsSnapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.key === levelName.toLowerCase() || 
+                data.nameEN?.toLowerCase() === levelName.toLowerCase() ||
+                data.nameBM?.toLowerCase() === levelName.toLowerCase()) {
+                levelId = doc.id;
+            }
+        });
+        
+        return levelId;
+        
+    } catch (error) {
+        console.error('Error loading competition level metadata:', error);
+        
+        // Fallback to basic mapping if database call fails
+        const levelNameToIdMap = {
+            'college': 'comp_college',
+            'block': 'comp_block',
+            'faculty': 'comp_faculty', 
+            'university': 'comp_university',
+            'interuniversity': 'comp_interuniversity',
+            'state': 'comp_state',
+            'national': 'comp_national',
+            'international': 'comp_international'
+        };
+        
+        return levelNameToIdMap[levelName.toLowerCase()] || null;
+    }
 }
 
 async function loadUploadedMerits() {
@@ -851,7 +1165,7 @@ function getStatusClass(status, isUpcoming) {
             return 'badge bg-secondary';
         case 'active':
         case 'published':
-            return isUpcoming ? 'badge bg-success' : 'badge bg-warning';
+            return isUpcoming ? 'badge bg-success' : 'badge bg-success';
         case 'completed':
             return 'badge bg-info';
         case 'cancelled':

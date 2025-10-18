@@ -303,12 +303,31 @@
             <div id="step5" class="upload-step d-none">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Step 5: Column Mapping & Role Assignment</h3>
+                        <h3 class="card-title">Step 5: Column Mapping</h3>
                     </div>
                 <div class="card-body">
+                    <!-- Data Cleanup Instructions -->
+                    <div class="mb-4">
+                        <div class="bg-info-light p-3 rounded border border-info-light">
+                            <div class="flex items-start gap-3">
+                                <svg class="w-5 h-5 text-info mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <div>
+                                    <h5 class="font-medium text-info mb-2">Data Cleanup Available</h5>
+                                    <p class="text-sm text-secondary mb-0">
+                                        If your Excel file has extra header rows or blank rows, you can delete them using the delete buttons (🗑️) in the preview table below. 
+                                        This helps ensure proper column mapping.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Column Mapping Section -->
                     <div class="mb-6">
                         <h4 class="font-semibold mb-4">Column Mapping</h4>
+                        <p class="text-sm text-secondary mb-4">Map your Excel columns to the required fields. Role assignment will be done in the next step.</p>
                         <div class="grid grid-cols-3 gap-4">
                             <div class="form-group">
                                 <label for="nameColumnSelect" class="form-label">Student Name Column *</label>
@@ -323,11 +342,12 @@
                                 </select>
                                 <small class="text-sm text-secondary">Accepted formats: S12345, DP121234, GS12345, or 12345</small>
                             </div>
-                            <div id="roleColumnGroup" class="form-group">
-                                <label for="roleColumnSelect" class="form-label">Role Column</label>
+                            <div class="form-group">
+                                <label for="roleColumnSelect" class="form-label">Role Column (Reference)</label>
                                 <select id="roleColumnSelect" class="form-control form-select">
                                     <option value="">Select column (Optional)...</option>
                                 </select>
+                                <small class="text-sm text-secondary">This will help pre-fill role assignments in the next step</small>
                             </div>
                             <div class="form-group">
                                 <label for="notesColumnSelect" class="form-label">Notes Column</label>
@@ -343,41 +363,11 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Role Assignment Section -->
-                    <div class="mb-6">
-                        <h4 class="font-semibold mb-4">Role Assignment</h4>
-                        <div id="committeeRoleOptions" class="d-none">
-                            <div class="grid grid-cols-2 gap-6">
-                                <div class="form-group">
-                                    <label class="form-label">How to assign committee roles?</label>
-                                    <div class="space-y-2">
-                                        <label class="flex items-center">
-                                            <input type="radio" name="roleAssignment" value="single" checked>
-                                            <span class="ml-2">Assign same role to all members</span>
-                                        </label>
-                                        <label class="flex items-center">
-                                            <input type="radio" name="roleAssignment" value="column">
-                                            <span class="ml-2">Use role column from Excel</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div id="singleRoleSection" class="form-group">
-                                    <label for="singleRoleSelect" class="form-label">Select Role *</label>
-                                    <select id="singleRoleSelect" class="form-control form-select">
-                                        <option value="">Select role...</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        <div id="nonCommitteeRoleInfo" class="bg-light p-4 rounded">
-                            <p class="text-sm">All participants will be assigned the selected merit type role.</p>
-                        </div>
-                    </div>
                     
                     <!-- File Preview Section -->
                     <div class="mb-6">
-                        <h4 class="font-semibold mb-3">Excel File Preview</h4>
+                        <h4 class="font-semibold mb-3">Excel File Preview & Data Cleanup</h4>
+                        <p class="text-sm text-secondary mb-3">Click the 🗑️ button next to any row to delete unwanted header rows or blank rows before mapping columns.</p>
                         <div class="bg-light p-4 rounded">
                             <div class="table-container" style="max-height: 300px; overflow-y: auto;">
                                 <table class="table table-sm">
@@ -398,7 +388,7 @@
                             Back: Select Sheets
                         </button>
                         <button id="nextFromStep5" class="btn btn-primary">
-                            Next: Preview & Validate
+                            Next: Role Assignment
                             <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                             </svg>
@@ -407,15 +397,85 @@
                 </div>
             </div>
 
-            <!-- Step 6: Preview and Validation -->
+            <!-- Step 6: Role Assignment -->
             <div id="step6" class="upload-step d-none">
                 <div class="card">
                     <div class="card-header">
                         <div class="flex justify-between items-center">
-                            <h3 class="card-title">Step 6: Preview and Validation</h3>
+                            <h3 class="card-title">Step 6: Role Assignment</h3>
                             <div class="flex gap-2">
                                 <span id="recordCount" class="text-sm text-secondary"></span>
                                 <button id="exportPreviewBtn" class="btn btn-outline btn-sm">Export Preview</button>
+                            </div>
+                        </div>
+                    </div>
+                <div class="card-body">
+                    <!-- Role Assignment Instructions -->
+                    <div class="mb-4">
+                        <div class="bg-warning-light p-3 rounded border border-warning-light">
+                            <div class="flex items-start gap-3">
+                                <svg class="w-5 h-5 text-warning mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <div>
+                                    <h5 class="font-medium text-warning mb-2">Role Assignment Required</h5>
+                                    <p class="text-sm text-secondary mb-0">
+                                        Assign specific roles to each student. Type to search and select from available roles. 
+                                        The original role from Excel (if any) is shown on the left for reference.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Role Mapping Table -->
+                    <div class="table-container" style="max-height: 500px; overflow-y: auto;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th width="5%">#</th>
+                                    <th width="20%">Name</th>
+                                    <th width="15%">Matric Number</th>
+                                    <th width="20%">Original Role</th>
+                                    <th width="25%">Assign Role</th>
+                                    <th width="10%">Points</th>
+                                    <th width="5%">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="roleMappingTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="card-footer">
+                        <div class="flex justify-between">
+                            <button id="backFromStep6" class="btn btn-outline">
+                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                                Back: Column Mapping
+                            </button>
+                            <button id="nextFromStep6" class="btn btn-primary">
+                                Next: Preview & Validate
+                                <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 7: Preview and Validation -->
+            <div id="step7" class="upload-step d-none">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="flex justify-between items-center">
+                            <h3 class="card-title">Step 7: Preview and Validation</h3>
+                            <div class="flex gap-2">
+                                <span id="validationRecordCount" class="text-sm text-secondary"></span>
+                                <button id="exportValidationPreviewBtn" class="btn btn-outline btn-sm">Export Preview</button>
                             </div>
                         </div>
                     </div>
@@ -445,13 +505,13 @@
                 
                 <div class="card-footer">
                         <div class="flex justify-between">
-                            <button id="backFromStep6" class="btn btn-outline">
+                            <button id="backFromStep7" class="btn btn-outline">
                                 <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                                 </svg>
-                                Back: Column Mapping
+                                Back: Role Assignment
                             </button>
-                            <button id="nextFromStep6" class="btn btn-primary">
+                            <button id="nextFromStep7" class="btn btn-primary">
                                 Next: Final Confirmation
                                 <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -462,33 +522,36 @@
                 </div>
             </div>
 
-            <!-- Step 7: Final Confirmation -->
-            <div id="step7" class="upload-step d-none">
+                        <!-- Step 8: Final Confirmation -->
+            <div id="step8" class="upload-step d-none">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Step 7: Final Confirmation</h3>
+                        <h3 class="card-title">Step 8: Final Confirmation</h3>
                     </div>
                     <div class="card-body">
                         <div id="uploadSummary" class="mb-4"></div>
                     </div>
                     <div class="card-footer">
                         <div class="flex justify-between">
-                            <button id="backFromStep7" class="btn btn-outline">
+                            <button id="backFromStep8" class="btn btn-outline">
                                 <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                                 </svg>
                                 Back: Preview & Validation
                             </button>
-                            <button id="nextFromStep7" class="btn btn-success">
-                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                            <button id="nextFromStep8" class="btn btn-primary">
+                                Complete Upload
+                                <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                 </svg>
-                                Upload Merit Records
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Step 9: Upload Complete -->
+            <div id="step9" class="upload-step d-none">
 
             <!-- Step 8: Upload Progress -->
             <div id="step8" class="upload-step d-none">
@@ -641,6 +704,44 @@
         /* Override any inconsistent button spacing */
         .card-footer .btn + .btn {
             margin-left: 0.75rem;
+        }
+        
+        /* Row deletion styles */
+        .table-container .btn-outline-danger {
+            border-color: #dc3545;
+            color: #dc3545;
+            background-color: transparent;
+            padding: 2px 6px;
+            font-size: 10px;
+            border-radius: 3px;
+            transition: all 0.2s ease;
+        }
+        
+        .table-container .btn-outline-danger:hover {
+            background-color: #dc3545;
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        .table-container tr:hover .btn-outline-danger {
+            opacity: 1;
+        }
+        
+        .table-container .btn-outline-danger {
+            opacity: 0.7;
+        }
+        
+        /* Info alert styles */
+        .bg-info-light {
+            background-color: rgba(13, 202, 240, 0.1);
+        }
+        
+        .border-info-light {
+            border-color: rgba(13, 202, 240, 0.3);
+        }
+        
+        .text-info {
+            color: #0dcaf0;
         }
     </style>
 </body>

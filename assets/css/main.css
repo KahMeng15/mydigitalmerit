@@ -1200,3 +1200,131 @@ body {
 .google-btn .google-icon + .google-text {
     margin-left: 0.5rem; /* small gap between icon and text */
 }
+
+/* Role Assignment Styles */
+.role-search-container {
+    position: relative;
+}
+
+.role-search-input {
+    width: 100%;
+}
+
+.role-suggestions {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background: white;
+    box-shadow: var(--shadow-md);
+    z-index: 1000;
+}
+
+.role-suggestion {
+    padding: 0.5rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--gray-100);
+    transition: var(--transition-fast);
+}
+
+.role-suggestion:last-child {
+    border-bottom: none;
+}
+
+.role-suggestion:hover {
+    background-color: var(--gray-50);
+}
+
+.role-suggestion:active {
+    background-color: var(--gray-100);
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.hover\:bg-light:hover {
+    background-color: var(--light-color);
+}
+
+/* Auto-detection Styles */
+.auto-detected-indicator {
+    display: block;
+    margin-top: 0.25rem;
+    font-weight: 500;
+}
+
+select.auto-detected {
+    border-color: var(--success-color) !important;
+    background-color: #f0fdf4 !important;
+}
+
+.column-mapping-section {
+    position: relative;
+}
+
+.auto-detect-summary {
+    background-color: var(--success-color);
+    background-color: #ecfdf5;
+    border: 1px solid #10b981;
+    border-radius: var(--border-radius);
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.auto-detect-summary .success-icon {
+    color: var(--success-color);
+}
+
+/* Auto-mapped Role Styles */
+.auto-mapped-role {
+    border-color: var(--success-color) !important;
+    background-color: #f0fdf4 !important;
+}
+
+.auto-mapped-indicator {
+    display: block;
+    margin-top: 0.25rem;
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+
+.auto-mapping-summary {
+    border-radius: var(--border-radius);
+}
+
+.auto-mapping-summary .alert {
+    margin-bottom: 0;
+}
+
+/* Role search enhancements */
+.role-search-container input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.25);
+}
+
+.role-search-container .auto-mapped-role:focus {
+    border-color: var(--success-color);
+    box-shadow: 0 0 0 0.2rem rgba(16, 185, 129, 0.25);
+}
+
+/* Bulk Assignment Styles */
+.btn-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.bulk-assignment-tools {
+    background-color: var(--gray-50);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+.unassigned-counter {
+    background-color: var(--warning-color);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+    font-weight: 500;
+}

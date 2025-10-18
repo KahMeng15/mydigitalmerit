@@ -877,10 +877,8 @@ function getFormData() {
     
     const formData = {
         name: eventName,
-        levelId: eventLevelId,                                    // Store level ID
-        level: getLevelName(eventLevelId),                        // Store display name for backward compatibility
-        competitionLevelId: competitionLevelId || null,           // Store competition level ID (null if "None")
-        competitionLevel: competitionLevelId ? getCompetitionLevelName(competitionLevelId) : null, // Store display name for backward compatibility
+        levelId: eventLevelId,                                    // Event level ID only
+        competitionLevelId: competitionLevelId || null,           // Competition level ID only (null if "None")
         date: dateTime,
         location: eventLocation,
         organizer: organizer,
