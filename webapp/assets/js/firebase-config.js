@@ -137,40 +137,31 @@ async function createUserProfile(user) {
 
 // Get the base path for the application (handles subdirectory deployments)
 function getBasePath() {
-    const path = window.location.pathname;
-    const pathParts = path.split('/').filter(part => part !== ''); // Remove empty parts
-    
-    // If we're in a subdirectory (admin, student, assets), go to root
-    if (path.includes('/admin/') || path.includes('/student/') || path.includes('/assets/')) {
-        // Find the position of these folders and get everything before them
-        let rootPath = '/';
-        
-        const adminIndex = pathParts.indexOf('admin');
-        const studentIndex = pathParts.indexOf('student');
-        const assetsIndex = pathParts.indexOf('assets');
-        
-        // Find the earliest occurrence of these folders
-        const folderIndex = Math.min(
-            adminIndex >= 0 ? adminIndex : Infinity,
-            studentIndex >= 0 ? studentIndex : Infinity,
-            assetsIndex >= 0 ? assetsIndex : Infinity
-        );
-        
-        if (folderIndex < Infinity && folderIndex > 0) {
-            // If there are path parts before admin/student/assets, include them
-            rootPath = '/' + pathParts.slice(0, folderIndex).join('/') + '/';
-        }
-        
-        return rootPath;
+    const path = window.location.pathname; // e.g. '/', '/index.html', '/myapp/index.html', '/myapp/admin/dashboard.html'
+    const pathParts = path.split('/').filter(Boolean); // remove empty parts
+
+    // If we're inside admin/student/assets, return the root path up to that folder
+    const folders = ['admin', 'student', 'assets'];
+    const indices = folders.map(f => pathParts.indexOf(f)).filter(i => i >= 0);
+    if (indices.length > 0) {
+        const folderIndex = Math.min(...indices);
+        if (folderIndex === 0) return '/';
+        return '/' + pathParts.slice(0, folderIndex).join('/') + '/';
     }
-    
-    // If we're at root level or in index.html
-    if (path.includes('index.html') || pathParts.length <= 1) {
-        return '/';
-    }
-    
-    // Default fallback - go up one level from current page
-    return '/' + pathParts.slice(0, -1).join('/') + '/';
+
+    // If the path already ends with a slash, treat it as the base
+    if (path.endsWith('/')) return path;
+
+    // If there are no path parts, we're at root
+    if (pathParts.length === 0) return '/';
+
+    // If the last part looks like a filename (contains a dot), remove it
+    const last = pathParts[pathParts.length - 1];
+    const looksLikeFile = last.indexOf('.') >= 0;
+    const dirParts = looksLikeFile ? pathParts.slice(0, -1) : pathParts;
+
+    if (dirParts.length === 0) return '/';
+    return '/' + dirParts.join('/') + '/';
 }
 
 // Debug function to test getBasePath (can be removed in production)
