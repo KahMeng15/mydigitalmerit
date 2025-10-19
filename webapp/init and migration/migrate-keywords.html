@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Migrate Keywords - Digital Merit System</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <style>
+        .migration-container {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+        
+        .warning-box {
+            background-color: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .warning-box h3 {
+            color: #b45309;
+            margin-top: 0;
+        }
+        
+        .info-box {
+            background-color: #dbeafe;
+            border: 2px solid #3b82f6;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .info-box h3 {
+            color: #1e40af;
+            margin-top: 0;
+        }
+        
+        .log-container {
+            background-color: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            max-height: 500px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.5rem;
+            line-height: 1.5;
+        }
+        
+        .log-success {
+            color: #4ade80;
+        }
+        
+        .log-error {
+            color: #f87171;
+        }
+        
+        .log-info {
+            color: #60a5fa;
+        }
+        
+        .log-warning {
+            color: #fbbf24;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .status-pending {
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+        
+        .status-checking {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .status-complete {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-error {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="dashboard.html" class="navbar-brand">Merit System Admin</a>
+            <ul class="navbar-nav">
+                <li><a href="dashboard.html" class="nav-link">Dashboard</a></li>
+                <li><a href="merit-values.html" class="nav-link">Merit Values</a></li>
+                <li><span id="userDisplayName" class="nav-link"></span></li>
+                <li><button id="signOutBtn" class="btn btn-outline btn-sm">Sign Out</button></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="migration-container">
+        <h1 class="text-2xl font-bold mb-4">Migrate Keywords to Role Documents</h1>
+        
+        <div class="warning-box">
+            <h3>⚠️ What This Migration Does</h3>
+            <p>This migration moves the <code>keywords</code> field from the <code>levelMetadata</code> document to the individual role documents in <code>roleMetadata</code> subcollections.</p>
+            <p class="mt-2"><strong>Current Location (Incorrect):</strong></p>
+            <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                <li><code>meritValues/levelMetadata → roles.committee.{roleId}.keywords</code></li>
+                <li><code>meritValues/levelMetadata → roles.nonCommittee.{roleId}.keywords</code></li>
+                <li><code>meritValues/levelMetadata → roles.competition.{roleId}.keywords</code></li>
+            </ul>
+            <p class="mt-2"><strong>Target Location (Correct):</strong></p>
+            <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                <li><code>meritValues/roleMetadata/committee/{roleId} → keywords</code></li>
+                <li><code>meritValues/roleMetadata/nonCommittee/{roleId} → keywords</code></li>
+                <li><code>meritValues/roleMetadata/competition/{roleId} → keywords</code></li>
+            </ul>
+        </div>
+        
+        <div class="info-box">
+            <h3>ℹ️ Migration Process</h3>
+            <ol style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                <li>Read keywords from <code>meritValues/levelMetadata</code> document</li>
+                <li>For each role category (committee, nonCommittee, competition):
+                    <ul style="margin-left: 1.5rem; margin-top: 0.25rem;">
+                        <li>Extract keywords for each role</li>
+                        <li>Update the corresponding role document in <code>roleMetadata</code></li>
+                        <li>Add keywords field to the role document</li>
+                    </ul>
+                </li>
+                <li>Verify all keywords were migrated correctly</li>
+                <li>Clean up (optional): Remove keywords from levelMetadata</li>
+            </ol>
+            <p class="mt-2"><strong>Note:</strong> This migration is non-destructive. Keywords will be copied, not moved, until you confirm the cleanup step.</p>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title">Migration Status</h3>
+            </div>
+            <div class="card-body">
+                <div style="margin-bottom: 1rem;">
+                    <strong>Step 1: Read keywords from levelMetadata</strong>
+                    <span id="status1" class="status-badge status-pending">Pending</span>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong>Step 2: Migrate committee role keywords</strong>
+                    <span id="status2" class="status-badge status-pending">Pending</span>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong>Step 3: Migrate nonCommittee role keywords</strong>
+                    <span id="status3" class="status-badge status-pending">Pending</span>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong>Step 4: Migrate competition role keywords</strong>
+                    <span id="status4" class="status-badge status-pending">Pending</span>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong>Step 5: Verify migration</strong>
+                    <span id="status5" class="status-badge status-pending">Pending</span>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong>Step 6: Clean up (remove from levelMetadata)</strong>
+                    <span id="status6" class="status-badge status-pending">Pending</span>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 2rem;">
+            <button id="startMigrationBtn" class="btn btn-primary" style="margin-right: 1rem;">
+                Start Migration (Copy Keywords)
+            </button>
+            <button id="verifyOnlyBtn" class="btn btn-outline" style="margin-right: 1rem;">
+                Verify Only (No Changes)
+            </button>
+            <button id="cleanupBtn" class="btn btn-warning" disabled>
+                Clean Up (Remove from levelMetadata)
+            </button>
+            <a href="merit-values.html" class="btn btn-outline" style="margin-left: 1rem;">
+                Go to Merit Values
+            </a>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Migration Log</h3>
+            </div>
+            <div class="card-body">
+                <div id="logContainer" class="log-container">
+                    <div class="log-entry log-info">Waiting to start...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="d-none fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 text-center">
+            <div class="spinner mb-4"></div>
+            <p class="text-gray-600">Processing migration...</p>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- App Scripts -->
+    <script src="../assets/js/firebase-config.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    
+    <script>
+        // Require admin access
+        if (!requireAdmin()) {
+            window.location.href = getBasePath() + 'index.html';
+        }
+
+        const logContainer = document.getElementById('logContainer');
+        const startMigrationBtn = document.getElementById('startMigrationBtn');
+        const verifyOnlyBtn = document.getElementById('verifyOnlyBtn');
+        const cleanupBtn = document.getElementById('cleanupBtn');
+        
+        let migrationComplete = false;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateStatus(step, status, text) {
+            const statusBadge = document.getElementById(`status${step}`);
+            statusBadge.className = `status-badge status-${status}`;
+            statusBadge.textContent = text;
+        }
+
+        async function readKeywordsFromLevelMetadata() {
+            log('Reading keywords from levelMetadata document...', 'info');
+            
+            const levelMetadataDoc = await firestore.collection('meritValues')
+                .doc('levelMetadata')
+                .get();
+            
+            if (!levelMetadataDoc.exists) {
+                throw new Error('levelMetadata document not found');
+            }
+            
+            const data = levelMetadataDoc.data();
+            const roles = data.roles || {};
+            
+            log(`Found roles data with ${Object.keys(roles).length} categories`, 'success');
+            
+            return {
+                committee: roles.committee || {},
+                nonCommittee: roles.nonCommittee || {},
+                competition: roles.competition || {}
+            };
+        }
+
+        async function migrateKeywordsForCategory(categoryName, rolesData) {
+            log(`Migrating keywords for category: ${categoryName}...`, 'info');
+            
+            const roleIds = Object.keys(rolesData);
+            log(`Found ${roleIds.length} roles in ${categoryName}`, 'info');
+            
+            let migratedCount = 0;
+            const batch = firestore.batch();
+            
+            for (const roleId of roleIds) {
+                const roleData = rolesData[roleId];
+                const keywords = roleData.keywords || [];
+                const alternateNames = roleData.alternateNames || [];
+                
+                if (keywords.length > 0 || alternateNames.length > 0) {
+                    const docRef = firestore.collection('meritValues')
+                        .doc('roleMetadata')
+                        .collection(categoryName)
+                        .doc(roleId);
+                    
+                    batch.set(docRef, {
+                        keywords: keywords,
+                        alternateNames: alternateNames
+                    }, { merge: true });
+                    
+                    log(`  ✓ ${roleData.nameEN || roleData.nameBM || roleId}: ${keywords.length} keywords, ${alternateNames.length} alternate names`, 'success');
+                    migratedCount++;
+                }
+            }
+            
+            await batch.commit();
+            log(`Migrated ${migratedCount} roles for ${categoryName}`, 'success');
+            
+            return migratedCount;
+        }
+
+        async function verifyMigration(originalData) {
+            log('Verifying migration...', 'info');
+            
+            let allValid = true;
+            
+            for (const [category, rolesData] of Object.entries(originalData)) {
+                const roleIds = Object.keys(rolesData);
+                
+                for (const roleId of roleIds) {
+                    const originalRole = rolesData[roleId];
+                    const originalKeywords = originalRole.keywords || [];
+                    
+                    if (originalKeywords.length === 0) continue;
+                    
+                    // Check if keywords exist in roleMetadata
+                    const docRef = firestore.collection('meritValues')
+                        .doc('roleMetadata')
+                        .collection(category)
+                        .doc(roleId);
+                    
+                    const doc = await docRef.get();
+                    
+                    if (!doc.exists) {
+                        log(`  ✗ Role document not found: ${category}/${roleId}`, 'error');
+                        allValid = false;
+                        continue;
+                    }
+                    
+                    const migratedKeywords = doc.data().keywords || [];
+                    
+                    if (JSON.stringify(originalKeywords) !== JSON.stringify(migratedKeywords)) {
+                        log(`  ✗ Keywords mismatch for ${originalRole.nameEN || roleId}`, 'error');
+                        log(`    Original: ${JSON.stringify(originalKeywords)}`, 'error');
+                        log(`    Migrated: ${JSON.stringify(migratedKeywords)}`, 'error');
+                        allValid = false;
+                    } else {
+                        log(`  ✓ Verified ${originalRole.nameEN || roleId}`, 'success');
+                    }
+                }
+            }
+            
+            return allValid;
+        }
+
+        async function cleanupLevelMetadata() {
+            log('Removing keywords from levelMetadata...', 'info');
+            
+            const levelMetadataDoc = await firestore.collection('meritValues')
+                .doc('levelMetadata')
+                .get();
+            
+            if (!levelMetadataDoc.exists) {
+                log('levelMetadata document not found', 'warning');
+                return;
+            }
+            
+            const data = levelMetadataDoc.data();
+            const roles = data.roles || {};
+            
+            // Remove keywords and alternateNames from all roles
+            const cleanedRoles = {};
+            for (const [category, categoryRoles] of Object.entries(roles)) {
+                cleanedRoles[category] = {};
+                for (const [roleId, roleData] of Object.entries(categoryRoles)) {
+                    cleanedRoles[category][roleId] = {
+                        sortOrder: roleData.sortOrder,
+                        nameBM: roleData.nameBM,
+                        nameEN: roleData.nameEN
+                        // Explicitly omit keywords and alternateNames
+                    };
+                }
+            }
+            
+            await firestore.collection('meritValues')
+                .doc('levelMetadata')
+                .update({ roles: cleanedRoles });
+            
+            log('Cleaned up keywords from levelMetadata', 'success');
+        }
+
+        async function runVerification() {
+            logContainer.innerHTML = '';
+            log('Starting verification (no changes will be made)...', 'info');
+            
+            try {
+                updateStatus(1, 'checking', 'Reading...');
+                const rolesData = await readKeywordsFromLevelMetadata();
+                updateStatus(1, 'complete', 'Read');
+                
+                // Count keywords
+                let totalKeywords = 0;
+                for (const [category, roles] of Object.entries(rolesData)) {
+                    for (const [roleId, roleData] of Object.entries(roles)) {
+                        const keywords = roleData.keywords || [];
+                        totalKeywords += keywords.length;
+                    }
+                }
+                
+                log(`Found ${totalKeywords} total keywords to migrate`, 'info');
+                log('Verification complete - ready to migrate', 'success');
+                showToast('Verification complete - check the log for details', 'info');
+            } catch (error) {
+                log(`Verification error: ${error.message}`, 'error');
+                showToast('Verification failed: ' + error.message, 'error');
+            }
+        }
+
+        async function runMigration() {
+            if (!confirm('Start migrating keywords to role documents? This is a safe operation.')) {
+                return;
+            }
+
+            logContainer.innerHTML = '';
+            log('Starting keyword migration...', 'info');
+            startMigrationBtn.disabled = true;
+            verifyOnlyBtn.disabled = true;
+
+            try {
+                // Step 1: Read keywords
+                updateStatus(1, 'checking', 'Reading...');
+                const rolesData = await readKeywordsFromLevelMetadata();
+                updateStatus(1, 'complete', 'Read');
+
+                // Step 2: Migrate committee
+                updateStatus(2, 'checking', 'Migrating...');
+                const committeeCount = await migrateKeywordsForCategory('committee', rolesData.committee);
+                updateStatus(2, 'complete', `Migrated ${committeeCount}`);
+
+                // Step 3: Migrate nonCommittee
+                updateStatus(3, 'checking', 'Migrating...');
+                const nonCommitteeCount = await migrateKeywordsForCategory('nonCommittee', rolesData.nonCommittee);
+                updateStatus(3, 'complete', `Migrated ${nonCommitteeCount}`);
+
+                // Step 4: Migrate competition
+                updateStatus(4, 'checking', 'Migrating...');
+                const competitionCount = await migrateKeywordsForCategory('competition', rolesData.competition);
+                updateStatus(4, 'complete', `Migrated ${competitionCount}`);
+
+                // Step 5: Verify
+                updateStatus(5, 'checking', 'Verifying...');
+                const isValid = await verifyMigration(rolesData);
+                updateStatus(5, isValid ? 'complete' : 'error', isValid ? 'Valid' : 'Failed');
+
+                if (!isValid) {
+                    throw new Error('Verification failed - some keywords were not migrated correctly');
+                }
+
+                log('='.repeat(50), 'info');
+                log('MIGRATION COMPLETE!', 'success');
+                log('='.repeat(50), 'info');
+                log('Keywords have been copied to role documents.', 'success');
+                log('You can now clean up the old keywords from levelMetadata.', 'success');
+
+                migrationComplete = true;
+                cleanupBtn.disabled = false;
+                showToast('Migration completed successfully!', 'success');
+            } catch (error) {
+                log(`Migration error: ${error.message}`, 'error');
+                console.error('Migration error:', error);
+                showToast('Migration failed: ' + error.message, 'error');
+                
+                updateStatus(2, 'error', 'Failed');
+                updateStatus(3, 'error', 'Failed');
+                updateStatus(4, 'error', 'Failed');
+                updateStatus(5, 'error', 'Failed');
+            } finally {
+                startMigrationBtn.disabled = false;
+                verifyOnlyBtn.disabled = false;
+            }
+        }
+
+        async function runCleanup() {
+            if (!migrationComplete) {
+                showToast('Please complete the migration first', 'warning');
+                return;
+            }
+
+            if (!confirm('Remove keywords from levelMetadata? This will clean up the duplicate data. Make sure the migration was successful first!')) {
+                return;
+            }
+
+            try {
+                updateStatus(6, 'checking', 'Cleaning...');
+                await cleanupLevelMetadata();
+                updateStatus(6, 'complete', 'Cleaned');
+                
+                log('Cleanup complete!', 'success');
+                showToast('Cleanup completed successfully!', 'success');
+                cleanupBtn.disabled = true;
+            } catch (error) {
+                log(`Cleanup error: ${error.message}`, 'error');
+                console.error('Cleanup error:', error);
+                showToast('Cleanup failed: ' + error.message, 'error');
+                updateStatus(6, 'error', 'Failed');
+            }
+        }
+
+        startMigrationBtn.addEventListener('click', runMigration);
+        verifyOnlyBtn.addEventListener('click', runVerification);
+        cleanupBtn.addEventListener('click', runCleanup);
+
+        // Display user info
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                document.getElementById('userDisplayName').textContent = user.displayName || user.email;
+            }
+        });
+
+        // Sign out handler
+        document.getElementById('signOutBtn').addEventListener('click', signOut);
+
+        // Run verification on page load
+        window.addEventListener('load', () => {
+            setTimeout(runVerification, 1000);
+        });
+    </script>
+</body>
+</html>

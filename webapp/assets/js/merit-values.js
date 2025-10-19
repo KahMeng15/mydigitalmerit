@@ -1184,22 +1184,18 @@ async function reorderEventRoles(draggedRow, targetRow, category) {
     const [draggedItem] = sortedRoles.splice(draggedIndex, 1);
     sortedRoles.splice(targetIndex, 0, draggedItem);
     
-    // Update sort orders (start from 1)
-    const batch = [];
+    // Update sort orders (start from 1) and save to hierarchical structure
+    const batch = firestore.batch();
     sortedRoles.forEach(([roleId, roleData], index) => {
         roles[roleId].sortOrder = index + 1;
-        batch.push({
-            path: `eventMeritValues/${collection}`,
-            data: { [roleId]: { ...roleData, sortOrder: index + 1 } }
-        });
+        const docRef = firestore.collection('meritValues')
+            .doc('roleMetadata')
+            .collection(collection)
+            .doc(roleId);
+        batch.set(docRef, { ...roleData, sortOrder: index + 1 }, { merge: true });
     });
     
-    // Save to Firestore
-    await firestore.collection('eventMeritValues').doc(collection).set(
-        Object.fromEntries(sortedRoles.map(([roleId, roleData], index) => [
-            roleId, { ...roleData, sortOrder: index + 1 }
-        ]))
-    );
+    await batch.commit();
     
     // Refresh display
     displayEventMeritRoles();
@@ -1226,12 +1222,15 @@ async function reorderCompetitionAchievements(draggedRow, targetRow) {
     const [draggedItem] = sortedAchievements.splice(draggedIndex, 1);
     sortedAchievements.splice(targetIndex, 0, draggedItem);
     
-    // Update sort orders and save to Firestore (start from 1)
+    // Update sort orders and save to hierarchical structure (start from 1)
     const batch = firestore.batch();
     sortedAchievements.forEach(([achievementId, achievementData], index) => {
         currentCompetitionMeritValues[achievementId].sortOrder = index + 1;
-        const docRef = firestore.collection('competitionMeritValues').doc(achievementId);
-        batch.set(docRef, { ...achievementData, sortOrder: index + 1 });
+        const docRef = firestore.collection('meritValues')
+            .doc('roleMetadata')
+            .collection('competition')
+            .doc(achievementId);
+        batch.set(docRef, { ...achievementData, sortOrder: index + 1 }, { merge: true });
     });
     
     await batch.commit();
@@ -2630,10 +2629,12 @@ async function saveEventMeritRole() {
         }
         currentEventMeritValues[collectionPath][roleId] = roleData;
 
-        // Save to Firestore
-        await firestore.collection('eventMeritValues').doc(collectionPath).set({
-            [roleId]: roleData
-        }, { merge: true });
+        // Save to hierarchical Firestore structure
+        await firestore.collection('meritValues')
+            .doc('roleMetadata')
+            .collection(collectionPath)
+            .doc(roleId)
+            .set(roleData, { merge: true });
 
         showToast('Event merit role saved successfully', 'success');
         closeEventMeritModal();
@@ -2698,8 +2699,12 @@ async function saveCompetitionMeritRole() {
         // Update local data
         currentCompetitionMeritValues[achievementId] = achievementData;
 
-        // Save to Firestore
-        await firestore.collection('competitionMeritValues').doc(achievementId).set(achievementData);
+        // Save to hierarchical Firestore structure
+        await firestore.collection('meritValues')
+            .doc('roleMetadata')
+            .collection('competition')
+            .doc(achievementId)
+            .set(achievementData, { merge: true });
 
         showToast('Competition achievement saved successfully', 'success');
         closeCompetitionMeritModal();

@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Migration Tool - Remove Duplicate Collections</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <style>
+        .migration-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+        
+        .warning-box {
+            background-color: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .warning-box h3 {
+            color: #b45309;
+            margin-top: 0;
+        }
+        
+        .info-box {
+            background-color: #dbeafe;
+            border: 2px solid #3b82f6;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .info-box h3 {
+            color: #1e40af;
+            margin-top: 0;
+        }
+        
+        .log-container {
+            background-color: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.5rem;
+        }
+        
+        .log-success {
+            color: #4ade80;
+        }
+        
+        .log-error {
+            color: #f87171;
+        }
+        
+        .log-info {
+            color: #60a5fa;
+        }
+        
+        .log-warning {
+            color: #fbbf24;
+        }
+        
+        .btn-danger {
+            background-color: #dc2626;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background-color: #b91c1c;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .status-pending {
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+        
+        .status-checking {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .status-complete {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-error {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="dashboard.html" class="navbar-brand">Merit System Admin</a>
+            <ul class="navbar-nav">
+                <li><a href="dashboard.html" class="nav-link">Dashboard</a></li>
+                <li><a href="merit-values.html" class="nav-link">Merit Values</a></li>
+                <li><span id="userDisplayName" class="nav-link"></span></li>
+                <li><button id="signOutBtn" class="btn btn-outline btn-sm">Sign Out</button></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="migration-container">
+        <h1 class="text-2xl font-bold mb-4">Database Migration Tool</h1>
+        
+        <div class="warning-box">
+            <h3>⚠️ Warning</h3>
+            <p><strong>This tool will delete duplicate collections from your Firestore database.</strong></p>
+            <p>The following collections will be PERMANENTLY DELETED:</p>
+            <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                <li><code>competitionMeritValues</code></li>
+                <li><code>eventMeritValues</code></li>
+            </ul>
+            <p style="margin-top: 1rem;">This action cannot be undone. Make sure you have a backup before proceeding.</p>
+        </div>
+        
+        <div class="info-box">
+            <h3>ℹ️ What this migration does</h3>
+            <p>This migration removes redundant top-level collections that duplicate data already stored in:</p>
+            <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                <li><code>meritValues/levelMetadata/competition</code> (subcollection)</li>
+                <li><code>meritValues/levelMetadata/event</code> (subcollection)</li>
+                <li><code>meritValues/roleMetadata/committee</code> (subcollection)</li>
+                <li><code>meritValues/roleMetadata/nonCommittee</code> (subcollection)</li>
+                <li><code>meritValues/roleMetadata/competition</code> (subcollection)</li>
+            </ul>
+            <p style="margin-top: 1rem;">After this migration, the frontend will only use the <code>meritValues</code> collection structure.</p>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="card-title">Migration Status</h3>
+            </div>
+            <div class="card-body">
+                <div style="margin-bottom: 1rem;">
+                    <strong>Step 1: Check for duplicate collections</strong>
+                    <span id="status1" class="status-badge status-pending">Pending</span>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong>Step 2: Delete competitionMeritValues collection</strong>
+                    <span id="status2" class="status-badge status-pending">Pending</span>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong>Step 3: Delete eventMeritValues collection</strong>
+                    <span id="status3" class="status-badge status-pending">Pending</span>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong>Step 4: Verify meritValues structure exists</strong>
+                    <span id="status4" class="status-badge status-pending">Pending</span>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 2rem;">
+            <button id="startMigrationBtn" class="btn btn-danger" style="margin-right: 1rem;">
+                Start Migration
+            </button>
+            <button id="verifyOnlyBtn" class="btn btn-outline">
+                Verify Only (No Changes)
+            </button>
+            <a href="merit-values.html" class="btn btn-outline" style="margin-left: 1rem;">
+                Go to Merit Values
+            </a>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Migration Log</h3>
+            </div>
+            <div class="card-body">
+                <div id="logContainer" class="log-container">
+                    <div class="log-entry log-info">Waiting to start...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="d-none fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 text-center">
+            <div class="spinner mb-4"></div>
+            <p class="text-gray-600">Processing migration...</p>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- App Scripts -->
+    <script src="../assets/js/firebase-config.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    
+    <script>
+        // Require admin access
+        if (!requireAdmin()) {
+            window.location.href = getBasePath() + 'index.html';
+        }
+
+        const logContainer = document.getElementById('logContainer');
+        const startMigrationBtn = document.getElementById('startMigrationBtn');
+        const verifyOnlyBtn = document.getElementById('verifyOnlyBtn');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateStatus(step, status, text) {
+            const statusBadge = document.getElementById(`status${step}`);
+            statusBadge.className = `status-badge status-${status}`;
+            statusBadge.textContent = text;
+        }
+
+        async function deleteCollection(collectionPath, batchSize = 100) {
+            const collectionRef = firestore.collection(collectionPath);
+            const query = collectionRef.limit(batchSize);
+
+            return new Promise((resolve, reject) => {
+                deleteQueryBatch(query, resolve, reject);
+            });
+        }
+
+        async function deleteQueryBatch(query, resolve, reject) {
+            try {
+                const snapshot = await query.get();
+
+                if (snapshot.size === 0) {
+                    resolve();
+                    return;
+                }
+
+                const batch = firestore.batch();
+                snapshot.docs.forEach((doc) => {
+                    batch.delete(doc.ref);
+                });
+
+                await batch.commit();
+                log(`Deleted batch of ${snapshot.size} documents`, 'success');
+
+                // Recurse on the next batch
+                process.nextTick(() => {
+                    deleteQueryBatch(query, resolve, reject);
+                });
+            } catch (error) {
+                reject(error);
+            }
+        }
+
+        async function deleteCollectionWithSubcollections(collectionPath) {
+            log(`Starting deletion of collection: ${collectionPath}`, 'info');
+            
+            const collectionRef = firestore.collection(collectionPath);
+            const snapshot = await collectionRef.get();
+            
+            if (snapshot.empty) {
+                log(`Collection ${collectionPath} is already empty or doesn't exist`, 'warning');
+                return 0;
+            }
+
+            let totalDeleted = 0;
+            
+            // Delete each document (Firestore client SDK doesn't support recursive delete)
+            for (const doc of snapshot.docs) {
+                log(`Deleting document: ${collectionPath}/${doc.id}`, 'info');
+                await doc.ref.delete();
+                totalDeleted++;
+            }
+
+            log(`Deleted ${totalDeleted} documents from ${collectionPath}`, 'success');
+            return totalDeleted;
+        }
+
+        async function verifyMeritValuesStructure() {
+            log('Verifying meritValues structure...', 'info');
+            
+            try {
+                // Check levelMetadata
+                const levelMetadataDoc = await firestore.collection('meritValues').doc('levelMetadata').get();
+                if (!levelMetadataDoc.exists) {
+                    log('ERROR: meritValues/levelMetadata does not exist!', 'error');
+                    return false;
+                }
+                log('✓ meritValues/levelMetadata exists', 'success');
+
+                // Check event subcollection
+                const eventSnapshot = await firestore.collection('meritValues').doc('levelMetadata')
+                    .collection('event').limit(1).get();
+                if (eventSnapshot.empty) {
+                    log('WARNING: meritValues/levelMetadata/event subcollection is empty', 'warning');
+                } else {
+                    log(`✓ meritValues/levelMetadata/event has ${eventSnapshot.size} documents`, 'success');
+                }
+
+                // Check competition subcollection
+                const competitionSnapshot = await firestore.collection('meritValues').doc('levelMetadata')
+                    .collection('competition').limit(1).get();
+                if (competitionSnapshot.empty) {
+                    log('WARNING: meritValues/levelMetadata/competition subcollection is empty', 'warning');
+                } else {
+                    log(`✓ meritValues/levelMetadata/competition has ${competitionSnapshot.size} documents`, 'success');
+                }
+
+                // Check roleMetadata
+                const roleMetadataDoc = await firestore.collection('meritValues').doc('roleMetadata').get();
+                if (!roleMetadataDoc.exists) {
+                    log('ERROR: meritValues/roleMetadata does not exist!', 'error');
+                    return false;
+                }
+                log('✓ meritValues/roleMetadata exists', 'success');
+
+                return true;
+            } catch (error) {
+                log(`Error verifying structure: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function checkDuplicateCollections() {
+            log('Checking for duplicate collections...', 'info');
+            
+            let foundDuplicates = false;
+            
+            // Check competitionMeritValues
+            const compSnapshot = await firestore.collection('competitionMeritValues').limit(1).get();
+            if (!compSnapshot.empty) {
+                log(`Found competitionMeritValues collection with ${compSnapshot.size}+ documents`, 'warning');
+                foundDuplicates = true;
+            } else {
+                log('competitionMeritValues collection is empty or doesn\'t exist', 'info');
+            }
+
+            // Check eventMeritValues
+            const eventSnapshot = await firestore.collection('eventMeritValues').limit(1).get();
+            if (!eventSnapshot.empty) {
+                log(`Found eventMeritValues collection with documents`, 'warning');
+                foundDuplicates = true;
+            } else {
+                log('eventMeritValues collection is empty or doesn\'t exist', 'info');
+            }
+
+            return foundDuplicates;
+        }
+
+        async function runVerification() {
+            logContainer.innerHTML = '';
+            log('Starting verification (no changes will be made)...', 'info');
+            
+            try {
+                updateStatus(1, 'checking', 'Checking...');
+                const hasDuplicates = await checkDuplicateCollections();
+                
+                if (hasDuplicates) {
+                    updateStatus(1, 'error', 'Duplicates Found');
+                    log('Duplicate collections found - migration needed', 'warning');
+                } else {
+                    updateStatus(1, 'complete', 'No Duplicates');
+                    log('No duplicate collections found', 'success');
+                }
+
+                updateStatus(4, 'checking', 'Verifying...');
+                const structureValid = await verifyMeritValuesStructure();
+                
+                if (structureValid) {
+                    updateStatus(4, 'complete', 'Valid');
+                    log('meritValues structure is valid', 'success');
+                } else {
+                    updateStatus(4, 'error', 'Invalid');
+                    log('meritValues structure has issues', 'error');
+                }
+
+                log('Verification complete', 'success');
+                showToast('Verification complete - check the log for details', 'info');
+            } catch (error) {
+                log(`Verification error: ${error.message}`, 'error');
+                showToast('Verification failed: ' + error.message, 'error');
+            }
+        }
+
+        async function runMigration() {
+            if (!confirm('Are you sure you want to DELETE the duplicate collections? This cannot be undone!')) {
+                return;
+            }
+
+            if (!confirm('Have you created a backup? This is your last chance to cancel.')) {
+                return;
+            }
+
+            logContainer.innerHTML = '';
+            log('Starting database migration...', 'info');
+            startMigrationBtn.disabled = true;
+            verifyOnlyBtn.disabled = true;
+
+            try {
+                // Step 1: Check for duplicates
+                updateStatus(1, 'checking', 'Checking...');
+                log('Step 1: Checking for duplicate collections', 'info');
+                const hasDuplicates = await checkDuplicateCollections();
+                updateStatus(1, 'complete', hasDuplicates ? 'Found' : 'Not Found');
+
+                // Step 2: Delete competitionMeritValues
+                updateStatus(2, 'checking', 'Deleting...');
+                log('Step 2: Deleting competitionMeritValues collection', 'info');
+                const compDeleted = await deleteCollectionWithSubcollections('competitionMeritValues');
+                updateStatus(2, 'complete', `Deleted ${compDeleted}`);
+
+                // Step 3: Delete eventMeritValues
+                updateStatus(3, 'checking', 'Deleting...');
+                log('Step 3: Deleting eventMeritValues collection', 'info');
+                const eventDeleted = await deleteCollectionWithSubcollections('eventMeritValues');
+                updateStatus(3, 'complete', `Deleted ${eventDeleted}`);
+
+                // Step 4: Verify structure
+                updateStatus(4, 'checking', 'Verifying...');
+                log('Step 4: Verifying meritValues structure', 'info');
+                const structureValid = await verifyMeritValuesStructure();
+                updateStatus(4, structureValid ? 'complete' : 'error', structureValid ? 'Valid' : 'Invalid');
+
+                log('='.repeat(50), 'info');
+                log('MIGRATION COMPLETE!', 'success');
+                log('='.repeat(50), 'info');
+                log('The duplicate collections have been removed.', 'success');
+                log('You can now use the merit values page normally.', 'success');
+
+                showToast('Migration completed successfully!', 'success');
+            } catch (error) {
+                log(`Migration error: ${error.message}`, 'error');
+                console.error('Migration error:', error);
+                showToast('Migration failed: ' + error.message, 'error');
+                
+                updateStatus(2, 'error', 'Failed');
+                updateStatus(3, 'error', 'Failed');
+                updateStatus(4, 'error', 'Failed');
+            } finally {
+                startMigrationBtn.disabled = false;
+                verifyOnlyBtn.disabled = false;
+            }
+        }
+
+        startMigrationBtn.addEventListener('click', runMigration);
+        verifyOnlyBtn.addEventListener('click', runVerification);
+
+        // Display user info
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                document.getElementById('userDisplayName').textContent = user.displayName || user.email;
+            }
+        });
+
+        // Sign out handler
+        document.getElementById('signOutBtn').addEventListener('click', signOut);
+
+        // Run verification on page load
+        window.addEventListener('load', () => {
+            setTimeout(runVerification, 1000);
+        });
+    </script>
+</body>
+</html>
