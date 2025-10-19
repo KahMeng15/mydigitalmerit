@@ -2051,35 +2051,54 @@ function displayFilePreview() {
         const row = document.createElement('tr');
         row.setAttribute('data-row-index', rowIndex);
         
-        // Add row identifier and delete button
+        // Add delete action column (first column)
         const actionTd = document.createElement('td');
         actionTd.style.textAlign = 'center';
         actionTd.style.verticalAlign = 'middle';
-        actionTd.style.width = '100px';
-        actionTd.style.minWidth = '100px';
+        actionTd.style.width = '60px';
+        actionTd.style.minWidth = '60px';
         
         if (rowIndex === 0) {
-            // First row - mark as Header with delete functionality
+            // First row - header delete button
             actionTd.innerHTML = `
-                <div class="d-flex flex-column align-items-center gap-1">
-                    <small class="text-primary fw-bold">Header</small>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteExcelRow(${rowIndex})" title="Delete this header row (next row becomes header)">
-                        🗑️
-                    </button>
-                </div>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteExcelRow(${rowIndex})" title="Delete this header row (next row becomes header)">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                </button>
             `;
+            actionTd.style.backgroundColor = '#f8f9fa';
+            actionTd.style.borderBottom = '2px solid #dee2e6';
         } else {
-            // Data rows - show row number
+            // Data rows - delete button
             actionTd.innerHTML = `
-                <div class="d-flex flex-column align-items-center gap-1">
-                    <small class="text-secondary">${rowIndex}</small>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteExcelRow(${rowIndex})" title="Delete this row">
-                        🗑️
-                    </button>
-                </div>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteExcelRow(${rowIndex})" title="Delete this row">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                </button>
             `;
         }
         row.appendChild(actionTd);
+        
+        // Add row number column (second column)
+        const rowNumberTd = document.createElement('td');
+        rowNumberTd.style.textAlign = 'center';
+        rowNumberTd.style.verticalAlign = 'middle';
+        rowNumberTd.style.width = '60px';
+        rowNumberTd.style.minWidth = '60px';
+        rowNumberTd.style.fontWeight = '500';
+        
+        if (rowIndex === 0) {
+            // First row - mark as Header
+            rowNumberTd.innerHTML = `<small class="text-primary fw-bold">Header</small>`;
+            rowNumberTd.style.backgroundColor = '#f8f9fa';
+            rowNumberTd.style.borderBottom = '2px solid #dee2e6';
+        } else {
+            // Data rows - show row number
+            rowNumberTd.innerHTML = `<small class="text-secondary">${rowIndex}</small>`;
+        }
+        row.appendChild(rowNumberTd);
         
         // Add data cells - don't truncate the content
         rowData.forEach((cell, cellIndex) => {
@@ -2110,7 +2129,7 @@ function displayFilePreview() {
     // Add summary info
     const summaryRow = document.createElement('tr');
     const summaryCell = document.createElement('td');
-    summaryCell.colSpan = maxColumns + 1; // +1 for action column
+    summaryCell.colSpan = maxColumns + 2; // +2 for row number and action columns
     summaryCell.innerHTML = `<em class="text-info">Showing: ${excelData.length} rows with data (empty rows filtered out)</em>`;
     summaryCell.style.textAlign = 'center';
     summaryCell.style.padding = '10px';
@@ -2126,32 +2145,19 @@ function displayFilePreview() {
 function deleteExcelRow(rowIndex) {
     if (!excelData || rowIndex < 0 || rowIndex >= excelData.length) return;
     
-    let confirmMessage;
-    if (rowIndex === 0) {
-        if (excelData.length > 1) {
-            confirmMessage = `Are you sure you want to delete the header row? The next row will become the new header.`;
-        } else {
-            confirmMessage = `Are you sure you want to delete the only remaining row? This will clear all data.`;
-        }
-    } else {
-        confirmMessage = `Are you sure you want to delete row ${rowIndex}? This action cannot be undone.`;
-    }
+    // Remove the row from excelData
+    excelData.splice(rowIndex, 1);
     
-    if (confirm(confirmMessage)) {
-        // Remove the row from excelData
-        excelData.splice(rowIndex, 1);
-        
-        // Refresh the preview
-        displayFilePreview();
-        
-        // Show success message
-        if (rowIndex === 0 && excelData.length > 0) {
-            showToast(`Header row deleted successfully. Row 1 is now the new header.`, 'success');
-        } else if (excelData.length === 0) {
-            showToast(`All data deleted. Please upload a new file.`, 'warning');
-        } else {
-            showToast(`Row ${rowIndex} deleted successfully`, 'success');
-        }
+    // Refresh the preview
+    displayFilePreview();
+    
+    // Show success message
+    if (rowIndex === 0 && excelData.length > 0) {
+        showToast(`Header row deleted successfully. Row 1 is now the new header.`, 'success');
+    } else if (excelData.length === 0) {
+        showToast(`All data deleted. Please upload a new file.`, 'warning');
+    } else {
+        showToast(`Row ${rowIndex} deleted successfully`, 'success');
     }
 }
 

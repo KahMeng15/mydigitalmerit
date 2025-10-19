@@ -175,7 +175,7 @@
                                         <li><strong>Date/Time:</strong> Event date and time</li>
                                         <li><strong>Name:</strong> Student full name</li>
                                         <li><strong>Matric Number:</strong> Student ID (S12345, DP121234, etc.)</li>
-                                        <li><strong>Role:</strong> Student role in event</li>
+                                        <li><strong>Committee Role:</strong> Student role in event</li>
                                         <li><strong>Additional Notes:</strong> Achievements/awards</li>
                                         <li><strong>Link Proof:</strong> Evidence link (optional)</li>
                                     </ul>
@@ -260,14 +260,10 @@
                                 </svg>
                             </div>
                             <h4 class="font-medium mb-2">Single Sheet Detected</h4>
-                            <p class="text-secondary mb-4">Your Excel file contains one sheet: <strong id="singleSheetName"></strong></p>
-                            <div class="bg-light p-4 rounded mb-4">
-                                <div class="text-sm">
-                                    <div class="mb-2"><strong>Sheet:</strong> <span id="singleSheetNameDisplay"></span></div>
-                                    <div class="mb-2"><strong>Data Rows:</strong> <span id="singleSheetRows"></span></div>
-                                    <div class="text-secondary"><small><em>Empty rows have been filtered out</em></small></div>
-                                </div>
-                            </div>
+                            <p class="text-secondary mb-4">
+                                Your Excel file contains one sheet: <strong id="singleSheetName"></strong><br>
+                                Data Rows: <strong><span id="singleSheetRows"></span></strong>
+                            </p>
                         </div>
 
                         <!-- Multiple Sheets Selection -->
@@ -371,7 +367,6 @@
                     <!-- File Preview Section -->
                     <div class="mb-6">
                         <h4 class="font-semibold mb-3">Excel File Preview & Data Cleanup</h4>
-                        <p class="text-sm text-secondary mb-3">Click the 🗑️ button next to any row to delete unwanted header rows or blank rows before mapping columns.</p>
                         <div class="bg-light p-4 rounded">
                             <div class="table-container" style="max-height: 500px; overflow: auto;">
                                 <table class="table table-sm table-bordered">
@@ -715,10 +710,18 @@
             border-color: #dc3545;
             color: #dc3545;
             background-color: transparent;
-            padding: 2px 6px;
+            padding: 4px 8px;
             font-size: 10px;
-            border-radius: 3px;
+            border-radius: 4px;
             transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .table-container .btn-outline-danger svg {
+            width: 16px;
+            height: 16px;
         }
         
         .table-container .btn-outline-danger:hover {
