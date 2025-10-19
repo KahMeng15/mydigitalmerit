@@ -2,5 +2,4 @@ webapp/.DS_Store
 webapp/assets/.DS_Store
 backup/mydigitalmerit-firebase-adminsdk-fbsvc-e5c6187381.json
 backup/.env
-backup/backups/firestore_backup_20251019_235910.json
-backup/__pycache__/firestore_backup.cpython-312.pyc
+backup/backups
