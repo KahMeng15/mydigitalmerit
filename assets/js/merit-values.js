@@ -51,6 +51,55 @@ function generateUniqueId() {
     return 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
 
+// Scroll modal to top when opened
+function scrollModalToTop(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        const modalContent = modal.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.scrollTop = 0;
+        }
+        // Make modal focusable and focus it
+        modal.setAttribute('tabindex', '-1');
+        setTimeout(() => modal.focus(), 10);
+    }
+}
+
+// Add keyboard event listeners for modals
+function addModalKeyboardListeners(modalId, confirmCallback = null, cancelCallback = null) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+    
+    const handleKeyPress = (e) => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            if (cancelCallback) {
+                cancelCallback();
+            }
+        } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            if (confirmCallback) {
+                confirmCallback();
+            }
+        }
+    };
+    
+    // Add event listener when modal is shown
+    modal.addEventListener('keydown', handleKeyPress);
+    
+    // Store the handler for cleanup
+    modal._keyboardHandler = handleKeyPress;
+}
+
+// Remove keyboard event listeners from modal
+function removeModalKeyboardListeners(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal && modal._keyboardHandler) {
+        modal.removeEventListener('keydown', modal._keyboardHandler);
+        delete modal._keyboardHandler;
+    }
+}
+
 // Helper functions that may be missing
 function showLoading() {
     const spinner = document.getElementById('loadingSpinner');
@@ -586,6 +635,8 @@ async function loadCompetitionMeritValues() {
         const meritData = await loadMeritValuesHierarchical();
         
         currentCompetitionMeritValues = meritData.competitions;
+        console.log('Loaded competition merit values:', currentCompetitionMeritValues);
+        
         displayCompetitionMeritRoles();
 
     } catch (error) {
@@ -1370,13 +1421,22 @@ function openEventMeritModal(category = null) {
     }
     
     document.getElementById('eventMeritModal').classList.remove('d-none');
+    
+    // Scroll to top and add keyboard listeners
+    scrollModalToTop('eventMeritModal');
+    addModalKeyboardListeners('eventMeritModal', 
+        () => document.getElementById('saveEventMeritBtn').click(),
+        closeEventMeritModal
+    );
 }
 
 function closeEventMeritModal() {
+    removeModalKeyboardListeners('eventMeritModal');
     document.getElementById('eventMeritModal').classList.add('d-none');
 }
 
 function closeCompetitionMeritModal() {
+    removeModalKeyboardListeners('competitionMeritModal');
     document.getElementById('competitionMeritModal').classList.add('d-none');
 }
 
@@ -1405,9 +1465,17 @@ function openAddLevelModal(type) {
     populateAddLevelMeritValues(type);
     
     document.getElementById('addLevelModal').classList.remove('d-none');
+    
+    // Scroll to top and add keyboard listeners
+    scrollModalToTop('addLevelModal');
+    addModalKeyboardListeners('addLevelModal',
+        () => document.getElementById('saveLevelBtn').click(),
+        closeLevelModal
+    );
 }
 
 function closeLevelModal() {
+    removeModalKeyboardListeners('addLevelModal');
     document.getElementById('addLevelModal').classList.add('d-none');
     currentLevelType = null;
 }
@@ -1542,10 +1610,33 @@ function showLevelSelectionModal(type) {
     modalOverlay.appendChild(modalContent);
     document.body.appendChild(modalOverlay);
     
+    // Scroll to top and add keyboard listeners
+    setTimeout(() => {
+        modalContent.scrollTop = 0;
+        modalOverlay.setAttribute('tabindex', '-1');
+        modalOverlay.focus();
+    }, 10);
+    
+    // Add keyboard event listener for the level selection modal
+    const handleKeyPress = (e) => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            closeLevelSelectionModal();
+        }
+    };
+    
+    modalOverlay.addEventListener('keydown', handleKeyPress);
+    modalOverlay._keyboardHandler = handleKeyPress;
+    
     // Global function to close level selection modal
     window.closeLevelSelectionModal = function() {
         const overlay = document.getElementById('levelSelectionOverlay');
         if (overlay) {
+            // Clean up keyboard listener
+            if (overlay._keyboardHandler) {
+                overlay.removeEventListener('keydown', overlay._keyboardHandler);
+                delete overlay._keyboardHandler;
+            }
             document.body.removeChild(overlay);
         }
     };
@@ -1582,38 +1673,84 @@ function editLevel(levelId, type) {
     document.getElementById('editLevelSortOrder').value = levelData.sortOrder !== undefined ? levelData.sortOrder : '';
     
     // Populate merit values for all roles at this level
-    if (type === 'event') {
-        populateRoleMeritValuesForLevel(levelId);
-    }
+    populateRoleMeritValuesForLevel(levelId);
     
     // Show modal
     document.getElementById('editLevelModal').classList.remove('d-none');
+    
+    // Scroll to top and add keyboard listeners
+    scrollModalToTop('editLevelModal');
+    addModalKeyboardListeners('editLevelModal',
+        () => document.getElementById('updateLevelBtn').click(),
+        closeEditLevelModal
+    );
 }
 
 function populateRoleMeritValuesForLevel(levelId) {
     const committeeContainer = document.getElementById('editLevelCommitteeRoles');
     const nonCommitteeContainer = document.getElementById('editLevelNonCommitteeRoles');
+    const competitionContainer = document.getElementById('editLevelCompetitionRoles');
+    const committeeSection = document.getElementById('editLevelCommitteeSection');
+    const nonCommitteeSection = document.getElementById('editLevelNonCommitteeSection');
+    const competitionSection = document.getElementById('editLevelCompetitionSection');
     
     // Clear containers
-    committeeContainer.innerHTML = '';
-    nonCommitteeContainer.innerHTML = '';
+    if (committeeContainer) committeeContainer.innerHTML = '';
+    if (nonCommitteeContainer) nonCommitteeContainer.innerHTML = '';
+    if (competitionContainer) competitionContainer.innerHTML = '';
     
-    // Generate committee role inputs
-    if (currentEventMeritValues.committee) {
-        Object.entries(currentEventMeritValues.committee).forEach(([roleId, roleData]) => {
-            const currentValue = (roleData.levelValues && roleData.levelValues[levelId]) || 0;
-            const roleInput = createRoleMeritInput(roleId, roleData, levelId, currentValue, 'committee');
-            committeeContainer.appendChild(roleInput);
-        });
-    }
-    
-    // Generate non-committee role inputs
-    if (currentEventMeritValues.nonCommittee) {
-        Object.entries(currentEventMeritValues.nonCommittee).forEach(([roleId, roleData]) => {
-            const currentValue = (roleData.levelValues && roleData.levelValues[levelId]) || 0;
-            const roleInput = createRoleMeritInput(roleId, roleData, levelId, currentValue, 'nonCommittee');
-            nonCommitteeContainer.appendChild(roleInput);
-        });
+    // Check if we're editing an event level or competition level
+    if (currentEditingLevelType === 'competition') {
+        // Hide event sections, show competition section
+        if (committeeSection) committeeSection.style.display = 'none';
+        if (nonCommitteeSection) nonCommitteeSection.style.display = 'none';
+        if (competitionSection) competitionSection.style.display = 'block';
+        
+        // Debug: Check what data we have
+        console.log('Editing competition level:', levelId);
+        console.log('Current competition merit values:', currentCompetitionMeritValues);
+        console.log('Competition container found:', !!competitionContainer);
+        
+        // Generate competition role inputs
+        if (currentCompetitionMeritValues && Object.keys(currentCompetitionMeritValues).length > 0 && competitionContainer) {
+            const entries = Object.entries(currentCompetitionMeritValues);
+            console.log('Competition role entries:', entries);
+            
+            entries.forEach(([roleId, roleData]) => {
+                const currentValue = (roleData.levelValues && roleData.levelValues[levelId]) || 0;
+                console.log(`Processing role ${roleId}:`, roleData, 'current value:', currentValue);
+                const roleInput = createRoleMeritInput(roleId, roleData, levelId, currentValue, 'competition');
+                competitionContainer.appendChild(roleInput);
+            });
+        } else {
+            console.log('No competition merit values or container not found');
+            if (competitionContainer) {
+                competitionContainer.innerHTML = '<p class="text-sm text-secondary">No competition achievements defined yet. Go to the Competition Merits tab to create some achievements first.</p>';
+            }
+        }
+    } else {
+        // Show event sections, hide competition section
+        if (committeeSection) committeeSection.style.display = 'block';
+        if (nonCommitteeSection) nonCommitteeSection.style.display = 'block';
+        if (competitionSection) competitionSection.style.display = 'none';
+        
+        // Generate committee role inputs
+        if (currentEventMeritValues.committee && committeeContainer) {
+            Object.entries(currentEventMeritValues.committee).forEach(([roleId, roleData]) => {
+                const currentValue = (roleData.levelValues && roleData.levelValues[levelId]) || 0;
+                const roleInput = createRoleMeritInput(roleId, roleData, levelId, currentValue, 'committee');
+                committeeContainer.appendChild(roleInput);
+            });
+        }
+        
+        // Generate non-committee role inputs
+        if (currentEventMeritValues.nonCommittee && nonCommitteeContainer) {
+            Object.entries(currentEventMeritValues.nonCommittee).forEach(([roleId, roleData]) => {
+                const currentValue = (roleData.levelValues && roleData.levelValues[levelId]) || 0;
+                const roleInput = createRoleMeritInput(roleId, roleData, levelId, currentValue, 'nonCommittee');
+                nonCommitteeContainer.appendChild(roleInput);
+            });
+        }
     }
 }
 
@@ -1645,6 +1782,7 @@ function createRoleMeritInput(roleId, roleData, levelId, currentValue, category)
 }
 
 function closeEditLevelModal() {
+    removeModalKeyboardListeners('editLevelModal');
     document.getElementById('editLevelModal').classList.add('d-none');
     currentEditingLevelId = null;
     currentEditingLevelType = null;
@@ -1687,10 +1825,8 @@ async function updateLevel() {
             .doc(currentEditingLevelId)
             .update(levelData);
         
-        // Update merit values for all roles at this level (for event levels only)
-        if (currentEditingLevelType === 'event') {
-            await updateRoleMeritValuesForLevel();
-        }
+        // Update merit values for all roles at this level
+        await updateRoleMeritValuesForLevel();
         
         console.log('Level updated successfully:', levelData);
         showToast(`${levelData.nameEN} level updated successfully!`, 'success');
@@ -1699,9 +1835,13 @@ async function updateLevel() {
         closeEditLevelModal();
         hideLoading();
         
-        // Reload level configurations and merit values
+        // Reload level configurations and appropriate merit values
         await loadLevelConfigurations();
-        await loadEventMeritValues();
+        if (currentEditingLevelType === 'competition') {
+            await loadCompetitionMeritValues();
+        } else {
+            await loadEventMeritValues();
+        }
         
     } catch (error) {
         console.error('Error updating level:', error);
@@ -1723,23 +1863,44 @@ async function updateRoleMeritValuesForLevel() {
         const category = input.dataset.category;
         const newValue = parseInt(input.value) || 0;
         
-        // Update the local data structure
-        if (currentEventMeritValues[category] && currentEventMeritValues[category][roleId]) {
-            if (!currentEventMeritValues[category][roleId].levelValues) {
-                currentEventMeritValues[category][roleId].levelValues = {};
+        // Update the local data structure based on level type
+        if (currentEditingLevelType === 'competition') {
+            if (currentCompetitionMeritValues && currentCompetitionMeritValues[roleId]) {
+                if (!currentCompetitionMeritValues[roleId].levelValues) {
+                    currentCompetitionMeritValues[roleId].levelValues = {};
+                }
+                currentCompetitionMeritValues[roleId].levelValues[levelId] = newValue;
+                
+                // Add to batch update for competition roles
+                const roleRef = firestore.collection('meritValues')
+                    .doc('roleMetadata')
+                    .collection('competition')
+                    .doc(roleId);
+                
+                batch.update(roleRef, {
+                    [`levelValues.${levelId}`]: newValue,
+                    updated: new Date()
+                });
             }
-            currentEventMeritValues[category][roleId].levelValues[levelId] = newValue;
-            
-            // Add to batch update
-            const roleRef = firestore.collection('meritValues')
-                .doc('roleMetadata')
-                .collection(category)
-                .doc(roleId);
-            
-            batch.update(roleRef, {
-                [`levelValues.${levelId}`]: newValue,
-                updated: new Date()
-            });
+        } else {
+            // Handle event roles (committee/nonCommittee)
+            if (currentEventMeritValues[category] && currentEventMeritValues[category][roleId]) {
+                if (!currentEventMeritValues[category][roleId].levelValues) {
+                    currentEventMeritValues[category][roleId].levelValues = {};
+                }
+                currentEventMeritValues[category][roleId].levelValues[levelId] = newValue;
+                
+                // Add to batch update for event roles
+                const roleRef = firestore.collection('meritValues')
+                    .doc('roleMetadata')
+                    .collection(category)
+                    .doc(roleId);
+                
+                batch.update(roleRef, {
+                    [`levelValues.${levelId}`]: newValue,
+                    updated: new Date()
+                });
+            }
         }
     });
     
@@ -1898,9 +2059,17 @@ function openAddRoleModal(category) {
     generateRoleLevelInputs(category);
     
     document.getElementById('addRoleModal').classList.remove('d-none');
+    
+    // Scroll to top and add keyboard listeners
+    scrollModalToTop('addRoleModal');
+    addModalKeyboardListeners('addRoleModal',
+        () => document.getElementById('saveRoleBtn').click(),
+        closeRoleModal
+    );
 }
 
 function closeRoleModal() {
+    removeModalKeyboardListeners('addRoleModal');
     document.getElementById('addRoleModal').classList.add('d-none');
     currentRoleCategory = null;
     editingRole = null;
@@ -1993,6 +2162,13 @@ function editRole(roleId, category) {
     
     // Show modal
     document.getElementById('editRoleModal').classList.remove('d-none');
+    
+    // Scroll to top and add keyboard listeners
+    scrollModalToTop('editRoleModal');
+    addModalKeyboardListeners('editRoleModal',
+        () => document.getElementById('updateRoleBtn')?.click() || updateRole(),
+        closeEditRoleModal
+    );
 }
 
 function populateRoleMeritValuesForRole(roleId, roleData, category) {
@@ -2042,6 +2218,7 @@ function createLevelMeritInput(level, currentValue) {
 }
 
 function closeEditRoleModal() {
+    removeModalKeyboardListeners('editRoleModal');
     document.getElementById('editRoleModal').classList.add('d-none');
     currentEditingRoleId = null;
     currentEditingRoleCategory = null;
