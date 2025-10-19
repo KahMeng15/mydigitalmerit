@@ -643,6 +643,17 @@ function updateEventTableHeaders() {
             });
         }
         
+        // Add Actions column with level edit button
+        headerHtml += `<th>
+            <button onclick="showLevelSelectionModal('event')" 
+                    class="btn btn-outline btn-xs" 
+                    title="Edit Event Level">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+            </button>
+        </th>`;
+        
         committeeHeader.innerHTML = headerHtml;
     }
     
@@ -670,6 +681,17 @@ function updateEventTableHeaders() {
                     </th>`;
             });
         }
+        
+        // Add Actions column with level edit button
+        headerHtml += `<th>
+            <button onclick="showLevelSelectionModal('event')" 
+                    class="btn btn-outline btn-xs" 
+                    title="Edit Event Level">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+            </button>
+        </th>`;
         
         nonCommitteeHeader.innerHTML = headerHtml;
     }
@@ -759,6 +781,17 @@ function updateCompetitionTableHeaders() {
             });
         }
         
+        // Add Actions column with level edit button
+        headerHtml += `<th>
+            <button onclick="showLevelSelectionModal('competition')" 
+                    class="btn btn-outline btn-xs" 
+                    title="Edit Competition Level">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+            </button>
+        </th>`;
+        
         competitionTable.innerHTML = headerHtml;
         
         // Add drag and drop event listeners for level headers
@@ -818,13 +851,6 @@ function displayCommitteeRoles() {
                                 title="Edit role">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                            </svg>
-                        </button>
-                        <button onclick="confirmDeleteRole('${roleId}', 'committee')" 
-                                class="btn btn-outline btn-xs text-danger" 
-                                title="Delete role">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                             </svg>
                         </button>
                     </div>
@@ -895,13 +921,6 @@ function displayNonCommitteeRoles() {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                             </svg>
                         </button>
-                        <button onclick="confirmDeleteRole('${roleId}', 'nonCommittee')" 
-                                class="btn btn-outline btn-xs text-danger" 
-                                title="Delete role">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                            </svg>
-                        </button>
                     </div>
                 </td>
             `;
@@ -968,13 +987,6 @@ function displayCompetitionMeritRoles() {
                                 title="Edit achievement">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                            </svg>
-                        </button>
-                        <button onclick="confirmDeleteRole('${achievementId}', 'competition')" 
-                                class="btn btn-outline btn-xs text-danger" 
-                                title="Delete achievement">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                             </svg>
                         </button>
                     </div>
@@ -1454,6 +1466,99 @@ function populateAddLevelRoleSection(containerId, roles) {
 // Variables for editing levels
 let currentEditingLevelId = null;
 let currentEditingLevelType = null;
+
+// Show level selection modal for editing levels
+function showLevelSelectionModal(type) {
+    const levels = type === 'event' ? currentLevelConfigs.eventLevels : currentLevelConfigs.competitionLevels;
+    
+    if (!levels || levels.length === 0) {
+        showToast(`No ${type} levels found to edit`, 'error');
+        return;
+    }
+    
+    // Create list items for the levels
+    const levelItems = levels.map(level => `
+        <div class="level-item" data-level-id="${level.id}" style="
+            padding: 12px 16px; 
+            border: 1px solid #e5e7eb; 
+            border-radius: 6px; 
+            margin-bottom: 8px; 
+            cursor: pointer; 
+            transition: all 0.2s ease;
+            background: white;
+        " onmouseover="this.style.background='#f3f4f6'; this.style.borderColor='#6366f1';" 
+           onmouseout="this.style.background='white'; this.style.borderColor='#e5e7eb';"
+           onclick="selectAndEditLevel('${level.id}', '${type}')">
+            <div style="font-weight: 500; color: #374151;">${level.nameEN}</div>
+            ${level.nameBM ? `<div style="font-size: 14px; color: #6b7280; margin-top: 2px;">${level.nameBM}</div>` : ''}
+        </div>
+    `).join('');
+    
+    // Show list with level selection
+    const levelListHtml = `
+        <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 10px; font-weight: 500; color: #374151;">
+                Select ${type === 'event' ? 'Event' : 'Competition'} Level to Edit:
+            </label>
+            <div id="levelList" style="
+                border: 1px solid #e5e7eb; 
+                border-radius: 8px; 
+                padding: 8px;
+                background: #f9fafb;
+            ">
+                ${levelItems}
+            </div>
+        </div>
+    `;
+    
+    // Create modal using standard modal structure to match edit modal size
+    const modalOverlay = document.createElement('div');
+    modalOverlay.id = 'levelSelectionOverlay';
+    modalOverlay.className = 'modal';
+    modalOverlay.style.display = 'flex';
+    
+    // Create the background overlay
+    const backgroundOverlay = document.createElement('div');
+    backgroundOverlay.className = 'modal-overlay';
+    backgroundOverlay.onclick = () => closeLevelSelectionModal();
+    
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+    
+    modalContent.innerHTML = `
+        <div class="modal-header">
+            <h3 class="modal-title">Select Level to Edit</h3>
+            <button onclick="closeLevelSelectionModal()" class="modal-close-btn">×</button>
+        </div>
+        <div class="modal-body">
+            ${levelListHtml}
+            <p style="font-size: 14px; color: #6b7280; margin-top: 16px; text-align: center;">
+                Click on any level to edit it
+            </p>
+        </div>
+    `;
+    
+    modalOverlay.appendChild(backgroundOverlay);
+    modalOverlay.appendChild(modalContent);
+    document.body.appendChild(modalOverlay);
+    
+    // Global function to close level selection modal
+    window.closeLevelSelectionModal = function() {
+        const overlay = document.getElementById('levelSelectionOverlay');
+        if (overlay) {
+            document.body.removeChild(overlay);
+        }
+    };
+    
+    // Global function to handle level selection and immediately edit
+    window.selectAndEditLevel = function(levelId, levelType) {
+        // Close the selection modal
+        closeLevelSelectionModal();
+        
+        // Immediately open the edit modal for the selected level
+        editLevel(levelId, levelType);
+    };
+}
 
 function editLevel(levelId, type) {
     currentEditingLevelId = levelId;
@@ -2761,6 +2866,7 @@ window.openAddRoleModal = openAddRoleModal;
 window.closeRoleModal = closeRoleModal;
 window.editRoleInNewModal = editRoleInNewModal;
 window.editLevel = editLevel;
+window.showLevelSelectionModal = showLevelSelectionModal;
 window.closeEditLevelModal = closeEditLevelModal;
 window.updateLevel = updateLevel;
 window.deleteLevel = deleteLevel;
