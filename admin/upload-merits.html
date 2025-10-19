@@ -35,12 +35,22 @@
                         <h1 class="text-2xl font-bold mb-2">Upload Merits</h1>
                         <p class="text-secondary">Upload Excel file to add merit records to an event</p>
                     </div>
-                    <a href="events.html" class="btn btn-outline">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                        </svg>
-                        Back to Events
-                    </a>
+                    <div class="flex gap-2">
+                        <button onclick="clearSavedProgress(); location.reload()" 
+                                class="btn btn-outline btn-sm" 
+                                title="Clear saved progress and start fresh">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                            Clear Progress
+                        </button>
+                        <a href="events.html" class="btn btn-outline">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                            </svg>
+                            Back to Events
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -64,6 +74,16 @@
                             <span>Preview</span>
                             <span>Confirm</span>
                             <span>Done</span>
+                        </div>
+                        
+                        <!-- Progress Saving Notice -->
+                        <div class="mt-3 pt-2 border-t border-gray-100">
+                            <div class="flex items-center text-sm text-secondary">
+                                <svg class="w-4 h-4 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <span>Your progress is automatically saved and will be restored if you refresh the page</span>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -6,6 +6,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize page
     initializePage();
     setupEventListeners();
+    
+    // Load saved progress from localStorage and URL
+    loadSavedProgress();
 });
 
 let selectedEvent = null;
@@ -22,6 +25,196 @@ let columnHeaders = [];
 let columnMapping = {};
 let currentWorkbook = null;
 
+// LocalStorage management
+const STORAGE_KEY = 'upload_merits_progress';
+
+function saveProgressToStorage() {
+    const progressData = {
+        currentStep: currentStepNumber,
+        selectedEvent: selectedEvent,
+        excelData: excelData,
+        columnHeaders: columnHeaders,
+        columnMapping: columnMapping,
+        processedData: processedData,
+        validRecords: validRecords,
+        invalidRecords: invalidRecords,
+        // Save form values
+        formData: {
+            eventSelect: getFormValue('eventSelect'),
+            childActivitySelect: getFormValue('childActivitySelect'),
+            meritSource: getFormValue('meritSource'),
+            customMeritValue: getFormValue('customMeritValue'),
+            customLevel: getFormValue('customLevel'),
+            customCategory: getFormValue('customCategory'),
+            customSubcategory: getFormValue('customSubcategory'),
+            customMeritPerAchievement: getFormValue('customMeritPerAchievement'),
+            sheetSelect: getFormValue('sheetSelect')
+        },
+        timestamp: Date.now()
+    };
+    
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(progressData));
+        console.log('Progress saved to localStorage');
+    } catch (error) {
+        console.warn('Failed to save progress to localStorage:', error);
+    }
+}
+
+function loadSavedProgress() {
+    try {
+        // First check URL parameters for step
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlStep = urlParams.get('step');
+        
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (!savedData) {
+            // If there's a step in URL but no saved data, just go to that step
+            if (urlStep && !isNaN(urlStep)) {
+                const stepNumber = parseInt(urlStep);
+                if (stepNumber >= 1 && stepNumber <= 8) {
+                    setTimeout(() => goToStep(stepNumber), 100);
+                }
+            }
+            return;
+        }
+        
+        const progressData = JSON.parse(savedData);
+        
+        // Check if data is not too old (24 hours)
+        const dataAge = Date.now() - progressData.timestamp;
+        const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+        
+        if (dataAge > maxAge) {
+            clearSavedProgress();
+            return;
+        }
+        
+        // Restore data
+        if (progressData.selectedEvent) {
+            selectedEvent = progressData.selectedEvent;
+        }
+        if (progressData.excelData) {
+            excelData = progressData.excelData;
+        }
+        if (progressData.columnHeaders) {
+            columnHeaders = progressData.columnHeaders;
+        }
+        if (progressData.columnMapping) {
+            columnMapping = progressData.columnMapping;
+        }
+        if (progressData.processedData) {
+            processedData = progressData.processedData;
+        }
+        if (progressData.validRecords) {
+            validRecords = progressData.validRecords;
+        }
+        if (progressData.invalidRecords) {
+            invalidRecords = progressData.invalidRecords;
+        }
+        
+        // Restore form values after DOM is ready
+        setTimeout(() => {
+            restoreFormData(progressData.formData);
+            
+            // Use URL step if provided, otherwise use saved step
+            const targetStep = urlStep && !isNaN(urlStep) ? parseInt(urlStep) : progressData.currentStep;
+            if (targetStep && targetStep >= 1 && targetStep <= 8) {
+                goToStep(targetStep);
+                updateStepUrl(targetStep);
+            }
+        }, 500);
+        
+        console.log('Progress loaded from localStorage');
+        
+    } catch (error) {
+        console.warn('Failed to load saved progress:', error);
+        clearSavedProgress();
+    }
+}
+
+function restoreFormData(formData) {
+    if (!formData) return;
+    
+    Object.entries(formData).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+            setFormValue(key, value);
+        }
+    });
+    
+    // Trigger events to update dependent elements
+    if (formData.eventSelect) {
+        const eventSelect = document.getElementById('eventSelect');
+        if (eventSelect && eventSelect.value) {
+            handleEventSelect();
+        }
+    }
+    
+    if (formData.meritSource) {
+        const sourceSelect = document.getElementById('meritSource');
+        if (sourceSelect && sourceSelect.value) {
+            handleMeritSourceChange();
+        }
+    }
+}
+
+function getFormValue(elementId) {
+    const element = document.getElementById(elementId);
+    if (!element) return null;
+    
+    if (element.type === 'checkbox') {
+        return element.checked;
+    } else if (element.type === 'radio') {
+        const radioGroup = document.querySelectorAll(`input[name="${element.name}"]`);
+        for (const radio of radioGroup) {
+            if (radio.checked) return radio.value;
+        }
+        return null;
+    } else {
+        return element.value;
+    }
+}
+
+function setFormValue(elementId, value) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    if (element.type === 'checkbox') {
+        element.checked = value;
+    } else if (element.type === 'radio') {
+        const radioGroup = document.querySelectorAll(`input[name="${element.name}"]`);
+        for (const radio of radioGroup) {
+            if (radio.value === value) {
+                radio.checked = true;
+                break;
+            }
+        }
+    } else {
+        element.value = value;
+    }
+}
+
+function handleMeritSourceChange() {
+    // This function will be called when merit source changes
+    // Save progress whenever form data changes
+    saveProgressToStorage();
+}
+
+function clearSavedProgress() {
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+        console.log('Saved progress cleared');
+    } catch (error) {
+        console.warn('Failed to clear saved progress:', error);
+    }
+}
+
+function updateStepUrl(stepNumber) {
+    const url = new URL(window.location);
+    url.searchParams.set('step', stepNumber);
+    window.history.replaceState({}, '', url);
+}
+
 function initializePage() {
     // Display user info
     const user = getCurrentUser();
@@ -35,7 +228,7 @@ function initializePage() {
         await loadMeritValues();
     }, 100);
     
-    // Check for eventId and childActivityId in URL params
+    // Check for eventId and childActivityId in URL params (legacy support)
     const urlParams = new URLSearchParams(window.location.search);
     const eventId = urlParams.get('eventId');
     const childActivityId = urlParams.get('childActivityId');
@@ -76,10 +269,21 @@ function setupEventListeners() {
     
     // Event selection
     addEventListenerSafely('eventSelect', 'change', handleEventSelect);
+    addEventListenerSafely('childActivitySelect', 'change', () => saveProgressToStorage());
     
     // Merit type selection
     addEventListenerSafely('meritType', 'change', handleMeritTypeChange);
     addEventListenerSafely('overrideMeritValue', 'change', handleOverrideToggle);
+    
+    // Merit source selection
+    addEventListenerSafely('meritSource', 'change', handleMeritSourceChange);
+    
+    // Custom merit fields
+    addEventListenerSafely('customMeritValue', 'input', () => saveProgressToStorage());
+    addEventListenerSafely('customLevel', 'change', () => saveProgressToStorage());
+    addEventListenerSafely('customCategory', 'change', () => saveProgressToStorage());
+    addEventListenerSafely('customSubcategory', 'change', () => saveProgressToStorage());
+    addEventListenerSafely('customMeritPerAchievement', 'input', () => saveProgressToStorage());
     
     // File upload
     addEventListenerSafely('excelFile', 'change', handleFileSelect);
@@ -403,6 +607,9 @@ async function handleEventSelect() {
         
         // Enable next button (parent event is sufficient to proceed)
         if (nextBtn) nextBtn.disabled = false;
+        
+        // Save progress
+        saveProgressToStorage();
         
     } catch (error) {
         console.error('Error loading event:', error);
@@ -1202,6 +1409,9 @@ function handleMeritTypeChange() {
     
     // Update role definition section visibility on step 5
     updateRoleDefinitionVisibility();
+    
+    // Save progress
+    saveProgressToStorage();
 }
 
 function updateRoleDefinitionVisibility() {
@@ -1218,6 +1428,9 @@ function handleOverrideToggle() {
     } else {
         customValueGroup.classList.add('d-none');
     }
+    
+    // Save progress
+    saveProgressToStorage();
 }
 
 function handleFileSelect() {
@@ -1227,6 +1440,9 @@ function handleFileSelect() {
     if (nextBtn) {
         nextBtn.disabled = !fileInput.files[0];
     }
+    
+    // Save progress
+    saveProgressToStorage();
 }
 
 async function handleFileUploadNext() {
@@ -3211,7 +3427,7 @@ async function finalizeUpload() {
                             </svg>
                             Return to Events
                         </button>
-                        <button onclick="location.reload()" class="btn btn-outline">
+                        <button onclick="clearSavedProgress(); location.reload()" class="btn btn-outline">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                             </svg>
@@ -3223,6 +3439,9 @@ async function finalizeUpload() {
         `;
         
         showToast('Merit records uploaded successfully!', 'success');
+        
+        // Clear saved progress after successful upload
+        clearSavedProgress();
         
     } catch (error) {
         console.error('Error uploading merit records:', error);
@@ -3422,6 +3641,12 @@ function goToStep(stepNumber) {
     // Update progress indicator
     updateProgressIndicator(stepNumber);
     
+    // Update URL
+    updateStepUrl(stepNumber);
+    
+    // Save progress to localStorage
+    saveProgressToStorage();
+    
     // Step-specific actions
     if (stepNumber === 7) {
         // Update upload summary when entering confirmation step
@@ -3526,5 +3751,6 @@ function proceedToConfirm() {
     goToStep(8);
 }
 
-// Make deleteExcelRow function globally available
+// Make functions globally available
 window.deleteExcelRow = deleteExcelRow;
+window.clearSavedProgress = clearSavedProgress;
