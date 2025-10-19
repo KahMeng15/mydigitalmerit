@@ -29,6 +29,13 @@ let currentWorkbook = null;
 const STORAGE_KEY = 'upload_merits_progress';
 
 function saveProgressToStorage() {
+    // Get filename from file input if available
+    let filename = null;
+    const fileInput = document.getElementById('excelFile');
+    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+        filename = fileInput.files[0].name;
+    }
+
     const progressData = {
         currentStep: currentStepNumber,
         selectedEvent: selectedEvent,
@@ -38,6 +45,7 @@ function saveProgressToStorage() {
         processedData: processedData,
         validRecords: validRecords,
         invalidRecords: invalidRecords,
+        filename: filename, // Save filename for user reference
         // Save form values
         formData: {
             eventSelect: getFormValue('eventSelect'),
@@ -117,6 +125,16 @@ function loadSavedProgress() {
         setTimeout(() => {
             restoreFormData(progressData.formData);
             
+            // Show filename info if available
+            if (progressData.filename) {
+                showFileRestoreInfo(progressData.filename);
+            }
+            
+            // If we have Excel data but no current file, show the restoration info
+            if (progressData.excelData && progressData.filename) {
+                updateFileDisplay(progressData.filename, true);
+            }
+            
             // Use URL step if provided, otherwise use saved step
             const targetStep = urlStep && !isNaN(urlStep) ? parseInt(urlStep) : progressData.currentStep;
             if (targetStep && targetStep >= 1 && targetStep <= 8) {
@@ -136,26 +154,49 @@ function loadSavedProgress() {
 function restoreFormData(formData) {
     if (!formData) return;
     
+    // Restore all form values first
     Object.entries(formData).forEach(([key, value]) => {
         if (value !== null && value !== undefined) {
             setFormValue(key, value);
         }
     });
     
-    // Trigger events to update dependent elements
-    if (formData.eventSelect) {
-        const eventSelect = document.getElementById('eventSelect');
-        if (eventSelect && eventSelect.value) {
-            handleEventSelect();
+    // Trigger events to update dependent elements and UI
+    setTimeout(() => {
+        // Trigger event select change
+        if (formData.eventSelect) {
+            const eventSelect = document.getElementById('eventSelect');
+            if (eventSelect && eventSelect.value) {
+                // Trigger the change event to update dependent dropdowns
+                eventSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
         }
-    }
-    
-    if (formData.meritSource) {
-        const sourceSelect = document.getElementById('meritSource');
-        if (sourceSelect && sourceSelect.value) {
-            handleMeritSourceChange();
+        
+        // Trigger merit source change
+        if (formData.meritSource) {
+            const sourceSelect = document.getElementById('meritSource');
+            if (sourceSelect && sourceSelect.value) {
+                // Trigger the change event to show/hide appropriate fields
+                sourceSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
         }
-    }
+        
+        // Trigger child activity change if exists
+        if (formData.childActivitySelect) {
+            const childActivitySelect = document.getElementById('childActivitySelect');
+            if (childActivitySelect && childActivitySelect.value) {
+                childActivitySelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+        
+        // Trigger sheet select change if exists
+        if (formData.sheetSelect) {
+            const sheetSelect = document.getElementById('sheetSelect');
+            if (sheetSelect && sheetSelect.value) {
+                sheetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+    }, 100);
 }
 
 function getFormValue(elementId) {
@@ -206,6 +247,53 @@ function clearSavedProgress() {
         console.log('Saved progress cleared');
     } catch (error) {
         console.warn('Failed to clear saved progress:', error);
+    }
+}
+
+function showFileRestoreInfo(filename) {
+    // Find a suitable place to show the file restoration info
+    const fileInput = document.getElementById('excelFile');
+    if (fileInput && fileInput.parentNode) {
+        // Remove any existing restore info
+        const existingInfo = fileInput.parentNode.querySelector('.file-restore-info');
+        if (existingInfo) {
+            existingInfo.remove();
+        }
+        
+        // Create new info element
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'file-restore-info alert alert-info mt-2';
+        infoDiv.innerHTML = `
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>File data restored:</strong> ${filename}
+            <br><small>Your previous progress has been restored. You can continue from where you left off or upload a new file.</small>
+        `;
+        
+        fileInput.parentNode.appendChild(infoDiv);
+    }
+}
+
+function updateFileDisplay(filename, isRestored = false) {
+    const fileInput = document.getElementById('excelFile');
+    if (fileInput && fileInput.parentNode) {
+        // Find or create file display area
+        let displayArea = fileInput.parentNode.querySelector('.file-display-area');
+        if (!displayArea) {
+            displayArea = document.createElement('div');
+            displayArea.className = 'file-display-area mt-2';
+            fileInput.parentNode.appendChild(displayArea);
+        }
+        
+        const statusClass = isRestored ? 'text-info' : 'text-success';
+        const icon = isRestored ? 'fas fa-history' : 'fas fa-file-excel';
+        const label = isRestored ? 'Restored file data' : 'Selected file';
+        
+        displayArea.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="${icon} ${statusClass} me-2"></i>
+                <span class="${statusClass}"><strong>${label}:</strong> ${filename}</span>
+            </div>
+        `;
     }
 }
 
@@ -1441,6 +1529,17 @@ function handleFileSelect() {
         nextBtn.disabled = !fileInput.files[0];
     }
     
+    // Show file display if file selected
+    if (fileInput.files && fileInput.files.length > 0) {
+        updateFileDisplay(fileInput.files[0].name, false);
+        
+        // Clear any existing restore info since user selected a new file
+        const existingInfo = fileInput.parentNode?.querySelector('.file-restore-info');
+        if (existingInfo) {
+            existingInfo.remove();
+        }
+    }
+    
     // Save progress
     saveProgressToStorage();
 }
@@ -2662,66 +2761,338 @@ function autoMapRoles(availableRoles) {
     console.log('Available roles:', availableRoles);
     console.log('Records to process:', processedData.length);
     
-    // Define comprehensive role mapping rules
-    const roleMappingRules = {
-        // Committee Roles - English
-        'president': ['president', 'chairman', 'chairperson', 'chair', 'ketua'],
-        'vice president': ['vice president', 'vice chairman', 'vice chairperson', 'vp', 'naib ketua', 'timbalan ketua'],
-        'secretary': ['secretary', 'setiausaha'],
-        'deputy secretary': ['deputy secretary', 'naib setiausaha', 'timbalan setiausaha'],
-        'treasurer': ['treasurer', 'bendahari'],
-        'deputy treasurer': ['deputy treasurer', 'naib bendahari', 'timbalan bendahari'],
-        'committee member': ['committee member', 'member', 'ahli', 'ahli jawatankuasa', 'ajk'],
-        'director': ['director', 'pengarah'],
-        'deputy director': ['deputy director', 'naib pengarah', 'timbalan pengarah'],
-        'coordinator': ['coordinator', 'penyelaras'],
-        'advisor': ['advisor', 'adviser', 'penasihat'],
+    // Dynamic role matching using fuzzy search
+    function calculateFuzzyScore(inputRole, dbRole, dbRoleData) {
+        const input = inputRole.toLowerCase().trim();
+        const dbNameEN = (dbRoleData.nameEN || '').toLowerCase().trim();
+        const dbNameBM = (dbRoleData.nameBM || '').toLowerCase().trim();
+        const keywords = (dbRoleData.keywords || []).map(k => k.toLowerCase().trim());
+        const alternateNames = (dbRoleData.alternateNames || []).map(k => k.toLowerCase().trim());
         
-        // Competition Results - English
-        '1st place': ['1st', 'first', '1st place', 'first place', 'winner', 'champion', 'gold', 'johan', 'juara', 'tempat pertama', 'naib johan'],
-        '2nd place': ['2nd', 'second', '2nd place', 'second place', 'runner up', 'runner-up', 'silver', 'tempat kedua'],
-        '3rd place': ['3rd', 'third', '3rd place', 'third place', 'bronze', 'tempat ketiga'],
-        'participation': ['participation', 'participant', 'peserta', 'penyertaan'],
-        'merit': ['merit', 'commendation', 'kepujian'],
-        'excellence': ['excellence', 'kecemerlangan', 'excellent'],
+        let maxScore = 0;
         
-        // Committee Roles - Bahasa Malaysia
-        'ketua': ['ketua', 'pengerusi', 'president', 'chairman'],
-        'naib ketua': ['naib ketua', 'timbalan ketua', 'vice president', 'vice chairman'],
-        'setiausaha': ['setiausaha', 'secretary'],
-        'naib setiausaha': ['naib setiausaha', 'timbalan setiausaha', 'deputy secretary'],
-        'bendahari': ['bendahari', 'treasurer'],
-        'naib bendahari': ['naib bendahari', 'timbalan bendahari', 'deputy treasurer'],
-        'ahli jawatankuasa': ['ahli jawatankuasa', 'ahli', 'ajk', 'committee member', 'member'],
-        'pengarah': ['pengarah', 'director', 'pengarah program'],
-        'naib pengarah': ['naib pengarah', 'timbalan pengarah', 'deputy director'],
-        'timbalan pengarah': ['timbalan pengarah', 'naib pengarah', 'deputy director'],
-        'penyelaras': ['penyelaras', 'coordinator'],
+        // Direct exact matches get highest score
+        if (input === dbNameEN || input === dbNameBM) {
+            return 1000;
+        }
         
-        // Specific Committee Roles
-        'programme committee': ['programme committee', 'program committee', 'program', 'programme'],
-        'multimedia committee': ['multimedia committee', 'multimedia'],
-        'performance committee': ['performance committee', 'persembahan', 'entertainment committee'],
-        'decoration committee': ['decoration committee', 'dekorasi', 'deco committee'],
-        'food committee': ['food committee', 'makanan', 'catering committee'],
-        'equipment committee': ['equipment committee', 'peralatan', 'logistics committee'],
-        'protocol committee': ['protocol committee', 'protokol'],
-        'cleanliness committee': ['cleanliness committee', 'kebersihan', 'cleaning committee'],
-        'security committee': ['security committee', 'keselamatan', 'safety committee'],
-        'registration committee': ['registration committee', 'pendaftaran'],
-        'general committee': ['general committee', 'ahli jawatankuasa', 'committee member'],
+        // Check exact matches with keywords and alternate names (database keywords get priority)
+        if (keywords.includes(input)) {
+            console.log(`  🎯 Exact keyword match: "${input}"`);
+            return 950; // High score for exact keyword match
+        }
         
-        // Competition Results - Bahasa Malaysia
-        'johan': ['johan', 'juara', '1st', 'first', 'pertama', 'tempat pertama'],
-        'naib johan': ['naib johan', '2nd', 'second', 'kedua', 'tempat kedua'],
-        'tempat ketiga': ['tempat ketiga', '3rd', 'third', 'ketiga'],
-        'penyertaan': ['penyertaan', 'peserta', 'participation', 'participant']
-    };
+        if (alternateNames.includes(input)) {
+            console.log(`  🎯 Exact alternate name match: "${input}"`);
+            return 940;
+        }
+        
+        // Check if input contains database role name or vice versa
+        if (input.includes(dbNameEN) || dbNameEN.includes(input)) {
+            maxScore = Math.max(maxScore, 820);
+            console.log(`  📝 Name match with nameEN: ${maxScore}`);
+        }
+        if (input.includes(dbNameBM) || dbNameBM.includes(input)) {
+            maxScore = Math.max(maxScore, 820);
+            console.log(`  📝 Name match with nameBM: ${maxScore}`);
+        }
+        
+        // Check keywords for contains match (database keywords are more reliable)
+        keywords.forEach(keyword => {
+            if (keyword && keyword.length >= 2) { // Only check meaningful keywords
+                if (input.includes(keyword)) {
+                    maxScore = Math.max(maxScore, 780); // Input contains keyword
+                    console.log(`  🔍 Input contains keyword "${keyword}": ${maxScore}`);
+                } else if (keyword.includes(input) && input.length >= 3) {
+                    maxScore = Math.max(maxScore, 770); // Keyword contains input
+                    console.log(`  🔍 Keyword "${keyword}" contains input: ${maxScore}`);
+                }
+            }
+        });
+        
+        // Check alternate names for contains match
+        alternateNames.forEach(altName => {
+            if (altName && altName.length >= 2) {
+                if (input.includes(altName)) {
+                    maxScore = Math.max(maxScore, 760);
+                    console.log(`  🔄 Input contains alternate "${altName}": ${maxScore}`);
+                } else if (altName.includes(input) && input.length >= 3) {
+                    maxScore = Math.max(maxScore, 750);
+                    console.log(`  🔄 Alternate "${altName}" contains input: ${maxScore}`);
+                }
+            }
+        });
+        
+        // Calculate Levenshtein distance for fuzzy matching
+        function levenshteinDistance(str1, str2) {
+            const matrix = Array(str2.length + 1).fill().map(() => Array(str1.length + 1).fill(0));
+            
+            for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
+            for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
+            
+            for (let j = 1; j <= str2.length; j++) {
+                for (let i = 1; i <= str1.length; i++) {
+                    const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+                    matrix[j][i] = Math.min(
+                        matrix[j][i - 1] + 1,
+                        matrix[j - 1][i] + 1,
+                        matrix[j - 1][i - 1] + cost
+                    );
+                }
+            }
+            
+            return matrix[str2.length][str1.length];
+        }
+        
+        function calculateSimilarity(str1, str2) {
+            if (!str1 || !str2) return 0;
+            const distance = levenshteinDistance(str1, str2);
+            const maxLength = Math.max(str1.length, str2.length);
+            return ((maxLength - distance) / maxLength) * 100;
+        }
+        
+        // Calculate similarity scores
+        const enSimilarity = calculateSimilarity(input, dbNameEN);
+        const bmSimilarity = calculateSimilarity(input, dbNameBM);
+        
+        // Also calculate similarity with keywords and alternate names
+        let keywordSimilarity = 0;
+        keywords.forEach(keyword => {
+            keywordSimilarity = Math.max(keywordSimilarity, calculateSimilarity(input, keyword));
+        });
+        
+        let alternateSimilarity = 0;
+        alternateNames.forEach(altName => {
+            alternateSimilarity = Math.max(alternateSimilarity, calculateSimilarity(input, altName));
+        });
+        
+        maxScore = Math.max(maxScore, enSimilarity, bmSimilarity, keywordSimilarity, alternateSimilarity);
+        
+        // Special patterns for common variations
+        const patterns = {
+            // Committee variations
+            'ajk': ['committee member', 'ahli jawatankuasa', 'general committee'],
+            'committee member': ['ajk', 'ahli jawatankuasa', 'ahli'],
+            'ahli': ['committee member', 'ajk', 'member'],
+            
+            // Position variations
+            'president': ['ketua', 'chairman', 'chairperson'],
+            'ketua': ['president', 'chairman', 'chairperson'],
+            'vice president': ['naib ketua', 'timbalan ketua', 'vp'],
+            'naib ketua': ['vice president', 'timbalan ketua'],
+            'secretary': ['setiausaha'],
+            'setiausaha': ['secretary'],
+            'treasurer': ['bendahari'],
+            'bendahari': ['treasurer'],
+            'director': ['pengarah'],
+            'pengarah': ['director'],
+            
+            // Competition results
+            '1st': ['first', 'johan', 'juara', 'champion', 'winner', 'gold', 'pertama'],
+            'first': ['1st', 'johan', 'juara', 'champion'],
+            'johan': ['1st', 'first', 'juara', 'champion', 'winner'],
+            '2nd': ['second', 'naib johan', 'runner up', 'silver', 'kedua'],
+            'second': ['2nd', 'naib johan', 'runner up'],
+            '3rd': ['third', 'bronze', 'ketiga'],
+            'participation': ['penyertaan', 'peserta', 'participant'],
+            'penyertaan': ['participation', 'peserta', 'participant']
+        };
+        
+        // Check pattern matches
+        Object.entries(patterns).forEach(([key, synonyms]) => {
+            if (input.includes(key) || key.includes(input)) {
+                synonyms.forEach(synonym => {
+                    if (dbNameEN.includes(synonym) || dbNameBM.includes(synonym)) {
+                        maxScore = Math.max(maxScore, 600);
+                    }
+                });
+            }
+        });
+        
+        // Handle AJK patterns specifically
+        if (input.startsWith('ajk ')) {
+            const ajkType = input.replace('ajk ', '').trim();
+            if (dbNameEN.includes('committee') || dbNameBM.includes('jawatankuasa')) {
+                if (dbNameEN.includes(ajkType) || dbNameBM.includes(ajkType)) {
+                    maxScore = Math.max(maxScore, 700);
+                } else if (dbNameEN.includes('general') || dbNameEN.includes('committee member') || 
+                          dbNameBM.includes('ahli jawatankuasa')) {
+                    maxScore = Math.max(maxScore, 500);
+                }
+            }
+        }
+        
+        return maxScore;
+    }
     
-    // Special patterns for AJK sub-committees (all should map to committee member/ahli jawatankuasa)
-    const ajkPatterns = [
-        'ajk', 'ahli jawatankuasa', 'committee member'
-    ];
+    // Get role data for fuzzy matching
+    function getRoleDataForMatching() {
+        const roleData = {};
+        
+        if (!meritValues || !meritValues.roles) {
+            console.warn('No merit values or roles available for matching');
+            return roleData;
+        }
+        
+        // Collect role data from merit values (hierarchical structure)
+        Object.entries(meritValues.roles).forEach(([category, roles]) => {
+            Object.entries(roles).forEach(([roleKey, roleInfo]) => {
+                // Handle both old format (direct merit values) and new format (with metadata)
+                let nameEN, nameBM, keywords, alternateNames;
+                
+                if (typeof roleInfo === 'object' && (roleInfo.nameEN || roleInfo.nameBM || roleInfo.keywords)) {
+                    // New format with metadata
+                    nameEN = roleInfo.nameEN || roleKey;
+                    nameBM = roleInfo.nameBM || '';
+                    keywords = roleInfo.keywords || [];
+                    alternateNames = roleInfo.alternateNames || [];
+                } else {
+                    // Old format (just merit points) - fall back to auto-generation
+                    nameEN = roleKey;
+                    nameBM = '';
+                    keywords = [];
+                    alternateNames = [];
+                }
+                
+                // Auto-generate keywords if none exist in database
+                if (keywords.length === 0) {
+                    keywords = generateKeywordsForRole(nameEN, nameBM);
+                    console.log(`🤖 Auto-generated keywords for ${roleKey}:`, keywords);
+                } else {
+                    console.log(`🗄️ Using database keywords for ${roleKey}:`, keywords);
+                }
+                
+                roleData[roleKey] = {
+                    nameEN: nameEN,
+                    nameBM: nameBM,
+                    category: category,
+                    keywords: keywords,
+                    alternateNames: alternateNames
+                };
+            });
+        });
+        
+        // Also check if there are roles loaded from the current event's structure
+        if (selectedEvent && selectedEvent.roles) {
+            Object.entries(selectedEvent.roles).forEach(([roleKey, roleInfo]) => {
+                if (!roleData[roleKey]) {
+                    roleData[roleKey] = {
+                        nameEN: roleInfo.nameEN || roleKey,
+                        nameBM: roleInfo.nameBM || roleKey,
+                        category: 'event',
+                        keywords: roleInfo.keywords || [],
+                        alternateNames: roleInfo.alternateNames || []
+                    };
+                }
+            });
+        }
+        
+        console.log('Enhanced role data loaded:', Object.keys(roleData).length, 'roles');
+        return roleData;
+    }
+    
+    const roleDataForMatching = getRoleDataForMatching();
+    console.log('Role data for matching:', roleDataForMatching);
+    
+    // Minimum score threshold for considering a match
+    const MINIMUM_MATCH_SCORE = 70;
+    
+    // Auto-generate keywords for role enhancement
+    function generateKeywordsForRole(nameEN, nameBM) {
+        const keywords = new Set();
+        
+        // Add the names themselves
+        if (nameEN) keywords.add(nameEN.toLowerCase());
+        if (nameBM) keywords.add(nameBM.toLowerCase());
+        
+        // Extract individual words
+        const enWords = (nameEN || '').toLowerCase().split(/\s+/).filter(w => w.length > 2);
+        const bmWords = (nameBM || '').toLowerCase().split(/\s+/).filter(w => w.length > 2);
+        
+        enWords.forEach(word => keywords.add(word));
+        bmWords.forEach(word => keywords.add(word));
+        
+        // Add common abbreviations and variations
+        const commonMappings = {
+            'president': ['pres', 'ketua', 'chairman', 'chairperson'],
+            'vice president': ['vp', 'naib ketua', 'timbalan ketua'],
+            'secretary': ['sec', 'setiausaha'],
+            'treasurer': ['tres', 'bendahari'],
+            'director': ['dir', 'pengarah'],
+            'committee member': ['ajk', 'ahli jawatankuasa', 'ahli', 'member'],
+            'coordinator': ['coord', 'penyelaras'],
+            'advisor': ['penasihat'],
+            'ketua': ['president', 'chairman', 'chairperson'],
+            'naib ketua': ['vice president', 'vp', 'timbalan ketua'],
+            'setiausaha': ['secretary', 'sec'],
+            'bendahari': ['treasurer', 'tres'],
+            'pengarah': ['director', 'dir'],
+            'ahli jawatankuasa': ['committee member', 'ajk', 'ahli'],
+            'penyelaras': ['coordinator', 'coord'],
+            'johan': ['first', '1st', 'champion', 'winner', 'juara'],
+            'naib johan': ['second', '2nd', 'runner up'],
+            'participation': ['penyertaan', 'peserta', 'participant']
+        };
+        
+        // Check for mappings
+        Object.entries(commonMappings).forEach(([key, variations]) => {
+            if (nameEN?.toLowerCase().includes(key) || nameBM?.toLowerCase().includes(key)) {
+                variations.forEach(variation => keywords.add(variation));
+            }
+        });
+        
+        // Handle AJK patterns
+        if (nameEN?.toLowerCase().includes('committee') || nameBM?.toLowerCase().includes('jawatankuasa')) {
+            keywords.add('ajk');
+            keywords.add('committee');
+            keywords.add('jawatankuasa');
+        }
+        
+        // Handle competition results
+        if (nameEN?.includes('1st') || nameEN?.includes('first') || nameBM?.includes('johan')) {
+            keywords.add('johan');
+            keywords.add('juara');
+            keywords.add('first');
+            keywords.add('1st');
+            keywords.add('champion');
+        }
+        
+        return Array.from(keywords);
+    }
+    
+    // Function to save enhanced role data back to database (optional)
+    async function enhanceRoleWithKeywords(roleKey, keywords, alternateNames = []) {
+        if (!meritValues || !meritValues.roles) return;
+        
+        // This would update the database with keywords
+        // Implementation depends on your database structure
+        try {
+            // Example: Update hierarchical structure
+            const firestore = window.firestore;
+            if (firestore && selectedEvent) {
+                // Find which category this role belongs to
+                for (const [category, roles] of Object.entries(meritValues.roles)) {
+                    if (roles[roleKey]) {
+                        const roleRef = firestore.collection('meritValues')
+                            .doc('roleMetadata')
+                            .collection(category)
+                            .doc(roleKey);
+                        
+                        await roleRef.update({
+                            keywords: keywords,
+                            alternateNames: alternateNames,
+                            lastEnhanced: new Date()
+                        });
+                        
+                        console.log(`Enhanced role ${roleKey} with keywords:`, keywords);
+                        break;
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Could not save role enhancements to database:', error);
+        }
+    }
     
     processedData.forEach((record, index) => {
         console.log(`\n--- Processing record ${index + 1} ---`);
@@ -2738,126 +3109,48 @@ function autoMapRoles(availableRoles) {
         let bestMatch = null;
         let bestScore = 0;
         
-        // Special handling for AJK roles - map to specific committee roles
-        if (originalRoleLower.startsWith('ajk ') || originalRoleLower === 'ajk') {
-            console.log('AJK pattern detected!');
-            
-            // Extract the committee type from "AJK [type]"
-            const ajkType = originalRoleLower.replace('ajk ', '').trim();
-            console.log('AJK type extracted:', ajkType);
-            
-            // Map AJK types to specific committee roles
-            const ajkMappings = {
-                'dekorasi': ['decoration committee', 'decoration'],
-                'hadiah': ['prize committee', 'gift committee', 'hadiah committee'],
-                'kebajikan': ['welfare committee', 'kebajikan committee'],
-                'kebersihan': ['cleanliness committee', 'cleaning committee'],
-                'makanan': ['food committee', 'catering committee'],
-                'multimedia': ['multimedia committee'],
-                'peralatan': ['equipment committee', 'logistics committee'],
-                'persembahan': ['performance committee', 'entertainment committee'],
-                'program': ['programme committee', 'program committee'],
-                'protokol': ['protocol committee'],
-                'keselamatan': ['security committee', 'safety committee'],
-                'pendaftaran': ['registration committee'],
-                'tugas khas': ['special task committee', 'special committee']
+        // Use dynamic fuzzy matching for all available roles
+        console.log('Using dynamic fuzzy matching...');
+        
+        for (const availableRole of availableRoles) {
+            // Get role data for this available role
+            const roleData = roleDataForMatching[availableRole] || {
+                nameEN: availableRole,
+                nameBM: availableRole,
+                category: 'unknown',
+                keywords: generateKeywordsForRole(availableRole, availableRole),
+                alternateNames: []
             };
             
-            // First try to find specific committee match
-            if (ajkMappings[ajkType]) {
-                console.log('Looking for specific committee matches for:', ajkMappings[ajkType]);
-                for (const mapping of ajkMappings[ajkType]) {
-                    const matchingRole = availableRoles.find(role => 
-                        role.toLowerCase().includes(mapping.toLowerCase())
-                    );
-                    if (matchingRole) {
-                        bestMatch = matchingRole;
-                        bestScore = 1000;
-                        console.log('Specific AJK match found:', bestMatch);
-                        break;
-                    }
-                }
+            // Calculate fuzzy match score
+            const score = calculateFuzzyScore(originalRoleLower, availableRole, roleData);
+            
+            console.log(`Checking "${availableRole}": score = ${score}`);
+            console.log(`  - EN: "${roleData.nameEN}", BM: "${roleData.nameBM}"`);
+            if (roleData.keywords.length > 0) {
+                // Check if keywords are from database or auto-generated
+                const keywordSource = (meritValues.roles[roleData.category] && 
+                                    meritValues.roles[roleData.category][availableRole] && 
+                                    meritValues.roles[roleData.category][availableRole].keywords) ? '🗄️ DB' : '🤖 Generated';
+                console.log(`  - Keywords (${keywordSource}): [${roleData.keywords.join(', ')}]`);
+            }
+            if (roleData.alternateNames.length > 0) {
+                console.log(`  - Alternates: [${roleData.alternateNames.join(', ')}]`);
             }
             
-            // If no specific match, try generic committee member roles
-            if (!bestMatch) {
-                console.log('No specific match, trying generic committee roles...');
-                const committeeMemberRoles = availableRoles.filter(role => 
-                    role.toLowerCase().includes('committee member') || 
-                    role.toLowerCase().includes('ahli jawatankuasa') ||
-                    role.toLowerCase().includes('ahli') ||
-                    role.toLowerCase().includes('general committee')
-                );
-                
-                console.log('Committee member roles found:', committeeMemberRoles);
-                
-                if (committeeMemberRoles.length > 0) {
-                    bestMatch = committeeMemberRoles[0]; // Take the first match
-                    bestScore = 1000; // High priority for AJK pattern
-                    console.log('Generic AJK match found:', bestMatch);
-                }
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = availableRole;
+                console.log(`  🏆 New best match: ${bestMatch} (score: ${bestScore})`);
             }
         }
         
-        // If no AJK match found, try regular mapping
-        if (!bestMatch) {
-            console.log('Trying regular mapping...');
-            // Check each available role against mapping rules
-            for (const availableRole of availableRoles) {
-                const availableRoleLower = availableRole.toLowerCase();
-                
-                // Check if this available role has mapping rules
-                const mappingPatterns = roleMappingRules[availableRoleLower] || [availableRoleLower];
-                
-                for (const pattern of mappingPatterns) {
-                    let score = 0;
-                    
-                    // Exact match
-                    if (originalRoleLower === pattern) {
-                        score = 1000;
-                    }
-                    // Check for contains match, but prioritize longer patterns
-                    else if (originalRoleLower.includes(pattern)) {
-                        // Base score for contains match
-                        score = 500;
-                        // Bonus for longer patterns (more specific)
-                        score += pattern.length * 10;
-                        // Bonus if the pattern covers more of the original text
-                        const coverageRatio = pattern.length / originalRoleLower.length;
-                        score += Math.floor(coverageRatio * 200);
-                    }
-                    // Word boundary match
-                    else if (new RegExp(`\\b${pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(originalRoleLower)) {
-                        score = 300;
-                        // Bonus for longer patterns
-                        score += pattern.length * 5;
-                    }
-                    // Fuzzy match for numbers (1st, first, etc.)
-                    else if (pattern.match(/\d/) && originalRoleLower.match(/\d/)) {
-                        const patternNum = pattern.match(/\d+/)?.[0];
-                        const originalNum = originalRoleLower.match(/\d+/)?.[0];
-                        if (patternNum === originalNum) {
-                            score = 400;
-                        }
-                    }
-                    // Partial match for common abbreviations
-                    else if (checkAbbreviationMatch(originalRoleLower, pattern)) {
-                        score = 200;
-                    }
-                    
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestMatch = availableRole;
-                    }
-                }
-            }
-        }
-        
-        // Auto-assign if we found a good match
-        if (bestMatch && bestScore >= 200) {
+        // Auto-assign if we found a good match above threshold
+        if (bestMatch && bestScore >= MINIMUM_MATCH_SCORE) {
             console.log(`✅ Auto-assigning: ${bestMatch} (score: ${bestScore})`);
             record.assignedRole = bestMatch;
             record.autoMapped = true;
+            record.matchScore = bestScore; // Store the match score for reference
             record.meritPoints = calculateMeritPointsForUpload(bestMatch, selectedEvent.level, record.additionalNotes, meritValues, selectedEvent);
             autoMappedCount++;
         } else {
@@ -2871,39 +3164,7 @@ function autoMapRoles(availableRoles) {
     return autoMappedCount;
 }
 
-function checkAbbreviationMatch(original, pattern) {
-    // Handle common abbreviations
-    const abbreviations = {
-        'ajk': ['ahli jawatankuasa', 'committee member', 'ahli'],
-        'vp': ['vice president', 'naib ketua'],
-        'sec': ['secretary', 'setiausaha'],
-        'tres': ['treasurer', 'bendahari'],
-        'dir': ['director', 'pengarah'],
-        'coord': ['coordinator', 'penyelaras'],
-        'timbalan': ['naib', 'vice', 'deputy'],
-        'pengarah program': ['director', 'pengarah'],
-        'timbalan pengarah': ['naib ketua', 'vice president', 'vice director']
-    };
-    
-    for (const [abbr, fullForms] of Object.entries(abbreviations)) {
-        if (original.includes(abbr) && fullForms.some(form => pattern.includes(form))) {
-            return true;
-        }
-        if (pattern.includes(abbr) && fullForms.some(form => original.includes(form))) {
-            return true;
-        }
-    }
-    
-    // Special handling for "timbalan pengarah" and similar compound roles
-    if (original.includes('timbalan') && pattern.includes('naib')) {
-        return true;
-    }
-    if (original.includes('pengarah') && pattern.includes('director')) {
-        return true;
-    }
-    
-    return false;
-}
+// Removed checkAbbreviationMatch function - functionality now integrated into calculateFuzzyScore
 
 function showAutoMappingSummary() {
     const autoMappedCount = processedData.filter(record => record.autoMapped).length;
@@ -2930,10 +3191,12 @@ function showAutoMappingSummary() {
                         <div>
                             <h5 class="font-medium text-success mb-1">Auto-Mapping Results</h5>
                             <p class="text-sm mb-0">
-                                Successfully auto-mapped <strong>${autoMappedCount}</strong> out of <strong>${totalRecords}</strong> roles based on Excel data.
+                                Successfully auto-mapped <strong>${autoMappedCount}</strong> out of <strong>${totalRecords}</strong> roles using dynamic fuzzy matching.
                                 ${autoMappedCount === totalRecords ? ' All roles mapped automatically!' : ` Please review and assign the remaining ${totalRecords - autoMappedCount} roles manually.`}
                             </p>
-                            ${autoMappedCount < totalRecords ? '<p class="text-xs text-secondary mt-1 mb-0"><em>Auto-mapping works with both English and Bahasa Malaysia role names.</em></p>' : ''}
+                            <p class="text-xs text-secondary mt-1 mb-0">
+                                <em>Smart matching handles English/Malay names, abbreviations, spelling variations, and learns from your database roles.</em>
+                            </p>
                         </div>
                     </div>
                 </div>
