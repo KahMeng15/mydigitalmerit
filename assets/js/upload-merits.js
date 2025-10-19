@@ -103,6 +103,7 @@ function setupEventListeners() {
     addEventListenerSafely('nextFromStep5', 'click', proceedToRoleAssignment);
     addEventListenerSafely('backFromStep6', 'click', () => goToStep(5));
     addEventListenerSafely('nextFromStep6', 'click', proceedToValidation);
+    addEventListenerSafely('assignGeneralCommitteeBtn', 'click', assignGeneralCommitteeToUnassigned);
     addEventListenerSafely('backFromStep7', 'click', () => goToStep(6));
     addEventListenerSafely('nextFromStep7', 'click', () => {
         updateUploadSummary();
@@ -2231,6 +2232,70 @@ function displayRoleAssignment() {
     
     // Show auto-mapping summary
     showAutoMappingSummary();
+    
+    // Update unassigned count
+    updateUnassignedCount();
+}
+
+function updateUnassignedCount() {
+    const unassignedCount = processedData.filter(record => !record.assignedRole).length;
+    const unassignedCountElement = document.getElementById('unassignedCount');
+    const assignBtn = document.getElementById('assignGeneralCommitteeBtn');
+    
+    if (unassignedCountElement) {
+        if (unassignedCount > 0) {
+            unassignedCountElement.textContent = `${unassignedCount} unassigned roles`;
+            unassignedCountElement.className = 'text-sm text-warning self-center';
+        } else {
+            unassignedCountElement.textContent = 'All roles assigned';
+            unassignedCountElement.className = 'text-sm text-success self-center';
+        }
+    }
+    
+    if (assignBtn) {
+        assignBtn.disabled = unassignedCount === 0;
+        if (unassignedCount === 0) {
+            assignBtn.classList.add('disabled');
+        } else {
+            assignBtn.classList.remove('disabled');
+        }
+    }
+}
+
+function assignGeneralCommitteeToUnassigned() {
+    const availableRoles = getAvailableRoles();
+    
+    // Find "General Committee" role or similar
+    const generalCommitteeRole = availableRoles.find(role => 
+        role.toLowerCase().includes('general committee') ||
+        role.toLowerCase().includes('committee member') ||
+        role.toLowerCase().includes('ahli jawatankuasa')
+    );
+    
+    if (!generalCommitteeRole) {
+        showToast('No "General Committee" or similar role found in available roles', 'error');
+        return;
+    }
+    
+    let assignedCount = 0;
+    
+    processedData.forEach(record => {
+        if (!record.assignedRole) {
+            record.assignedRole = generalCommitteeRole;
+            record.autoMapped = false; // Mark as manually assigned
+            record.meritPoints = calculateMeritPointsForUpload(generalCommitteeRole, selectedEvent.level, record.additionalNotes, meritValues, selectedEvent);
+            assignedCount++;
+        }
+    });
+    
+    if (assignedCount > 0) {
+        showToast(`Successfully assigned "${generalCommitteeRole}" to ${assignedCount} unassigned roles`, 'success');
+        
+        // Refresh the display
+        displayRoleAssignment();
+    } else {
+        showToast('No unassigned roles found', 'info');
+    }
 }
 
 function getAvailableRoles() {
@@ -2357,6 +2422,9 @@ function selectRole(recordIndex, role) {
     // Update status
     statusCell.innerHTML = '✓';
     statusCell.className = 'text-center text-success';
+    
+    // Update unassigned count
+    updateUnassignedCount();
 }
 
 function validateRoleAssignments() {

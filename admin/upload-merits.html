@@ -418,10 +418,19 @@
                                 </svg>
                                 <div>
                                     <h5 class="font-medium text-warning mb-2">Role Assignment Required</h5>
-                                    <p class="text-sm text-secondary mb-0">
+                                    <p class="text-sm text-secondary mb-2">
                                         Assign specific roles to each student. Type to search and select from available roles. 
                                         The original role from Excel (if any) is shown on the left for reference.
                                     </p>
+                                    <div class="flex gap-2 mt-3">
+                                        <button id="assignGeneralCommitteeBtn" class="btn btn-outline btn-sm">
+                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                            </svg>
+                                            Assign "General Committee" to Unassigned
+                                        </button>
+                                        <span id="unassignedCount" class="text-sm text-secondary self-center"></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -749,6 +758,13 @@
         
         .text-info {
             color: #0dcaf0;
+        }
+        
+        /* General Committee Button Styles */
+        .btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
         }
     </style>
 </body>
