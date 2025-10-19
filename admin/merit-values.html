@@ -493,22 +493,26 @@
                     </div>
                 </div>
                 
-                <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded">
-                    <h4 class="text-sm font-medium text-red-800 mb-2">Danger Zone</h4>
-                    <p class="text-sm text-red-600 mb-3">
-                        Deleting this level will remove it from all roles and cannot be undone.
-                    </p>
-                    <button onclick="deleteLevel()" class="btn btn-danger btn-sm">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
-                        Delete Level
-                    </button>
-                </div>
             </div>
             <div class="modal-footer">
-                <button onclick="closeEditLevelModal()" class="btn btn-outline">Cancel</button>
-                <button id="updateLevelBtn" class="btn btn-primary">Update Level</button>
+                <div class="flex justify-between w-full">
+                    <div class="flex gap-2">
+                        <button onclick="duplicateCurrentLevel()" class="btn btn-outline">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                        </button>
+                        <button onclick="deleteLevel()" class="btn btn-outline">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="closeEditLevelModal()" class="btn btn-outline">Cancel</button>
+                        <button id="updateLevelBtn" class="btn btn-primary">Update Level</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -552,22 +556,26 @@
                     </div>
                 </div>
                 
-                <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded">
-                    <h4 class="text-sm font-medium text-red-800 mb-2">Danger Zone</h4>
-                    <p class="text-sm text-red-600 mb-3">
-                        Deleting this role will remove it from the system and cannot be undone.
-                    </p>
-                    <button onclick="deleteRole()" class="btn btn-danger btn-sm">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
-                        Delete Role
-                    </button>
-                </div>
             </div>
             <div class="modal-footer">
-                <button onclick="closeEditRoleModal()" class="btn btn-outline">Cancel</button>
-                <button onclick="updateRole()" class="btn btn-primary">Update Role</button>
+                <div class="flex justify-between w-full">
+                    <div class="flex gap-2">
+                        <button onclick="duplicateCurrentRole()" class="btn btn-outline">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                        </button>
+                        <button onclick="deleteRole()" class="btn btn-outline">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>    
+                        </button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="closeEditRoleModal()" class="btn btn-outline">Cancel</button>
+                        <button onclick="updateRole()" class="btn btn-primary">Update Role</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -744,23 +752,6 @@
             transform: translateY(0);
         }
         
-        /* Edit level modal danger zone */
-        .bg-red-50 {
-            background-color: #fef2f2;
-        }
-        
-        .border-red-200 {
-            border-color: #fecaca;
-        }
-        
-        .text-red-800 {
-            color: #991b1b;
-        }
-        
-        .text-red-600 {
-            color: #dc2626;
-        }
-        
         /* Draggable Level Headers */
         .draggable-level-header {
             cursor: move;
@@ -921,6 +912,52 @@
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
             outline: none;
+        }
+        
+        /* Action buttons styling */
+        .btn-xs {
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 4px;
+            border: 1px solid #d1d5db;
+            background: white;
+            color: #6b7280;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn-xs:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .btn-xs.text-danger {
+            color: #dc2626;
+            border-color: #fca5a5;
+        }
+        
+        .btn-xs.text-danger:hover {
+            background-color: #dc2626;
+            color: white;
+            border-color: #dc2626;
+        }
+        
+        .btn-xs svg {
+            width: 12px;
+            height: 12px;
+        }
+        
+        /* Action buttons container */
+        .flex.gap-1 {
+            gap: 4px;
+        }
+        
+        /* Modal footer styling for duplicate button */
+        .modal-footer .flex.justify-between {
+            width: 100%;
+            align-items: center;
         }
     </style>
 </body>

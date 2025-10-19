@@ -809,6 +809,28 @@ function displayCommitteeRoles() {
                 });
             }
             
+            // Add actions column for committee roles
+            html += `
+                <td class="text-center">
+                    <div class="flex items-center justify-center gap-1">
+                        <button onclick="editRole('${roleId}', 'committee')" 
+                                class="btn btn-outline btn-xs" 
+                                title="Edit role">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                        </button>
+                        <button onclick="confirmDeleteRole('${roleId}', 'committee')" 
+                                class="btn btn-outline btn-xs text-danger" 
+                                title="Delete role">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            `;
+            
             html += `</tr>`;
         });
     }
@@ -862,6 +884,28 @@ function displayNonCommitteeRoles() {
                 });
             }
             
+            // Add actions column for non-committee roles
+            html += `
+                <td class="text-center">
+                    <div class="flex items-center justify-center gap-1">
+                        <button onclick="editRole('${roleId}', 'nonCommittee')" 
+                                class="btn btn-outline btn-xs" 
+                                title="Edit role">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                        </button>
+                        <button onclick="confirmDeleteRole('${roleId}', 'nonCommittee')" 
+                                class="btn btn-outline btn-xs text-danger" 
+                                title="Delete role">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            `;
+            
             html += `</tr>`;
         });
     }
@@ -877,7 +921,7 @@ function displayCompetitionMeritRoles() {
     const tbody = document.getElementById('competitionTableBody');
     let html = '';
 
-    const totalColumns = 2 + currentLevelConfigs.competitionLevels.length; // Name columns + level columns
+    const totalColumns = 2 + currentLevelConfigs.competitionLevels.length + 1; // Name columns + level columns + actions column
     if (Object.keys(currentCompetitionMeritValues).length === 0) {
         html = `<tr><td colspan="${totalColumns}" class="text-center text-secondary">No competition achievements defined</td></tr>`;
     } else {
@@ -914,6 +958,28 @@ function displayCompetitionMeritRoles() {
                     html += `<td class="text-center">${value}</td>`;
                 });
             }
+            
+            // Add actions column for competition achievements
+            html += `
+                <td class="text-center">
+                    <div class="flex items-center justify-center gap-1">
+                        <button onclick="editRole('${achievementId}', 'competition')" 
+                                class="btn btn-outline btn-xs" 
+                                title="Edit achievement">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                        </button>
+                        <button onclick="confirmDeleteRole('${achievementId}', 'competition')" 
+                                class="btn btn-outline btn-xs text-danger" 
+                                title="Delete achievement">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            `;
             
             html += `</tr>
             `;
@@ -1643,6 +1709,68 @@ async function deleteLevel() {
     }
 }
 
+// Duplicate current level from edit modal
+async function duplicateCurrentLevel() {
+    if (!currentEditingLevelId || !currentEditingLevelType) {
+        showToast('Invalid level data', 'error');
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        // Get the original level data
+        let originalLevelData;
+        if (currentEditingLevelType === 'event') {
+            originalLevelData = currentLevelConfigs.eventLevels.find(level => level.id === currentEditingLevelId);
+        } else {
+            originalLevelData = currentLevelConfigs.competitionLevels.find(level => level.id === currentEditingLevelId);
+        }
+        
+        if (!originalLevelData) {
+            showToast('Original level not found', 'error');
+            return;
+        }
+        
+        // Create a copy of the level data
+        const duplicatedLevelData = {
+            ...originalLevelData,
+            nameEN: `${originalLevelData.nameEN} (Copy)`,
+            nameBM: `${originalLevelData.nameBM} (Copy)`,
+            sortOrder: (originalLevelData.sortOrder || 0) + 1
+        };
+        
+        // Remove the ID so it gets a new one
+        delete duplicatedLevelData.id;
+        
+        // Generate new ID
+        const newLevelId = firebase.firestore().collection('temp').doc().id;
+        
+        // Save to Firestore
+        const firestore = window.firestore;
+        const collectionPath = currentEditingLevelType === 'event' ? 'eventLevels' : 'competitionLevels';
+        
+        await firestore.collection('meritValues')
+            .doc('levelMetadata')
+            .collection(collectionPath)
+            .doc(newLevelId)
+            .set(duplicatedLevelData);
+        
+        console.log('Level duplicated successfully:', duplicatedLevelData);
+        showToast(`${duplicatedLevelData.nameEN} level duplicated successfully!`, 'success');
+        
+        // Close modal and reload data
+        closeEditLevelModal();
+        await loadLevelConfigurations();
+        
+    } catch (error) {
+        console.error('Error duplicating level:', error);
+        showToast('Error duplicating level: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
 function openAddRoleModal(category) {
     currentRoleCategory = category;
     editingRole = null; // Reset editing state
@@ -1967,6 +2095,95 @@ async function deleteRole() {
     } finally {
         hideLoading();
     }
+}
+
+// Confirm and delete role with proper setup
+function confirmDeleteRole(roleId, category) {
+    currentEditingRoleId = roleId;
+    currentEditingRoleCategory = category;
+    deleteRole();
+}
+
+// Duplicate role function
+async function duplicateRole(roleId, category) {
+    try {
+        showLoading();
+        
+        // Get the original role data
+        let originalRoleData;
+        if (category === 'competition') {
+            originalRoleData = currentCompetitionMeritValues[roleId];
+        } else {
+            const collection = category === 'committee' ? 'committee' : 'nonCommittee';
+            originalRoleData = currentEventMeritValues[collection][roleId];
+        }
+        
+        if (!originalRoleData) {
+            showToast('Original role not found', 'error');
+            return;
+        }
+        
+        // Create a copy of the role data
+        const duplicatedRoleData = {
+            ...originalRoleData,
+            nameBM: `${originalRoleData.nameBM} (Copy)`,
+            nameEN: `${originalRoleData.nameEN} (Copy)`,
+            sortOrder: (originalRoleData.sortOrder || 0) + 1
+        };
+        
+        // Generate new ID
+        const newRoleId = firebase.firestore().collection('temp').doc().id;
+        
+        // Save to Firestore
+        const firestore = window.firestore;
+        let collectionPath;
+        if (category === 'competition') {
+            collectionPath = 'competition';
+        } else {
+            collectionPath = category === 'committee' ? 'committee' : 'nonCommittee';
+        }
+        
+        await firestore.collection('meritValues')
+            .doc('roleMetadata')
+            .collection(collectionPath)
+            .doc(newRoleId)
+            .set(duplicatedRoleData);
+        
+        // Update local data
+        if (category === 'competition') {
+            currentCompetitionMeritValues[newRoleId] = duplicatedRoleData;
+        } else {
+            const localCollection = category === 'committee' ? 'committee' : 'nonCommittee';
+            currentEventMeritValues[localCollection][newRoleId] = duplicatedRoleData;
+        }
+        
+        console.log('Role duplicated successfully:', duplicatedRoleData);
+        showToast(`${duplicatedRoleData.nameBM} duplicated successfully!`, 'success');
+        
+        // Refresh display
+        if (category === 'competition') {
+            displayCompetitionMeritRoles();
+        } else {
+            displayEventMeritRoles();
+        }
+        
+    } catch (error) {
+        console.error('Error duplicating role:', error);
+        showToast('Error duplicating role: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Duplicate current role from edit modal
+async function duplicateCurrentRole() {
+    if (!currentEditingRoleId || !currentEditingRoleCategory) {
+        showToast('Invalid role data', 'error');
+        return;
+    }
+    
+    await duplicateRole(currentEditingRoleId, currentEditingRoleCategory);
+    closeEditRoleModal();
 }
 
 function generateRoleLevelInputs(category) {
@@ -2547,10 +2764,14 @@ window.editLevel = editLevel;
 window.closeEditLevelModal = closeEditLevelModal;
 window.updateLevel = updateLevel;
 window.deleteLevel = deleteLevel;
+window.duplicateCurrentLevel = duplicateCurrentLevel;
 window.editRole = editRole;
 window.closeEditRoleModal = closeEditRoleModal;
 window.updateRole = updateRole;
 window.deleteRole = deleteRole;
+window.confirmDeleteRole = confirmDeleteRole;
+window.duplicateRole = duplicateRole;
+window.duplicateCurrentRole = duplicateCurrentRole;
 window.editEventMeritRole = editEventMeritRole;
 window.editCompetitionMeritRole = editCompetitionMeritRole;
 window.deleteEventMeritRole = deleteEventMeritRole;
