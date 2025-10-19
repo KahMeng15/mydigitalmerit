@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Events - Digital Merit System</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container flex justify-between items-center">
+            <a href="dashboard.html" class="navbar-brand">Merit System Admin</a>
+            <ul class="navbar-nav">
+                <li><a href="dashboard.html" class="nav-link">Dashboard</a></li>
+                <li><a href="events.html" class="nav-link active">Events</a></li>
+                <li><a href="merit-values.html" class="nav-link">Merit Values</a></li>
+                <li><a href="users.html" class="nav-link">Users</a></li>
+                <li><span id="userDisplayName" class="nav-link"></span></li>
+                <li><button id="signOutBtn" class="btn btn-outline btn-sm">Sign Out</button></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            <!-- Header -->
+            <div class="mb-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-2xl font-bold mb-2">Event Management</h1>
+                        <p class="text-secondary">Manage all events and their merit assignments</p>
+                    </div>
+                    <a href="create-event.html" class="btn btn-primary">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        Create Event
+                    </a>
+                </div>
+            </div>
+
+            <!-- Filters and Search -->
+            <div class="card mb-6">
+                <div class="card-body">
+                    <div class="grid grid-cols-4 gap-4">
+                        <div class="form-group">
+                            <label for="searchEvents" class="form-label">Search Events</label>
+                            <input type="text" id="searchEvents" class="form-control" 
+                                   placeholder="Search by name, organizer...">
+                        </div>
+                        <div class="form-group">
+                            <label for="filterLevel" class="form-label">Filter by Level</label>
+                            <select id="filterLevel" class="form-control form-select">
+                                <option value="">All Levels</option>
+                                <option value="University">University</option>
+                                <option value="Faculty">Faculty</option>
+                                <option value="College">College</option>
+                                <option value="Club">Club</option>
+                                <option value="External">External</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filterStatus" class="form-label">Filter by Status</label>
+                            <select id="filterStatus" class="form-control form-select">
+                                <option value="">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="draft">Draft</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filterDate" class="form-label">Filter by Date</label>
+                            <select id="filterDate" class="form-control form-select">
+                                <option value="">All Dates</option>
+                                <option value="upcoming">Upcoming</option>
+                                <option value="past">Past Events</option>
+                                <option value="today">Today</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Events Table -->
+            <div class="card">
+                <div class="card-header flex justify-between items-center">
+                    <h3 class="card-title">All Events</h3>
+                    <div class="flex gap-2">
+                        <button id="exportBtn" class="btn btn-outline btn-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            Export
+                        </button>
+                        <span id="eventCount" class="text-sm text-secondary flex items-center">0 events</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Event Name</th>
+                                    <th>Level</th>
+                                    <th>Date</th>
+                                    <th>Location</th>
+                                    <th>Organizer</th>
+                                    <th>Status</th>
+                                    <th>Merits</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="eventsTableBody">
+                                <tr>
+                                    <td colspan="8" class="text-center text-secondary">Loading events...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="flex justify-between items-center mt-6">
+                <div class="text-sm text-secondary">
+                    Showing <span id="showingFrom">0</span> to <span id="showingTo">0</span> of <span id="totalEvents">0</span> events
+                </div>
+                <div class="flex gap-2" id="pagination">
+                    <!-- Pagination buttons will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="d-none">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- App Scripts -->
+    <script src="../assets/js/firebase-config.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    <script src="../assets/js/events.js"></script>
+
+    <style>
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: var(--shadow-lg);
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-body {
+            padding: 1.5rem;
+        }
+        
+        .modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: white;
+        }
+        
+        .bg-primary { background-color: var(--primary-color); }
+        .bg-success { background-color: var(--success-color); }
+        .bg-warning { background-color: var(--warning-color); }
+        .bg-secondary { background-color: var(--secondary-color); }
+    </style>
+</body>
+</html>

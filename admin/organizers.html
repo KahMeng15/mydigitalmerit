@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organizers Management - Digital Merit System</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container flex justify-between items-center">
+            <a href="dashboard.html" class="navbar-brand">Merit System Admin</a>
+            <ul class="navbar-nav">
+                <li><a href="dashboard.html" class="nav-link">Dashboard</a></li>
+                <li><a href="events.html" class="nav-link">Events</a></li>
+                <li><a href="merit-values.html" class="nav-link">Merit Values</a></li>
+                <li><a href="users.html" class="nav-link">Users</a></li>
+                <li><a href="organizers.html" class="nav-link active">Organizers</a></li>
+                <li><span id="userDisplayName" class="nav-link"></span></li>
+                <li><button id="signOutBtn" class="btn btn-outline btn-sm">Sign Out</button></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            <!-- Header -->
+            <div class="mb-6 flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold mb-2">Organizers Management</h1>
+                    <p class="text-secondary">Define main organizing bodies and their sub-secretariats/excos.</p>
+                </div>
+                <a href="add-organizer.html" class="btn btn-primary">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    Add Main Organizer
+                </a>
+            </div>
+
+            <!-- Organizers List -->
+            <div class="card">
+                <div class="card-body">
+                    <div id="organizersListContainer">
+                        <p class="text-secondary">Loading organizers...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Organizer Modal -->
+    
+
+
+
+    <!-- Loading Spinner & Toast -->
+    <div id="loadingSpinner" class="d-none"><div class="spinner"></div></div>
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- App Scripts -->
+    <script src="../assets/js/firebase-config.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    <script src="../assets/js/organizers.js"></script>
+
+
+</body>
+</html>

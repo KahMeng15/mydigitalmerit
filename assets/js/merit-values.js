@@ -2052,10 +2052,6 @@ function openAddRoleModal(category) {
     // Reset form
     document.getElementById('roleForm').reset();
     
-    // Clear keywords fields
-    document.getElementById('addRoleKeywords').value = '';
-    document.getElementById('addRoleAlternates').value = '';
-    
     // Reset save button text
     document.getElementById('saveRoleBtn').textContent = 'Save Role';
     
@@ -2103,19 +2099,6 @@ function editRoleInNewModal(roleId, category) {
     // Populate basic fields
     document.getElementById('roleNameEN').value = roleData.nameEN || roleData.nameBM || '';
     document.getElementById('roleNameBM').value = roleData.nameBM || roleData.nameEN || '';
-    
-    // Populate keywords fields
-    if (roleData.keywords && Array.isArray(roleData.keywords)) {
-        document.getElementById('addRoleKeywords').value = roleData.keywords.join(', ');
-    } else {
-        document.getElementById('addRoleKeywords').value = '';
-    }
-    
-    if (roleData.alternates && Array.isArray(roleData.alternates)) {
-        document.getElementById('addRoleAlternates').value = roleData.alternates.join(', ');
-    } else {
-        document.getElementById('addRoleAlternates').value = '';
-    }
     
     // Generate level inputs
     generateRoleLevelInputs(category);
@@ -2173,9 +2156,6 @@ function editRole(roleId, category) {
     document.getElementById('editRoleNameEN').value = roleData.nameEN || '';
     document.getElementById('editRoleNameBM').value = roleData.nameBM || '';
     document.getElementById('editRoleSortOrder').value = roleData.sortOrder !== undefined ? roleData.sortOrder : '';
-    
-    // Populate keywords fields
-    populateRoleKeywords(roleData);
     
     // Populate merit values for all levels for this role
     populateRoleMeritValuesForRole(roleId, roleData, category);
@@ -2237,178 +2217,6 @@ function createLevelMeritInput(level, currentValue) {
     return div;
 }
 
-// Keywords management functions
-function populateRoleKeywords(roleData) {
-    // Populate keywords field
-    const keywordsField = document.getElementById('editRoleKeywords');
-    const alternatesField = document.getElementById('editRoleAlternates');
-    
-    if (roleData.keywords && Array.isArray(roleData.keywords)) {
-        keywordsField.value = roleData.keywords.join(', ');
-    } else {
-        keywordsField.value = '';
-    }
-    
-    if (roleData.alternates && Array.isArray(roleData.alternates)) {
-        alternatesField.value = roleData.alternates.join(', ');
-    } else {
-        alternatesField.value = '';
-    }
-}
-
-function generateKeywordsForCurrentRole() {
-    const nameEN = document.getElementById('editRoleNameEN').value.trim();
-    const nameBM = document.getElementById('editRoleNameBM').value.trim();
-    
-    if (!nameEN && !nameBM) {
-        showToast('Please enter role names first', 'error');
-        return;
-    }
-    
-    const keywords = [];
-    const alternates = [];
-    
-    // Add basic names
-    if (nameEN) {
-        keywords.push(nameEN.toLowerCase());
-        // Add variations
-        const enWords = nameEN.toLowerCase().split(' ');
-        enWords.forEach(word => {
-            if (word.length > 2) keywords.push(word);
-        });
-        
-        // Common English abbreviations
-        const enAbbreviations = generateAbbreviations(nameEN);
-        alternates.push(...enAbbreviations);
-    }
-    
-    if (nameBM) {
-        keywords.push(nameBM.toLowerCase());
-        // Add variations  
-        const bmWords = nameBM.toLowerCase().split(' ');
-        bmWords.forEach(word => {
-            if (word.length > 2) keywords.push(word);
-        });
-        
-        // Common Malay abbreviations
-        const bmAbbreviations = generateAbbreviations(nameBM);
-        alternates.push(...bmAbbreviations);
-    }
-    
-    // Remove duplicates
-    const uniqueKeywords = [...new Set(keywords)];
-    const uniqueAlternates = [...new Set(alternates)];
-    
-    // Update fields
-    document.getElementById('editRoleKeywords').value = uniqueKeywords.join(', ');
-    document.getElementById('editRoleAlternates').value = uniqueAlternates.join(', ');
-    
-    showToast('Keywords generated successfully!', 'success');
-}
-
-function generateAbbreviations(text) {
-    const abbreviations = [];
-    const words = text.split(' ').filter(word => word.length > 0);
-    
-    if (words.length > 1) {
-        // First letter of each word
-        const acronym = words.map(word => word.charAt(0)).join('').toLowerCase();
-        if (acronym.length > 1) {
-            abbreviations.push(acronym);
-        }
-        
-        // Common abbreviations
-        const abbrevMap = {
-            'director': ['dir', 'director'],
-            'manager': ['mgr', 'mngr'],
-            'assistant': ['asst', 'ast'],
-            'president': ['pres'],
-            'vice': ['v', 'vice'],
-            'secretary': ['sec'],
-            'treasurer': ['tres'],
-            'committee': ['com', 'comm'],
-            'member': ['mem'],
-            'pengarah': ['png'],
-            'penolong': ['pnl'],
-            'setiausaha': ['sus'],
-            'bendahari': ['bnd'],
-            'ahli': ['ahl']
-        };
-        
-        words.forEach(word => {
-            const lower = word.toLowerCase();
-            if (abbrevMap[lower]) {
-                abbreviations.push(...abbrevMap[lower]);
-            }
-        });
-    }
-    
-    return abbreviations;
-}
-
-function clearCurrentRoleKeywords() {
-    document.getElementById('editRoleKeywords').value = '';
-    document.getElementById('editRoleAlternates').value = '';
-    showToast('Keywords cleared', 'info');
-}
-
-// Functions for add role modal keywords
-function generateKeywordsForNewRole() {
-    const nameEN = document.getElementById('roleNameEN').value.trim();
-    const nameBM = document.getElementById('roleNameBM').value.trim();
-    
-    if (!nameEN && !nameBM) {
-        showToast('Please enter role names first', 'error');
-        return;
-    }
-    
-    const keywords = [];
-    const alternates = [];
-    
-    // Add basic names
-    if (nameEN) {
-        keywords.push(nameEN.toLowerCase());
-        // Add variations
-        const enWords = nameEN.toLowerCase().split(' ');
-        enWords.forEach(word => {
-            if (word.length > 2) keywords.push(word);
-        });
-        
-        // Common English abbreviations
-        const enAbbreviations = generateAbbreviations(nameEN);
-        alternates.push(...enAbbreviations);
-    }
-    
-    if (nameBM) {
-        keywords.push(nameBM.toLowerCase());
-        // Add variations  
-        const bmWords = nameBM.toLowerCase().split(' ');
-        bmWords.forEach(word => {
-            if (word.length > 2) keywords.push(word);
-        });
-        
-        // Common Malay abbreviations
-        const bmAbbreviations = generateAbbreviations(nameBM);
-        alternates.push(...bmAbbreviations);
-    }
-    
-    // Remove duplicates
-    const uniqueKeywords = [...new Set(keywords)];
-    const uniqueAlternates = [...new Set(alternates)];
-    
-    // Update fields
-    document.getElementById('addRoleKeywords').value = uniqueKeywords.join(', ');
-    document.getElementById('addRoleAlternates').value = uniqueAlternates.join(', ');
-    
-    showToast('Keywords generated successfully!', 'success');
-}
-
-function clearNewRoleKeywords() {
-    document.getElementById('addRoleKeywords').value = '';
-    document.getElementById('addRoleAlternates').value = '';
-    showToast('Keywords cleared', 'info');
-}
-
 function closeEditRoleModal() {
     removeModalKeyboardListeners('editRoleModal');
     document.getElementById('editRoleModal').classList.add('d-none');
@@ -2444,15 +2252,6 @@ async function updateRole() {
             levelValues[levelId] = value;
         });
         
-        // Collect keywords data
-        const keywordsText = document.getElementById('editRoleKeywords').value.trim();
-        const alternatesText = document.getElementById('editRoleAlternates').value.trim();
-        
-        const keywords = keywordsText ? 
-            keywordsText.split(',').map(k => k.trim()).filter(k => k.length > 0) : [];
-        const alternates = alternatesText ? 
-            alternatesText.split(',').map(a => a.trim()).filter(a => a.length > 0) : [];
-        
         // Update role data
         const roleData = {
             id: currentEditingRoleId,
@@ -2460,8 +2259,6 @@ async function updateRole() {
             nameBM: nameBM,
             sortOrder: sortOrder,
             levelValues: levelValues,
-            keywords: keywords,
-            alternates: alternates,
             category: currentEditingRoleCategory,
             updated: new Date()
         };
@@ -3158,15 +2955,6 @@ async function saveRoleData() {
             }
         });
         
-        // Collect keywords data
-        const keywordsText = document.getElementById('addRoleKeywords').value.trim();
-        const alternatesText = document.getElementById('addRoleAlternates').value.trim();
-        
-        const keywords = keywordsText ? 
-            keywordsText.split(',').map(k => k.trim()).filter(k => k.length > 0) : [];
-        const alternates = alternatesText ? 
-            alternatesText.split(',').map(a => a.trim()).filter(a => a.length > 0) : [];
-        
         // Create or update role data
         let roleData;
         let isEditing = !!editingRole;
@@ -3178,8 +2966,6 @@ async function saveRoleData() {
                 nameEN: nameEN,
                 nameBM: nameBM,
                 levelValues: levelValues,
-                keywords: keywords,
-                alternates: alternates,
                 updated: new Date()
             };
         } else {
@@ -3193,8 +2979,6 @@ async function saveRoleData() {
                 nameBM: nameBM,
                 category: currentRoleCategory,
                 levelValues: levelValues,
-                keywords: keywords,
-                alternates: alternates,
                 sortOrder: sortOrder,
                 created: new Date()
             };
@@ -3269,10 +3053,6 @@ window.closeEditRoleModal = closeEditRoleModal;
 window.updateRole = updateRole;
 window.deleteRole = deleteRole;
 window.confirmDeleteRole = confirmDeleteRole;
-window.generateKeywordsForCurrentRole = generateKeywordsForCurrentRole;
-window.clearCurrentRoleKeywords = clearCurrentRoleKeywords;
-window.generateKeywordsForNewRole = generateKeywordsForNewRole;
-window.clearNewRoleKeywords = clearNewRoleKeywords;
 window.duplicateRole = duplicateRole;
 window.duplicateCurrentRole = duplicateCurrentRole;
 window.editEventMeritRole = editEventMeritRole;

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengurusan Pengguna - Sistem Merit Digital / User Management - Digital Merit System</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container flex justify-between items-center">
+            <a href="dashboard.html" class="navbar-brand">Admin Sistem Merit<br><em>Merit System Admin</em></a>
+            <ul class="navbar-nav">
+                <li><a href="dashboard.html" class="nav-link">Papan Pemuka<br><em>Dashboard</em></a></li>
+                <li><a href="events.html" class="nav-link">Acara<br><em>Events</em></a></li>
+                <li><a href="merit-values.html" class="nav-link">Nilai Merit<br><em>Merit Values</em></a></li>
+                <li><a href="users.html" class="nav-link active">Pengguna<br><em>Users</em></a></li>
+                <li><span id="userDisplayName" class="nav-link"></span></li>
+                <li><button id="signOutBtn" class="btn btn-outline btn-sm">Log Keluar<br><em>Sign Out</em></button></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            <!-- Header -->
+            <div class="mb-6">
+                <h1 class="text-2xl font-bold mb-2">Pengurusan Pengguna<br><em>User Management</em></h1>
+                <p class="text-secondary">Urus akaun dan kebenaran pengguna<br><em>Manage user accounts and permissions</em></p>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-4 mb-6">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="text-2xl font-bold text-primary mb-2" id="totalUsers">0</div>
+                        <div class="text-sm text-secondary">Jumlah Pengguna<br><em>Total Users</em></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="text-2xl font-bold text-success mb-2" id="totalStudents">0</div>
+                        <div class="text-sm text-secondary">Pelajar<br><em>Students</em></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="text-2xl font-bold text-warning mb-2" id="totalAdmins">0</div>
+                        <div class="text-sm text-secondary">Pentadbir<br><em>Admins</em></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="text-2xl font-bold text-info mb-2" id="activeUsers">0</div>
+                        <div class="text-sm text-secondary">Aktif Bulan Ini<br><em>Active This Month</em></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters and Search -->
+            <div class="card mb-6">
+                <div class="card-body">
+                    <div class="grid grid-cols-4 gap-4">
+                        <div class="form-group">
+                            <label for="searchUsers" class="form-label">Cari Pengguna<br><em>Search Users</em></label>
+                            <input type="text" id="searchUsers" class="form-control" 
+                                   placeholder="Cari mengikut nama, e-mel, matrik... / Search by name, email, matric...">
+                        </div>
+                        <div class="form-group">
+                            <label for="filterRole" class="form-label">Tapis mengikut Peranan<br><em>Filter by Role</em></label>
+                            <select id="filterRole" class="form-control form-select">
+                                <option value="">Semua Peranan<br><em>All Roles</em></option>
+                                <option value="student">Pelajar<br><em>Students</em></option>
+                                <option value="admin">Pentadbir<br><em>Admins</em></option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filterStatus" class="form-label">Tapis mengikut Status<br><em>Filter by Status</em></label>
+                            <select id="filterStatus" class="form-control form-select">
+                                <option value="">Semua Pengguna<br><em>All Users</em></option>
+                                <option value="imported">Pengguna yang Diimport<br><em>Imported Users</em></option>
+                                <option value="registered">Berdaftar Sendiri<br><em>Self-Registered</em></option>
+                                <option value="incomplete">Profil Tidak Lengkap<br><em>Incomplete Profile</em></option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="sortBy" class="form-label">Isih Mengikut<br><em>Sort By</em></label>
+                            <select id="sortBy" class="form-control form-select">
+                                <option value="name-asc">Nama A-Z<br><em>Name A-Z</em></option>
+                                <option value="name-desc">Nama Z-A<br><em>Name Z-A</em></option>
+                                <option value="date-desc">Terbaru Dahulu<br><em>Newest First</em></option>
+                                <option value="date-asc">Terlama Dahulu<br><em>Oldest First</em></option>
+                                <option value="activity-desc">Paling Aktif<br><em>Most Active</em></option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Table -->
+            <div class="card">
+                <div class="card-header flex justify-between items-center">
+                    <h3 class="card-title">Semua Pengguna<br><em>All Users</em></h3>
+                    <div class="flex gap-2">
+                        <button id="bulkActionsBtn" class="btn btn-secondary btn-sm d-none">
+                            Tindakan Pukal<br><em>Bulk Actions</em>
+                        </button>
+                        <button id="exportUsersBtn" class="btn btn-outline btn-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            Eksport<br><em>Export</em>
+                        </button>
+                        <span id="userCount" class="text-sm text-secondary flex items-center">0 pengguna<br><em>users</em></span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        <input type="checkbox" id="selectAll" class="form-check-input">
+                                    </th>
+                                    <th>Pengguna<br><em>User</em></th>
+                                    <th>Nombor Matrik<br><em>Matric Number</em></th>
+                                    <th>Peranan<br><em>Role</em></th>
+                                    <th>Jumlah Merit<br><em>Total Merits</em></th>
+                                    <th>Aktiviti Terakhir<br><em>Last Activity</em></th>
+                                    <th>Status<br><em>Status</em></th>
+                                    <th>Tindakan<br><em>Actions</em></th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                <tr>
+                                    <td colspan="8" class="text-center text-secondary">Memuatkan pengguna...<br><em>Loading users...</em></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="flex justify-between items-center mt-6">
+                <div class="text-sm text-secondary">
+                    Menunjukkan <span id="showingFrom">0</span> hingga <span id="showingTo">0</span> dari <span id="totalUsers">0</span> pengguna<br><em>Showing <span id="showingFrom">0</span> to <span id="showingTo">0</span> of <span id="totalUsers">0</span> users</em>
+                </div>
+                <div class="flex gap-2" id="pagination">
+                    <!-- Pagination buttons will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="editUserModal" class="modal d-none">
+        <div class="modal-overlay" onclick="closeEditUserModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Pengguna<br><em>Edit User</em></h3>
+                <button onclick="closeEditUserModal()" class="btn btn-outline btn-sm">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="editUserForm">
+                    <div class="form-group">
+                        <label for="editDisplayName" class="form-label">Nama Paparan<br><em>Display Name</em></label>
+                        <input type="text" id="editDisplayName" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editMatricNumber" class="form-label">Nombor Matrik<br><em>Matric Number</em></label>
+                        <input type="text" id="editMatricNumber" class="form-control" 
+                               pattern="[A-Z][0-9]{8}" placeholder="A12345678">
+                    </div>
+                    <div class="form-group">
+                        <label for="editRole" class="form-label">Peranan<br><em>Role</em></label>
+                        <select id="editRole" class="form-control form-select" required>
+                            <option value="student">Pelajar<br><em>Student</em></option>
+                            <option value="admin">Pentadbir<br><em>Admin</em></option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editEmail" class="form-label">E-mel (Baca Sahaja)<br><em>Email (Read-only)</em></label>
+                        <input type="email" id="editEmail" class="form-control" readonly>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeEditUserModal()" class="btn btn-outline">Batal<br><em>Cancel</em></button>
+                <button id="saveUserBtn" class="btn btn-primary">Simpan Perubahan<br><em>Save Changes</em></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Detail Modal -->
+    <div id="userDetailModal" class="modal d-none">
+        <div class="modal-overlay" onclick="closeUserDetailModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Butiran Pengguna<br><em>User Details</em></h3>
+                <button onclick="closeUserDetailModal()" class="btn btn-outline btn-sm">×</button>
+            </div>
+            <div class="modal-body" id="userDetailBody">
+                <!-- User details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeUserDetailModal()" class="btn btn-outline">Tutup<br><em>Close</em></button>
+                <button id="editFromDetailBtn" class="btn btn-primary">Edit Pengguna<br><em>Edit User</em></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteUserModal" class="modal d-none">
+        <div class="modal-overlay" onclick="closeDeleteUserModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Sahkan Padam<br><em>Confirm Delete</em></h3>
+            </div>
+            <div class="modal-body">
+                <p>Adakah anda pasti mahu memadam akaun pengguna ini?<br><em>Are you sure you want to delete this user account?</em></p>
+                <p class="text-danger font-medium">Tindakan ini tidak boleh dibuat asal dan akan turut memadam semua rekod merit yang berkaitan.<br><em>This action cannot be undone and will also delete all associated merit records.</em></p>
+                <div id="deleteUserInfo" class="bg-light p-3 rounded mt-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeDeleteUserModal()" class="btn btn-outline">Batal<br><em>Cancel</em></button>
+                <button id="confirmDeleteUserBtn" class="btn btn-danger">Padam Pengguna<br><em>Delete User</em></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="d-none">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- App Scripts -->
+    <script src="../assets/js/firebase-config.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    <script src="../assets/js/user-management.js"></script>
+
+    <style>
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: var(--shadow-lg);
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-body {
+            padding: 1.5rem;
+        }
+        
+        .modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: white;
+        }
+        
+        .bg-primary { background-color: var(--primary-color); }
+        .bg-success { background-color: var(--success-color); }
+        .bg-warning { background-color: var(--warning-color); }
+        .bg-secondary { background-color: var(--secondary-color); }
+        .bg-danger { background-color: var(--danger-color); }
+        
+        .form-check-input {
+            width: 1rem;
+            height: 1rem;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+        
+        .status-online { background-color: var(--success-color); }
+        .status-offline { background-color: var(--secondary-color); }
+        .status-incomplete { background-color: var(--warning-color); }
+    </style>
+</body>
+</html>
