@@ -288,13 +288,18 @@ function parseExcelFile(file, specificSheet = null) {
                     return;
                 }
                 
-                // If no specific sheet, return metadata for sheet selection or first sheet data
+                // If no specific sheet, return metadata for sheet selection
                 if (workbook.SheetNames.length === 1) {
-                    // Single sheet - return data directly
+                    // Single sheet - return metadata with workbook
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                    resolve(jsonData);
+                    resolve({
+                        sheetNames: workbook.SheetNames,
+                        workbook: workbook,
+                        totalSheets: workbook.SheetNames.length,
+                        length: jsonData.length
+                    });
                 } else {
                     // Multiple sheets - return metadata for selection
                     resolve({

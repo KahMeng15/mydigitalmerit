@@ -1253,9 +1253,54 @@ async function handleFileUploadNext() {
             // Multiple sheets - populate sheet selector
             setupMultipleSheetSelection(result.sheetNames);
         } else {
-            // Single sheet - setup single sheet display
+            // Single sheet - get filtered row count immediately
             const sheetName = result.sheetNames ? result.sheetNames[0] : 'Sheet1';
-            setupSingleSheetSelection(sheetName, result.length || 0);
+            
+            let filteredRowCount = 0;
+            try {
+                if (window.currentWorkbook && window.currentWorkbook.Sheets[sheetName]) {
+                    const sheet = window.currentWorkbook.Sheets[sheetName];
+                    const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                    
+                    // Apply the same filtering logic as Step 5
+                    if (sheetData && Array.isArray(sheetData)) {
+                        // Use the filterEmptyRows function if available, otherwise manual filtering
+                        if (typeof filterEmptyRows === 'function') {
+                            const filteredData = filterEmptyRows(sheetData);
+                            filteredRowCount = filteredData.length;
+                        } else {
+                            // Manual filtering (same logic as filterEmptyRows)
+                            const filteredData = [];
+                            for (let i = 0; i < sheetData.length; i++) {
+                                if (i === 0) {
+                                    // Always keep the header row
+                                    filteredData.push(sheetData[i]);
+                                } else {
+                                    // For data rows, only keep non-empty rows
+                                    const row = sheetData[i];
+                                    if (row && Array.isArray(row)) {
+                                        const hasData = row.some(cell => {
+                                            if (cell === null || cell === undefined) return false;
+                                            if (typeof cell === 'string') return cell.trim() !== '';
+                                            if (typeof cell === 'number') return true;
+                                            return String(cell).trim() !== '';
+                                        });
+                                        if (hasData) {
+                                            filteredData.push(row);
+                                        }
+                                    }
+                                }
+                            }
+                            filteredRowCount = filteredData.length;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Error calculating filtered row count for Step 4:', e);
+                filteredRowCount = result.length || 0; // Fallback
+            }
+            
+            setupSingleSheetSelection(sheetName, filteredRowCount);
         }
         
         hideLoading();
@@ -1333,18 +1378,51 @@ function setupMultipleSheetSelection(sheetNames) {
                     if (previewInfo) {
                         previewInfo.classList.remove('d-none');
                         
-                        // Get row count for selected sheet
+                                // Get filtered row count for selected sheet
                         try {
                             if (window.currentWorkbook && window.currentWorkbook.Sheets[selectedSheet]) {
                                 const sheet = window.currentWorkbook.Sheets[selectedSheet];
                                 const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-                                const rowCount = sheetData.length;
                                 
-                                document.getElementById('selectedSheetName').textContent = selectedSheet;
+                                // Apply filtering to get accurate count
+                                let rowCount = 0;
+                                if (sheetData && Array.isArray(sheetData)) {
+                                    if (typeof filterEmptyRows === 'function') {
+                                        const filteredData = filterEmptyRows(sheetData);
+                                        rowCount = filteredData.length;
+                                    } else {
+                                        // Manual filtering
+                                        const filteredData = [];
+                                        for (let i = 0; i < sheetData.length; i++) {
+                                            if (i === 0) {
+                                                filteredData.push(sheetData[i]);
+                                            } else {
+                                                const row = sheetData[i];
+                                                if (row && Array.isArray(row)) {
+                                                    const hasData = row.some(cell => {
+                                                        if (cell === null || cell === undefined) return false;
+                                                        if (typeof cell === 'string') return cell.trim() !== '';
+                                                        if (typeof cell === 'number') return true;
+                                                        return String(cell).trim() !== '';
+                                                    });
+                                                    if (hasData) {
+                                                        filteredData.push(row);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        rowCount = filteredData.length;
+                                    }
+                                } else {
+                                    rowCount = sheetData ? sheetData.length : 0;
+                                }                                document.getElementById('selectedSheetName').textContent = selectedSheet;
                                 document.getElementById('selectedSheetRows').textContent = rowCount;
                             }
                         } catch (e) {
                             console.warn('Error getting sheet preview:', e);
+                            // Fallback to showing sheet name without row count
+                            document.getElementById('selectedSheetName').textContent = selectedSheet;
+                            document.getElementById('selectedSheetRows').textContent = 'N/A';
                         }
                     }
                     
@@ -1425,6 +1503,17 @@ async function processFileData() {
             })
         );
         
+        // Filter out empty rows (keep header + non-empty data rows only)
+        const originalRowCount = excelData.length;
+        excelData = filterEmptyRows(excelData);
+        const filteredRowCount = excelData.length;
+        
+        console.log(`Filtered out ${originalRowCount - filteredRowCount} empty rows. Remaining: ${filteredRowCount} rows (including header)`);
+        
+        if (excelData.length < 2) {
+            throw new Error('No valid data rows found after filtering empty rows');
+        }
+        
         // Get column headers
         columnHeaders = excelData[0].map((header, index) => ({
             index: index,
@@ -1479,6 +1568,7 @@ async function processFile() {
         if (excelData.length < 2) {
             throw new Error('Excel file must have headers and at least one data row');
         }
+        
         // Process dates in the data (convert Excel date serial numbers)
         excelData = excelData.map(row => 
             row.map(cell => {
@@ -1494,6 +1584,17 @@ async function processFile() {
                 return cell;
             })
         );
+        
+        // Filter out empty rows (keep header + non-empty data rows only)
+        const originalRowCount = excelData.length;
+        excelData = filterEmptyRows(excelData);
+        const filteredRowCount = excelData.length;
+        
+        console.log(`Filtered out ${originalRowCount - filteredRowCount} empty rows. Remaining: ${filteredRowCount} rows (including header)`);
+        
+        if (excelData.length < 2) {
+            throw new Error('No valid data rows found after filtering empty rows');
+        }
         
         // Get column headers
         columnHeaders = excelData[0].map((header, index) => ({
@@ -1543,10 +1644,43 @@ function populateSheetSelector(sheetNames) {
             if (window.currentWorkbook && window.currentWorkbook.Sheets[sheetName]) {
                 const sheet = window.currentWorkbook.Sheets[sheetName];
                 const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-                const rowCount = sheetData.length;
-                displayName = `${sheetName} (${rowCount} rows)`;
+                
+                // Get filtered row count for dropdown
+                let rowCount = 0;
+                if (sheetData && Array.isArray(sheetData)) {
+                    if (typeof filterEmptyRows === 'function') {
+                        const filteredData = filterEmptyRows(sheetData);
+                        rowCount = filteredData.length;
+                    } else {
+                        // Manual filtering
+                        const filteredData = [];
+                        for (let i = 0; i < sheetData.length; i++) {
+                            if (i === 0) {
+                                filteredData.push(sheetData[i]);
+                            } else {
+                                const row = sheetData[i];
+                                if (row && Array.isArray(row)) {
+                                    const hasData = row.some(cell => {
+                                        if (cell === null || cell === undefined) return false;
+                                        if (typeof cell === 'string') return cell.trim() !== '';
+                                        if (typeof cell === 'number') return true;
+                                        return String(cell).trim() !== '';
+                                    });
+                                    if (hasData) {
+                                        filteredData.push(row);
+                                    }
+                                }
+                            }
+                        }
+                        rowCount = filteredData.length;
+                    }
+                } else {
+                    rowCount = sheetData ? sheetData.length : 0;
+                }
+                displayName = rowCount > 0 ? `${sheetName} (${rowCount} rows)` : sheetName;
             }
         } catch (e) {
+            console.warn('Error getting sheet row count for', sheetName, ':', e);
             // Fallback to just sheet name
             displayName = sheetName;
         }
@@ -1856,6 +1990,40 @@ function populateRoleSelectionDropdown() {
     }
 }
 
+// Helper function to check if a row is empty or contains only whitespace
+function isRowEmpty(row) {
+    if (!row || !Array.isArray(row)) return true;
+    
+    return row.every(cell => {
+        if (cell === null || cell === undefined) return true;
+        if (typeof cell === 'string') return cell.trim() === '';
+        if (typeof cell === 'number') return false; // Numbers are considered valid data
+        return String(cell).trim() === '';
+    });
+}
+
+// Helper function to filter out empty rows from Excel data
+function filterEmptyRows(data) {
+    if (!data || !Array.isArray(data)) return data;
+    
+    // Keep the first row (header) regardless, then filter out empty rows
+    const filteredData = [];
+    
+    for (let i = 0; i < data.length; i++) {
+        if (i === 0) {
+            // Always keep the header row (first row)
+            filteredData.push(data[i]);
+        } else {
+            // For data rows, only keep non-empty rows
+            if (!isRowEmpty(data[i])) {
+                filteredData.push(data[i]);
+            }
+        }
+    }
+    
+    return filteredData;
+}
+
 function displayFilePreview() {
     const head = document.getElementById('mappingPreviewHead');
     const body = document.getElementById('mappingPreviewBody');
@@ -1866,86 +2034,90 @@ function displayFilePreview() {
     
     if (!excelData || excelData.length < 1) return;
     
-    // Create header row with action column
-    const headerRow = document.createElement('tr');
+    // Find the maximum number of columns across all rows
+    const maxColumns = Math.max(...excelData.map(row => row ? row.length : 0));
     
-    // Add row number/action header
-    const actionTh = document.createElement('th');
-    actionTh.textContent = 'Row';
-    actionTh.style.width = '80px';
-    actionTh.style.textAlign = 'center';
-    headerRow.appendChild(actionTh);
-    
-    // Add data column headers
-    (excelData[0] || []).forEach((header, index) => {
-        const th = document.createElement('th');
-        th.textContent = header || `Column ${index + 1}`;
-        headerRow.appendChild(th);
+    // Ensure all rows have the same number of columns by padding with empty cells
+    const normalizedData = excelData.map(row => {
+        const normalizedRow = [...(row || [])];
+        while (normalizedRow.length < maxColumns) {
+            normalizedRow.push('');
+        }
+        return normalizedRow;
     });
-    head.appendChild(headerRow);
     
-    // Create data rows (show all rows, but limit for performance)
-    const maxRowsToShow = Math.min(20, excelData.length);
-    for (let i = 0; i < maxRowsToShow; i++) {
+    // Show all data rows (including header row) in the body, no separate header
+    normalizedData.forEach((rowData, rowIndex) => {
         const row = document.createElement('tr');
-        row.setAttribute('data-row-index', i);
+        row.setAttribute('data-row-index', rowIndex);
         
-        // Add row number and delete button
+        // Add row identifier and delete button
         const actionTd = document.createElement('td');
         actionTd.style.textAlign = 'center';
         actionTd.style.verticalAlign = 'middle';
+        actionTd.style.width = '100px';
+        actionTd.style.minWidth = '100px';
         
-        if (i === 0) {
-            // Header row - show as "Header"
+        if (rowIndex === 0) {
+            // First row - mark as Header with delete functionality
             actionTd.innerHTML = `
                 <div class="d-flex flex-column align-items-center gap-1">
                     <small class="text-primary fw-bold">Header</small>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteExcelRow(${i})" title="Delete this row">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                        </svg>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteExcelRow(${rowIndex})" title="Delete this header row (next row becomes header)">
+                        🗑️
                     </button>
                 </div>
             `;
         } else {
-            // Data row - show row number
+            // Data rows - show row number
             actionTd.innerHTML = `
                 <div class="d-flex flex-column align-items-center gap-1">
-                    <small class="text-secondary">${i}</small>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteExcelRow(${i})" title="Delete this row">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                        </svg>
+                    <small class="text-secondary">${rowIndex}</small>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteExcelRow(${rowIndex})" title="Delete this row">
+                        🗑️
                     </button>
                 </div>
             `;
         }
         row.appendChild(actionTd);
         
-        // Add data cells
-        (excelData[i] || []).forEach(cell => {
+        // Add data cells - don't truncate the content
+        rowData.forEach((cell, cellIndex) => {
             const td = document.createElement('td');
             td.textContent = cell || '';
-            td.style.maxWidth = '150px';
-            td.style.overflow = 'hidden';
-            td.style.textOverflow = 'ellipsis';
-            td.style.whiteSpace = 'nowrap';
+            td.style.padding = '8px 12px';
+            td.style.wordWrap = 'break-word';
+            td.style.minWidth = '120px'; // Ensure columns are wide enough
+            
+            // Special styling for header row
+            if (rowIndex === 0) {
+                td.style.fontWeight = 'bold';
+                td.style.backgroundColor = '#f8f9fa';
+                td.style.borderBottom = '2px solid #dee2e6';
+            }
+            
             row.appendChild(td);
         });
+        
+        // Special styling for header row
+        if (rowIndex === 0) {
+            row.style.backgroundColor = '#f8f9fa';
+        }
+        
         body.appendChild(row);
-    }
+    });
     
-    // Add row count info if there are more rows
-    if (excelData.length > maxRowsToShow) {
-        const infoRow = document.createElement('tr');
-        const infoCell = document.createElement('td');
-        infoCell.colSpan = (excelData[0]?.length || 0) + 1; // +1 for action column
-        infoCell.innerHTML = `<em class="text-secondary">... and ${excelData.length - maxRowsToShow} more rows (not shown in preview)</em>`;
-        infoCell.style.textAlign = 'center';
-        infoCell.style.padding = '10px';
-        infoRow.appendChild(infoCell);
-        body.appendChild(infoRow);
-    }
+    // Add summary info
+    const summaryRow = document.createElement('tr');
+    const summaryCell = document.createElement('td');
+    summaryCell.colSpan = maxColumns + 1; // +1 for action column
+    summaryCell.innerHTML = `<em class="text-info">Showing: ${excelData.length} rows with data (empty rows filtered out)</em>`;
+    summaryCell.style.textAlign = 'center';
+    summaryCell.style.padding = '10px';
+    summaryCell.style.backgroundColor = '#f8f9fa';
+    summaryCell.style.borderTop = '2px solid #dee2e6';
+    summaryRow.appendChild(summaryCell);
+    body.appendChild(summaryRow);
     
     // Update header column count display
     updateColumnMappingOptions();
@@ -1954,7 +2126,18 @@ function displayFilePreview() {
 function deleteExcelRow(rowIndex) {
     if (!excelData || rowIndex < 0 || rowIndex >= excelData.length) return;
     
-    if (confirm(`Are you sure you want to delete row ${rowIndex === 0 ? '(Header)' : rowIndex}? This action cannot be undone.`)) {
+    let confirmMessage;
+    if (rowIndex === 0) {
+        if (excelData.length > 1) {
+            confirmMessage = `Are you sure you want to delete the header row? The next row will become the new header.`;
+        } else {
+            confirmMessage = `Are you sure you want to delete the only remaining row? This will clear all data.`;
+        }
+    } else {
+        confirmMessage = `Are you sure you want to delete row ${rowIndex}? This action cannot be undone.`;
+    }
+    
+    if (confirm(confirmMessage)) {
         // Remove the row from excelData
         excelData.splice(rowIndex, 1);
         
@@ -1962,7 +2145,13 @@ function deleteExcelRow(rowIndex) {
         displayFilePreview();
         
         // Show success message
-        showToast(`Row ${rowIndex === 0 ? '(Header)' : rowIndex} deleted successfully`, 'success');
+        if (rowIndex === 0 && excelData.length > 0) {
+            showToast(`Header row deleted successfully. Row 1 is now the new header.`, 'success');
+        } else if (excelData.length === 0) {
+            showToast(`All data deleted. Please upload a new file.`, 'warning');
+        } else {
+            showToast(`Row ${rowIndex} deleted successfully`, 'success');
+        }
     }
 }
 
@@ -2189,9 +2378,12 @@ function autoMapRoles(availableRoles) {
         'president': ['president', 'chairman', 'chairperson', 'chair', 'ketua'],
         'vice president': ['vice president', 'vice chairman', 'vice chairperson', 'vp', 'naib ketua', 'timbalan ketua'],
         'secretary': ['secretary', 'setiausaha'],
+        'deputy secretary': ['deputy secretary', 'naib setiausaha', 'timbalan setiausaha'],
         'treasurer': ['treasurer', 'bendahari'],
+        'deputy treasurer': ['deputy treasurer', 'naib bendahari', 'timbalan bendahari'],
         'committee member': ['committee member', 'member', 'ahli', 'ahli jawatankuasa', 'ajk'],
         'director': ['director', 'pengarah'],
+        'deputy director': ['deputy director', 'naib pengarah', 'timbalan pengarah'],
         'coordinator': ['coordinator', 'penyelaras'],
         'advisor': ['advisor', 'adviser', 'penasihat'],
         
@@ -2205,11 +2397,15 @@ function autoMapRoles(availableRoles) {
         
         // Committee Roles - Bahasa Malaysia
         'ketua': ['ketua', 'pengerusi', 'president', 'chairman'],
-        'naib ketua': ['naib ketua', 'timbalan ketua', 'vice president', 'vice chairman', 'timbalan pengarah'],
+        'naib ketua': ['naib ketua', 'timbalan ketua', 'vice president', 'vice chairman'],
         'setiausaha': ['setiausaha', 'secretary'],
+        'naib setiausaha': ['naib setiausaha', 'timbalan setiausaha', 'deputy secretary'],
         'bendahari': ['bendahari', 'treasurer'],
+        'naib bendahari': ['naib bendahari', 'timbalan bendahari', 'deputy treasurer'],
         'ahli jawatankuasa': ['ahli jawatankuasa', 'ahli', 'ajk', 'committee member', 'member'],
         'pengarah': ['pengarah', 'director', 'pengarah program'],
+        'naib pengarah': ['naib pengarah', 'timbalan pengarah', 'deputy director'],
+        'timbalan pengarah': ['timbalan pengarah', 'naib pengarah', 'deputy director'],
         'penyelaras': ['penyelaras', 'coordinator'],
         
         // Specific Committee Roles
@@ -2322,7 +2518,6 @@ function autoMapRoles(availableRoles) {
                 
                 // Check if this available role has mapping rules
                 const mappingPatterns = roleMappingRules[availableRoleLower] || [availableRoleLower];
-                console.log(`Checking ${availableRole} with patterns:`, mappingPatterns);
                 
                 for (const pattern of mappingPatterns) {
                     let score = 0;
@@ -2330,17 +2525,22 @@ function autoMapRoles(availableRoles) {
                     // Exact match
                     if (originalRoleLower === pattern) {
                         score = 1000;
-                        console.log(`Exact match with pattern "${pattern}": score ${score}`);
                     }
-                    // Contains match
+                    // Check for contains match, but prioritize longer patterns
                     else if (originalRoleLower.includes(pattern)) {
+                        // Base score for contains match
                         score = 500;
-                        console.log(`Contains match with pattern "${pattern}": score ${score}`);
+                        // Bonus for longer patterns (more specific)
+                        score += pattern.length * 10;
+                        // Bonus if the pattern covers more of the original text
+                        const coverageRatio = pattern.length / originalRoleLower.length;
+                        score += Math.floor(coverageRatio * 200);
                     }
                     // Word boundary match
                     else if (new RegExp(`\\b${pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(originalRoleLower)) {
                         score = 300;
-                        console.log(`Word boundary match with pattern "${pattern}": score ${score}`);
+                        // Bonus for longer patterns
+                        score += pattern.length * 5;
                     }
                     // Fuzzy match for numbers (1st, first, etc.)
                     else if (pattern.match(/\d/) && originalRoleLower.match(/\d/)) {
@@ -2348,19 +2548,16 @@ function autoMapRoles(availableRoles) {
                         const originalNum = originalRoleLower.match(/\d+/)?.[0];
                         if (patternNum === originalNum) {
                             score = 400;
-                            console.log(`Number match with pattern "${pattern}": score ${score}`);
                         }
                     }
                     // Partial match for common abbreviations
                     else if (checkAbbreviationMatch(originalRoleLower, pattern)) {
                         score = 200;
-                        console.log(`Abbreviation match with pattern "${pattern}": score ${score}`);
                     }
                     
                     if (score > bestScore) {
                         bestScore = score;
                         bestMatch = availableRole;
-                        console.log(`New best match: ${bestMatch} with score ${bestScore}`);
                     }
                 }
             }
