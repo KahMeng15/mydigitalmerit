@@ -419,6 +419,23 @@
                         <input type="number" id="roleSortOrder" class="form-control" min="1" 
                                placeholder="Order in table (lower numbers first)">
                     </div>
+                    <div class="form-group">
+                        <label for="roleKeywords" class="form-label">Keywords</label>
+                        <div class="keywords-input-container">
+                            <div id="addRoleKeywordsList" class="keywords-list mb-2"></div>
+                            <div class="flex gap-2">
+                                <input type="text" id="roleKeywordInput" class="form-control" 
+                                       placeholder="Type a keyword and press Enter">
+                                <button type="button" onclick="addRoleKeyword()" class="btn btn-outline btn-sm">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                    </svg>
+                                    Add
+                                </button>
+                            </div>
+                        </div>
+                        <small class="text-secondary">Keywords help with role matching when uploading merits from Excel</small>
+                    </div>
                 </form>
                 
                 <!-- Merit Values Section -->
@@ -551,6 +568,23 @@
                         <label for="editRoleSortOrder" class="form-label">Display Order</label>
                         <input type="number" id="editRoleSortOrder" class="form-control" min="1" 
                                placeholder="Order in table (lower numbers first)">
+                    </div>
+                    <div class="form-group">
+                        <label for="editRoleKeywords" class="form-label">Keywords</label>
+                        <div class="keywords-input-container">
+                            <div id="keywordsList" class="keywords-list mb-2"></div>
+                            <div class="flex gap-2">
+                                <input type="text" id="editRoleKeywordInput" class="form-control" 
+                                       placeholder="Type a keyword and press Enter">
+                                <button type="button" onclick="addKeyword()" class="btn btn-outline btn-sm">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                    </svg>
+                                    Add
+                                </button>
+                            </div>
+                        </div>
+                        <small class="text-secondary">Keywords help with role matching when uploading merits from Excel</small>
                     </div>
                 </form>
                 
@@ -966,6 +1000,64 @@
         .modal-footer .flex.justify-between {
             width: 100%;
             align-items: center;
+        }
+        
+        /* Keywords styling */
+        .keywords-input-container {
+            width: 100%;
+        }
+        
+        .keywords-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-height: 40px;
+            padding: 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background-color: #f9fafb;
+        }
+        
+        .keywords-list:empty::after {
+            content: 'No keywords added yet';
+            color: #9ca3af;
+            font-size: 14px;
+        }
+        
+        .keyword-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 16px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .keyword-tag button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 0;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s;
+        }
+        
+        .keyword-tag button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .keyword-tag button svg {
+            width: 12px;
+            height: 12px;
         }
     </style>
 </body>

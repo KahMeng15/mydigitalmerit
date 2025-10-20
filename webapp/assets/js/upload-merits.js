@@ -42,6 +42,7 @@ function saveProgressToStorage() {
         formData: {
             eventSelect: getFormValue('eventSelect'),
             childActivitySelect: getFormValue('childActivitySelect'),
+            meritType: getFormValue('meritType'),
             meritSource: getFormValue('meritSource'),
             customMeritValue: getFormValue('customMeritValue'),
             customLevel: getFormValue('customLevel'),
@@ -55,7 +56,6 @@ function saveProgressToStorage() {
     
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(progressData));
-        console.log('Progress saved to localStorage');
     } catch (error) {
         console.warn('Failed to save progress to localStorage:', error);
     }
@@ -125,8 +125,6 @@ function loadSavedProgress() {
             }
         }, 500);
         
-        console.log('Progress loaded from localStorage');
-        
     } catch (error) {
         console.warn('Failed to load saved progress:', error);
         clearSavedProgress();
@@ -155,6 +153,18 @@ function restoreFormData(formData) {
         if (sourceSelect && sourceSelect.value) {
             handleMeritSourceChange();
         }
+    }
+    
+    // Restore meritType after a delay to ensure options are populated
+    if (formData.meritType) {
+        setTimeout(() => {
+            const meritTypeSelect = document.getElementById('meritType');
+            if (meritTypeSelect) {
+                meritTypeSelect.value = formData.meritType;
+                // Trigger the change handler to update UI
+                handleMeritTypeChange();
+            }
+        }, 600);
     }
 }
 
@@ -203,7 +213,6 @@ function handleMeritSourceChange() {
 function clearSavedProgress() {
     try {
         localStorage.removeItem(STORAGE_KEY);
-        console.log('Saved progress cleared');
     } catch (error) {
         console.warn('Failed to clear saved progress:', error);
     }
@@ -376,21 +385,14 @@ async function loadMeritValues() {
         // Try hierarchical structure first, fall back to legacy
         try {
             await loadMeritValuesHierarchical();
-            console.log('Successfully loaded hierarchical merit values');
         } catch (hierarchicalError) {
-            console.warn('Hierarchical merit values not found, trying legacy format:', hierarchicalError);
             try {
                 await loadMeritValuesLegacy();
-                console.log('Successfully loaded legacy merit values');
             } catch (legacyError) {
-                console.warn('Legacy merit values not found either:', legacyError);
                 // Initialize empty structure
                 meritValues = { roles: {}, achievements: {} };
-                console.log('Initialized empty merit values structure');
             }
         }
-        
-        console.log('Loaded merit values:', meritValues);
     } catch (error) {
         console.error('Error loading merit values:', error);
     }
@@ -497,7 +499,12 @@ async function loadMeritValuesHierarchical() {
         const roleData = doc.data();
         const roleName = roleData.nameEN || roleData.nameBM;
         if (roleName) {
-            committeeRoles[roleName] = roleData.levelValues || {};
+            committeeRoles[roleName] = {
+                levelValues: roleData.levelValues || {},
+                nameEN: roleData.nameEN,
+                nameBM: roleData.nameBM,
+                keywords: roleData.keywords || []
+            };
         }
     });
     
@@ -506,7 +513,12 @@ async function loadMeritValuesHierarchical() {
         const roleData = doc.data();
         const roleName = roleData.nameEN || roleData.nameBM;
         if (roleName) {
-            roles[roleName] = roleData.levelValues || {};
+            roles[roleName] = {
+                levelValues: roleData.levelValues || {},
+                nameEN: roleData.nameEN,
+                nameBM: roleData.nameBM,
+                keywords: roleData.keywords || []
+            };
         }
     });
     
@@ -515,7 +527,12 @@ async function loadMeritValuesHierarchical() {
         const roleData = doc.data();
         const achievementName = roleData.nameEN || roleData.nameBM;
         if (achievementName) {
-            achievements[achievementName] = roleData.levelValues || {};
+            achievements[achievementName] = {
+                levelValues: roleData.levelValues || {},
+                nameEN: roleData.nameEN,
+                nameBM: roleData.nameBM,
+                keywords: roleData.keywords || []
+            };
         }
     });
     
@@ -537,7 +554,6 @@ async function loadMeritValuesLegacy() {
     const snapshot = await firestore.collection('meritValues').limit(1).get();
     
     if (snapshot.empty) {
-        console.log('No legacy merit values found');
         throw new Error('No merit values found in legacy format');
     }
     
@@ -774,7 +790,9 @@ async function populateMeritTypes() {
 
 
 function calculateMeritPointsForUpload(role, eventLevel, additionalNotes = '', meritValues, event) {
-    if (!meritValues) return 0;
+    if (!meritValues) {
+        return 0;
+    }
     
     let basePoints = 0;
     
@@ -782,7 +800,7 @@ function calculateMeritPointsForUpload(role, eventLevel, additionalNotes = '', m
     if (event && event.customRoles && event.customRoles.length > 0) {
         const customRole = event.customRoles.find(cr => cr.name === role);
         if (customRole) {
-            return customRole.value; // Custom roles have fixed values
+            return customRole.value;
         }
     }
     
@@ -806,22 +824,31 @@ function calculateMeritPointsForUpload(role, eventLevel, additionalNotes = '', m
     
     // Handle both new levelId format and legacy level format
     let levelId = eventLevel;
-    if (eventLevel && !eventLevel.startsWith('level_') && !eventLevel.startsWith('comp_')) {
+    if (eventLevel && !eventLevel.startsWith('level_') && !eventLevel.startsWith('comp_') && !eventLevel.startsWith('id_')) {
         // Legacy format - try to find level ID by name
         levelId = getLevelIdByName(eventLevel);
     }
     
     // Check if this is a competition achievement
-    if (meritValues.achievements && meritValues.achievements[role] && meritValues.achievements[role][levelId]) {
-        basePoints = meritValues.achievements[role][levelId];
+    if (meritValues.achievements && meritValues.achievements[role]) {
+        const roleLevelValues = meritValues.achievements[role].levelValues || meritValues.achievements[role];
+        if (roleLevelValues[levelId]) {
+            basePoints = roleLevelValues[levelId];
+        }
     }
     // Check if this is a committee role
-    else if (meritValues.committeeRoles && meritValues.committeeRoles[role] && meritValues.committeeRoles[role][levelId]) {
-        basePoints = meritValues.committeeRoles[role][levelId];
+    else if (meritValues.committeeRoles && meritValues.committeeRoles[role]) {
+        const roleLevelValues = meritValues.committeeRoles[role].levelValues || meritValues.committeeRoles[role];
+        if (roleLevelValues[levelId]) {
+            basePoints = roleLevelValues[levelId];
+        }
     }
     // Fall back to non-committee role calculation using level ID
-    else if (meritValues.roles && meritValues.roles[role] && meritValues.roles[role][levelId]) {
-        basePoints = meritValues.roles[role][levelId];
+    else if (meritValues.roles && meritValues.roles[role]) {
+        const roleLevelValues = meritValues.roles[role].levelValues || meritValues.roles[role];
+        if (roleLevelValues[levelId]) {
+            basePoints = roleLevelValues[levelId];
+        }
     }
     
     // Add bonus points for achievements in additional notes (if implemented)
@@ -928,19 +955,15 @@ async function displayEventLevel() {
     const eventLevelElement = document.getElementById('eventLevel');
     if (!eventLevelElement) return;
     
-    console.log('Displaying event level for event:', selectedEvent);
-    
     try {
         let levelDisplayName = 'Not Set';
         
         // First try to use the level name directly if available
         if (selectedEvent.level) {
             levelDisplayName = selectedEvent.level;
-            console.log('Using selectedEvent.level:', levelDisplayName);
         }
         // If we have a levelId, try to get the proper display name from database
         else if (selectedEvent.levelId) {
-            console.log('Using selectedEvent.levelId:', selectedEvent.levelId);
             const levelDoc = await firestore.collection('meritValues')
                 .doc('levelMetadata')
                 .collection('event')
@@ -950,17 +973,11 @@ async function displayEventLevel() {
             if (levelDoc.exists) {
                 const levelData = levelDoc.data();
                 levelDisplayName = levelData.nameEN || levelData.nameBM || selectedEvent.levelId;
-                console.log('Found level data:', levelData, 'Display name:', levelDisplayName);
-            } else {
-                console.log('Level document not found for ID:', selectedEvent.levelId);
             }
-        } else {
-            console.log('No level or levelId found in event data');
         }
         
         eventLevelElement.textContent = levelDisplayName;
         eventLevelElement.className = 'badge bg-primary';
-        console.log('Set event level display to:', levelDisplayName);
         
     } catch (error) {
         console.error('Error displaying event level:', error);
@@ -974,19 +991,15 @@ async function displayCompetitionLevel() {
     const competitionLevelElement = document.getElementById('competitionLevel');
     if (!competitionLevelElement) return;
     
-    console.log('Displaying competition level for event:', selectedEvent);
-    
     try {
         let levelDisplayName = 'Not Set';
         
         // Check if event has competition level information
         if (selectedEvent.competitionLevel) {
             levelDisplayName = selectedEvent.competitionLevel;
-            console.log('Using selectedEvent.competitionLevel:', levelDisplayName);
         }
         // If we have a competitionLevelId, try to get the proper display name from database
         else if (selectedEvent.competitionLevelId) {
-            console.log('Using selectedEvent.competitionLevelId:', selectedEvent.competitionLevelId);
             const levelDoc = await firestore.collection('meritValues')
                 .doc('levelMetadata')
                 .collection('competition')
@@ -996,14 +1009,10 @@ async function displayCompetitionLevel() {
             if (levelDoc.exists) {
                 const levelData = levelDoc.data();
                 levelDisplayName = levelData.nameEN || levelData.nameBM || selectedEvent.competitionLevelId;
-                console.log('Found competition level data:', levelData, 'Display name:', levelDisplayName);
-            } else {
-                console.log('Competition level document not found for ID:', selectedEvent.competitionLevelId);
             }
         }
         // If no competition level is set, it might use the same as event level
         else if (selectedEvent.level) {
-            console.log('No competition level set, trying to map from event level:', selectedEvent.level);
             // Try to map event level to competition level
             const competitionLevelsSnapshot = await firestore.collection('meritValues')
                 .doc('levelMetadata')
@@ -1018,21 +1027,16 @@ async function displayCompetitionLevel() {
                     data.nameBM?.toLowerCase() === selectedEvent.level.toLowerCase()) {
                     levelDisplayName = data.nameEN || data.nameBM || selectedEvent.level;
                     foundLevel = true;
-                    console.log('Mapped event level to competition level:', levelDisplayName);
                 }
             });
             
             if (!foundLevel) {
                 levelDisplayName = selectedEvent.level; // Fallback to event level
-                console.log('No competition level mapping found, using event level as fallback:', levelDisplayName);
             }
-        } else {
-            console.log('No competition level or event level found');
         }
         
         competitionLevelElement.textContent = levelDisplayName;
         competitionLevelElement.className = 'badge bg-warning';
-        console.log('Set competition level display to:', levelDisplayName);
         
     } catch (error) {
         console.error('Error displaying competition level:', error);
@@ -1043,8 +1047,6 @@ async function displayCompetitionLevel() {
 
 async function displayMeritTypesHierarchical() {
     try {
-        console.log('Loading merit types from hierarchical database...');
-        
         // Load merit values from hierarchical structure
         const [committeeSnapshot, nonCommitteeSnapshot, competitionSnapshot] = await Promise.all([
             firestore.collection('meritValues').doc('roleMetadata').collection('committee').get(),
@@ -1074,12 +1076,6 @@ async function displayMeritTypesHierarchical() {
             competitionRoles[doc.id] = data;
         });
         
-        console.log('Loaded roles:', { 
-            committee: Object.keys(committeeRoles).length,
-            nonCommittee: Object.keys(nonCommitteeRoles).length,
-            competition: Object.keys(competitionRoles).length
-        });
-        
         // Display merit types grid
         await displayMeritGrid(committeeRoles, nonCommitteeRoles, competitionRoles);
         
@@ -1099,8 +1095,6 @@ async function displayMeritGrid(committeeRoles, nonCommitteeRoles, competitionRo
     
     const eventLevelId = await getEventLevelId();
     const competitionLevelId = await getCompetitionLevelId();
-    
-    console.log('Level IDs:', { eventLevelId, competitionLevelId });
     
     let gridHtml = '';
     
@@ -1956,7 +1950,7 @@ function populateColumnMappingDropdowns() {
         columnHeaders.forEach(header => {
             const option = document.createElement('option');
             option.value = header.index;
-            option.textContent = header.name;
+            option.textContent = `${header.index + 1} - ${header.name}`;
             dropdown.appendChild(option);
         });
         
@@ -2175,7 +2169,8 @@ function populateRoleSelectionDropdown() {
             Object.keys(meritValues.committeeRoles).forEach(role => {
                 const option = document.createElement('option');
                 option.value = role;
-                option.textContent = `${role} (${meritValues.committeeRoles[role][levelId] || 0} points)`;
+                const roleLevelValues = meritValues.committeeRoles[role].levelValues || meritValues.committeeRoles[role];
+                option.textContent = `${role} (${roleLevelValues[levelId] || 0} points)`;
                 roleSelect.appendChild(option);
             });
         }
@@ -2185,7 +2180,8 @@ function populateRoleSelectionDropdown() {
             Object.keys(meritValues.achievements).forEach(achievement => {
                 const option = document.createElement('option');
                 option.value = achievement;
-                option.textContent = `${achievement} (${meritValues.achievements[achievement][levelId] || 0} points)`;
+                const roleLevelValues = meritValues.achievements[achievement].levelValues || meritValues.achievements[achievement];
+                option.textContent = `${achievement} (${roleLevelValues[levelId] || 0} points)`;
                 roleSelect.appendChild(option);
             });
         }
@@ -2403,10 +2399,13 @@ function displayRoleAssignment() {
     // Auto-map roles before displaying
     autoMapRoles(availableRoles);
     
+    // Use levelId for merit calculation, fallback to level if levelId doesn't exist
+    const eventLevelId = selectedEvent.levelId || selectedEvent.level;
+    
     tableBody.innerHTML = processedData.map((record, index) => {
         const statusClass = record.assignedRole ? 'text-success' : 'text-warning';
         const statusIcon = record.assignedRole ? '✓' : '⚠';
-        const points = record.assignedRole ? calculateMeritPointsForUpload(record.assignedRole, selectedEvent.level, record.additionalNotes, meritValues, selectedEvent) : 0;
+        const points = record.assignedRole ? calculateMeritPointsForUpload(record.assignedRole, eventLevelId, record.additionalNotes, meritValues, selectedEvent) : 0;
         
         // Check if this was auto-mapped
         const wasAutoMapped = record.autoMapped;
@@ -2495,11 +2494,14 @@ function assignGeneralCommitteeToUnassigned() {
     
     let assignedCount = 0;
     
+    // Use levelId for merit calculation, fallback to level if levelId doesn't exist
+    const eventLevelId = selectedEvent.levelId || selectedEvent.level;
+    
     processedData.forEach(record => {
         if (!record.assignedRole) {
             record.assignedRole = generalCommitteeRole;
             record.autoMapped = false; // Mark as manually assigned
-            record.meritPoints = calculateMeritPointsForUpload(generalCommitteeRole, selectedEvent.level, record.additionalNotes, meritValues, selectedEvent);
+            record.meritPoints = calculateMeritPointsForUpload(generalCommitteeRole, eventLevelId, record.additionalNotes, meritValues, selectedEvent);
             assignedCount++;
         }
     });
@@ -2546,6 +2548,32 @@ function setupRoleSearchInput(recordIndex, availableRoles) {
     
     if (!input || !suggestions) return;
     
+    // Helper function to check if role matches query (including BM translation)
+    function roleMatchesQuery(role, query) {
+        // Check English name
+        if (role.toLowerCase().includes(query)) {
+            return true;
+        }
+        
+        // Check BM translation
+        const meritType = document.getElementById('meritType').value;
+        let roleData = null;
+        
+        if (meritType === 'committee' && meritValues.committeeRoles && meritValues.committeeRoles[role]) {
+            roleData = meritValues.committeeRoles[role];
+        } else if (meritType === 'competition' && meritValues.achievements && meritValues.achievements[role]) {
+            roleData = meritValues.achievements[role];
+        } else if (meritValues.roles && meritValues.roles[role]) {
+            roleData = meritValues.roles[role];
+        }
+        
+        if (roleData && roleData.nameBM) {
+            return roleData.nameBM.toLowerCase().includes(query);
+        }
+        
+        return false;
+    }
+    
     // Handle input changes
     input.addEventListener('input', function() {
         const query = this.value.toLowerCase();
@@ -2555,9 +2583,9 @@ function setupRoleSearchInput(recordIndex, availableRoles) {
             return;
         }
         
-        // Filter roles based on input
+        // Filter roles based on input (including BM translations)
         const filtered = availableRoles.filter(role => 
-            role.toLowerCase().includes(query)
+            roleMatchesQuery(role, query)
         );
         
         if (filtered.length > 0) {
@@ -2630,8 +2658,11 @@ function selectRole(recordIndex, role) {
     // Update record
     processedData[recordIndex].assignedRole = role;
     
+    // Use levelId for merit calculation, fallback to level if levelId doesn't exist
+    const eventLevelId = selectedEvent.levelId || selectedEvent.level;
+    
     // Calculate and display merit points
-    const points = calculateMeritPointsForUpload(role, selectedEvent.level, processedData[recordIndex].additionalNotes, meritValues, selectedEvent);
+    const points = calculateMeritPointsForUpload(role, eventLevelId, processedData[recordIndex].additionalNotes, meritValues, selectedEvent);
     processedData[recordIndex].meritPoints = points;
     pointsCell.textContent = points;
     
@@ -2657,10 +2688,6 @@ function validateRoleAssignments() {
 
 function autoMapRoles(availableRoles) {
     let autoMappedCount = 0;
-    
-    console.log('=== AUTO-MAPPING DEBUG ===');
-    console.log('Available roles:', availableRoles);
-    console.log('Records to process:', processedData.length);
     
     // Define comprehensive role mapping rules
     const roleMappingRules = {
@@ -2724,27 +2751,18 @@ function autoMapRoles(availableRoles) {
     ];
     
     processedData.forEach((record, index) => {
-        console.log(`\n--- Processing record ${index + 1} ---`);
-        console.log('Original role:', record.originalRole);
-        console.log('Already assigned:', record.assignedRole);
-        
         if (!record.originalRole || record.assignedRole) {
-            console.log('Skipping: No original role or already assigned');
             return; // Skip if no original role or already assigned
         }
         
         const originalRoleLower = record.originalRole.toLowerCase().trim();
-        console.log('Original role (lowercase):', originalRoleLower);
         let bestMatch = null;
         let bestScore = 0;
         
         // Special handling for AJK roles - map to specific committee roles
         if (originalRoleLower.startsWith('ajk ') || originalRoleLower === 'ajk') {
-            console.log('AJK pattern detected!');
-            
             // Extract the committee type from "AJK [type]"
             const ajkType = originalRoleLower.replace('ajk ', '').trim();
-            console.log('AJK type extracted:', ajkType);
             
             // Map AJK types to specific committee roles
             const ajkMappings = {
@@ -2765,7 +2783,6 @@ function autoMapRoles(availableRoles) {
             
             // First try to find specific committee match
             if (ajkMappings[ajkType]) {
-                console.log('Looking for specific committee matches for:', ajkMappings[ajkType]);
                 for (const mapping of ajkMappings[ajkType]) {
                     const matchingRole = availableRoles.find(role => 
                         role.toLowerCase().includes(mapping.toLowerCase())
@@ -2773,7 +2790,6 @@ function autoMapRoles(availableRoles) {
                     if (matchingRole) {
                         bestMatch = matchingRole;
                         bestScore = 1000;
-                        console.log('Specific AJK match found:', bestMatch);
                         break;
                     }
                 }
@@ -2781,7 +2797,6 @@ function autoMapRoles(availableRoles) {
             
             // If no specific match, try generic committee member roles
             if (!bestMatch) {
-                console.log('No specific match, trying generic committee roles...');
                 const committeeMemberRoles = availableRoles.filter(role => 
                     role.toLowerCase().includes('committee member') || 
                     role.toLowerCase().includes('ahli jawatankuasa') ||
@@ -2789,19 +2804,15 @@ function autoMapRoles(availableRoles) {
                     role.toLowerCase().includes('general committee')
                 );
                 
-                console.log('Committee member roles found:', committeeMemberRoles);
-                
                 if (committeeMemberRoles.length > 0) {
-                    bestMatch = committeeMemberRoles[0]; // Take the first match
-                    bestScore = 1000; // High priority for AJK pattern
-                    console.log('Generic AJK match found:', bestMatch);
+                    bestMatch = committeeMemberRoles[0];
+                    bestScore = 1000;
                 }
             }
         }
         
         // If no AJK match found, try regular mapping
         if (!bestMatch) {
-            console.log('Trying regular mapping...');
             // Check each available role against mapping rules
             for (const availableRole of availableRoles) {
                 const availableRoleLower = availableRole.toLowerCase();
@@ -2855,18 +2866,14 @@ function autoMapRoles(availableRoles) {
         
         // Auto-assign if we found a good match
         if (bestMatch && bestScore >= 200) {
-            console.log(`✅ Auto-assigning: ${bestMatch} (score: ${bestScore})`);
             record.assignedRole = bestMatch;
             record.autoMapped = true;
-            record.meritPoints = calculateMeritPointsForUpload(bestMatch, selectedEvent.level, record.additionalNotes, meritValues, selectedEvent);
+            // Use levelId for merit calculation, fallback to level if levelId doesn't exist
+            const eventLevelId = selectedEvent.levelId || selectedEvent.level;
+            record.meritPoints = calculateMeritPointsForUpload(bestMatch, eventLevelId, record.additionalNotes, meritValues, selectedEvent);
             autoMappedCount++;
-        } else {
-            console.log(`❌ No match found (best score: ${bestScore})`);
         }
     });
-    
-    console.log(`\n=== AUTO-MAPPING COMPLETE ===`);
-    console.log(`Total auto-mapped: ${autoMappedCount} out of ${processedData.length}`);
     
     return autoMappedCount;
 }
@@ -3099,13 +3106,16 @@ function validateRecords() {
         // Calculate merit points
         const meritType = getMeritType();
         
+        // Use levelId for merit calculation, fallback to level if levelId doesn't exist
+        const eventLevelId = selectedEvent.levelId || selectedEvent.level;
+        
         if (selectedMeritType === 'committee') {
             // For committee members, use their specific role if provided, otherwise default to 0
             const roleToUse = record.role || 'Committee Member';
-            record.meritPoints = calculateMeritPointsForUpload(roleToUse, selectedEvent.level, record.additionalNotes, meritValues, selectedEvent);
+            record.meritPoints = calculateMeritPointsForUpload(roleToUse, eventLevelId, record.additionalNotes, meritValues, selectedEvent);
         } else {
             const roleToUse = meritType || record.role;
-            record.meritPoints = calculateMeritPointsForUpload(roleToUse, selectedEvent.level, record.additionalNotes, meritValues, selectedEvent);
+            record.meritPoints = calculateMeritPointsForUpload(roleToUse, eventLevelId, record.additionalNotes, meritValues, selectedEvent);
         }
         
         // Apply override if set
@@ -3390,24 +3400,24 @@ async function finalizeUpload() {
     if (!confirmed) return;
     
     try {
-        // Hide all steps and show Step 8
-        hideSteps([1, 2, 3, 4, 5, 6, 7]);
-        goToStep(8);
+        // Hide all steps and show Step 9 (Upload Progress)
+        hideSteps([1, 2, 3, 4, 5, 6, 7, 8]);
+        goToStep(9);
         
-        // Update step indicator to show Step 8
-        document.getElementById('currentStep').textContent = '8';
+        // Update step indicator to show Step 9
+        document.getElementById('currentStep').textContent = '9';
         document.getElementById('progressIndicator').style.width = '100%';
         
-        console.log('Now showing Step 8 (Upload Progress)');
+        console.log('Now showing Step 9 (Upload Progress)');
         
         await uploadMeritRecords();
         
-        // Show completion message in Step 8
-        const step8Element = document.getElementById('step8');
-        step8Element.innerHTML = `
+        // Show completion message in Step 9
+        const step9Element = document.getElementById('step9');
+        step9Element.innerHTML = `
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">Step 8: Upload Complete</h3>
+                    <h3 class="card-title">Step 9: Upload Complete</h3>
                 </div>
                 <div class="card-body text-center">
                     <div class="text-success mb-4">
@@ -3649,7 +3659,12 @@ function goToStep(stepNumber) {
     
     // Step-specific actions
     if (stepNumber === 7) {
-        // Update upload summary when entering confirmation step
+        // Update validation when entering preview step
+        validateRecords();
+    }
+    
+    if (stepNumber === 8) {
+        // Update upload summary when entering final confirmation step
         updateUploadSummary();
     }
     
@@ -3662,7 +3677,7 @@ function updateProgressIndicator(stepNumber) {
     const currentStepSpan = document.getElementById('currentStep');
     
     if (progressBar) {
-        const percentage = (stepNumber / 8) * 100;
+        const percentage = (stepNumber / 9) * 100;
         progressBar.style.width = `${percentage}%`;
     }
     
@@ -3684,7 +3699,8 @@ function getRoleOptions(selectedRole = '') {
     
     // Add base roles
     Object.keys(meritValues.roles).forEach(role => {
-        const points = meritValues.roles[role][dbLevel] || 0;
+        const roleLevelValues = meritValues.roles[role].levelValues || meritValues.roles[role];
+        const points = roleLevelValues[dbLevel] || 0;
         const isSelected = role === selectedRole ? 'selected' : '';
         options += `<option value="${role}" ${isSelected}>${role} (${points} points)</option>`;
     });
@@ -3715,7 +3731,7 @@ function calculateMeritPoints(record) {
         
         // Handle both new levelId format and legacy level format  
         let levelId = selectedEvent.levelId || selectedEvent.level;
-        if (levelId && !levelId.startsWith('level_') && !levelId.startsWith('comp_')) {
+        if (levelId && !levelId.startsWith('level_') && !levelId.startsWith('comp_') && !levelId.startsWith('id_')) {
             levelId = getLevelIdByName(levelId);
         }
         const dbLevel = levelId;
@@ -3727,7 +3743,8 @@ function calculateMeritPoints(record) {
             record.meritPoints = customRole ? customRole.value : 0;
         } else {
             // Base role
-            record.meritPoints = meritValues.roles[record.role]?.[dbLevel] || 0;
+            const roleLevelValues = meritValues.roles[record.role]?.levelValues || meritValues.roles[record.role];
+            record.meritPoints = roleLevelValues?.[dbLevel] || 0;
         }
     } catch (error) {
         console.error('Error calculating merit points:', error);

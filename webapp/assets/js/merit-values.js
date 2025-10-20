@@ -41,6 +41,7 @@ let editingEventRole = null;
 let editingCompetitionRole = null;
 let currentEditingRoleId = null;
 let currentEditingRoleCategory = null;
+let currentRoleKeywords = []; // Store keywords for current editing role
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -2051,6 +2052,19 @@ function openAddRoleModal(category) {
     // Reset form
     document.getElementById('roleForm').reset();
     
+    // Reset keywords
+    currentRoleKeywords = [];
+    displayAddRoleKeywords();
+    
+    // Add Enter key listener for keyword input
+    const keywordInput = document.getElementById('roleKeywordInput');
+    keywordInput.onkeypress = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addRoleKeyword();
+        }
+    };
+    
     // Reset save button text
     document.getElementById('saveRoleBtn').textContent = 'Save Role';
     
@@ -2072,6 +2086,7 @@ function closeRoleModal() {
     document.getElementById('addRoleModal').classList.add('d-none');
     currentRoleCategory = null;
     editingRole = null;
+    currentRoleKeywords = [];
 }
 
 // Variable to track role being edited
@@ -2156,6 +2171,20 @@ function editRole(roleId, category) {
     document.getElementById('editRoleNameBM').value = roleData.nameBM || '';
     document.getElementById('editRoleSortOrder').value = roleData.sortOrder !== undefined ? roleData.sortOrder : '';
     
+    // Populate keywords
+    currentRoleKeywords = roleData.keywords || [];
+    displayKeywords();
+    
+    // Add Enter key listener for keyword input
+    const keywordInput = document.getElementById('editRoleKeywordInput');
+    keywordInput.value = '';
+    keywordInput.onkeypress = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addKeyword();
+        }
+    };
+    
     // Populate merit values for all levels for this role
     populateRoleMeritValuesForRole(roleId, roleData, category);
     
@@ -2221,7 +2250,116 @@ function closeEditRoleModal() {
     document.getElementById('editRoleModal').classList.add('d-none');
     currentEditingRoleId = null;
     currentEditingRoleCategory = null;
+    currentRoleKeywords = [];
 }
+
+// ============================================================================
+// KEYWORD MANAGEMENT FUNCTIONS
+// ============================================================================
+
+function addKeyword() {
+    const input = document.getElementById('editRoleKeywordInput');
+    const keyword = input.value.trim().toLowerCase();
+    
+    if (!keyword) {
+        return;
+    }
+    
+    // Check if keyword already exists
+    if (currentRoleKeywords.includes(keyword)) {
+        showToast('Keyword already exists', 'error');
+        input.value = '';
+        return;
+    }
+    
+    // Add keyword
+    currentRoleKeywords.push(keyword);
+    displayKeywords();
+    
+    // Clear input
+    input.value = '';
+    input.focus();
+}
+
+function removeKeyword(keyword) {
+    currentRoleKeywords = currentRoleKeywords.filter(k => k !== keyword);
+    displayKeywords();
+}
+
+function displayKeywords() {
+    const container = document.getElementById('keywordsList');
+    
+    if (!currentRoleKeywords || currentRoleKeywords.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    container.innerHTML = currentRoleKeywords.map(keyword => `
+        <div class="keyword-tag">
+            <span>${keyword}</span>
+            <button onclick="removeKeyword('${keyword}')" type="button">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    `).join('');
+}
+
+// Functions for Add Role modal keywords
+function addRoleKeyword() {
+    const input = document.getElementById('roleKeywordInput');
+    const keyword = input.value.trim().toLowerCase();
+    
+    if (!keyword) {
+        return;
+    }
+    
+    // Check if keyword already exists
+    if (currentRoleKeywords.includes(keyword)) {
+        showToast('Keyword already exists', 'error');
+        input.value = '';
+        return;
+    }
+    
+    // Add keyword
+    currentRoleKeywords.push(keyword);
+    displayAddRoleKeywords();
+    
+    // Clear input
+    input.value = '';
+    input.focus();
+}
+
+function removeRoleKeyword(keyword) {
+    currentRoleKeywords = currentRoleKeywords.filter(k => k !== keyword);
+    displayAddRoleKeywords();
+}
+
+function displayAddRoleKeywords() {
+    const container = document.getElementById('addRoleKeywordsList');
+    
+    if (!currentRoleKeywords || currentRoleKeywords.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    container.innerHTML = currentRoleKeywords.map(keyword => `
+        <div class="keyword-tag">
+            <span>${keyword}</span>
+            <button onclick="removeRoleKeyword('${keyword}')" type="button">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    `).join('');
+}
+
+// ============================================================================
+// UPDATE ROLE FUNCTION
+// ============================================================================
+
 
 async function updateRole() {
     try {
@@ -2258,6 +2396,7 @@ async function updateRole() {
             nameBM: nameBM,
             sortOrder: sortOrder,
             levelValues: levelValues,
+            keywords: currentRoleKeywords, // Save keywords
             category: currentEditingRoleCategory,
             updated: new Date()
         };
@@ -2971,6 +3110,7 @@ async function saveRoleData() {
                 nameEN: nameEN,
                 nameBM: nameBM,
                 levelValues: levelValues,
+                keywords: currentRoleKeywords, // Include keywords
                 updated: new Date()
             };
         } else {
@@ -2984,6 +3124,7 @@ async function saveRoleData() {
                 nameBM: nameBM,
                 category: currentRoleCategory,
                 levelValues: levelValues,
+                keywords: currentRoleKeywords, // Include keywords
                 sortOrder: sortOrder,
                 created: new Date()
             };
@@ -3062,5 +3203,9 @@ window.duplicateRole = duplicateRole;
 window.duplicateCurrentRole = duplicateCurrentRole;
 window.editEventMeritRole = editEventMeritRole;
 window.editCompetitionMeritRole = editCompetitionMeritRole;
+window.addKeyword = addKeyword;
+window.removeKeyword = removeKeyword;
+window.addRoleKeyword = addRoleKeyword;
+window.removeRoleKeyword = removeRoleKeyword;
 window.deleteEventMeritRole = deleteEventMeritRole;
 window.deleteCompetitionMeritRole = deleteCompetitionMeritRole;
