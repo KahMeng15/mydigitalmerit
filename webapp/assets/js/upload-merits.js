@@ -1,13 +1,13 @@
 // Upload Merits functionality
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     // Check admin authentication
     if (!requireAdmin()) return;
 
-    // Initialize page
-    initializePage();
+    // Initialize page and load essential data first
+    await initializePage();
     setupEventListeners();
     
-    // Load saved progress from localStorage and URL
+    // Load saved progress from localStorage and URL (after initialization)
     loadSavedProgress();
 });
 
@@ -38,6 +38,11 @@ function saveProgressToStorage() {
         processedData: processedData,
         validRecords: validRecords,
         invalidRecords: invalidRecords,
+        // Save workbook data for sheet restoration
+        workbookData: window.currentWorkbook ? {
+            sheetNames: Object.keys(window.currentWorkbook.Sheets),
+            sheets: {}
+        } : null,
         // Save form values
         formData: {
             eventSelect: getFormValue('eventSelect'),
@@ -53,6 +58,14 @@ function saveProgressToStorage() {
         },
         timestamp: Date.now()
     };
+    
+    // Save each sheet's data
+    if (progressData.workbookData && window.currentWorkbook) {
+        progressData.workbookData.sheetNames.forEach(sheetName => {
+            const sheet = window.currentWorkbook.Sheets[sheetName];
+            progressData.workbookData.sheets[sheetName] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
+        });
+    }
     
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(progressData));
@@ -113,12 +126,37 @@ function loadSavedProgress() {
             invalidRecords = progressData.invalidRecords;
         }
         
+        // Restore workbook data
+        if (progressData.workbookData && progressData.workbookData.sheetNames) {
+            // Reconstruct workbook
+            const wb = XLSX.utils.book_new();
+            progressData.workbookData.sheetNames.forEach(sheetName => {
+                const sheetData = progressData.workbookData.sheets[sheetName];
+                if (sheetData) {
+                    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+                    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                }
+            });
+            window.currentWorkbook = wb;
+            
+            // If multiple sheets, rebuild the sheet selector
+            if (progressData.workbookData.sheetNames.length > 1) {
+                setTimeout(() => {
+                    setupMultipleSheetSelection(progressData.workbookData.sheetNames);
+                }, 100);
+            }
+        }
+        
         // Restore form values after DOM is ready
-        setTimeout(() => {
+        setTimeout(async () => {
             restoreFormData(progressData.formData);
             
-            // Use URL step if provided, otherwise use saved step
+            // If we're going to step 6 and there's a merit type, wait for it to be set
             const targetStep = urlStep && !isNaN(urlStep) ? parseInt(urlStep) : progressData.currentStep;
+            if (targetStep === 6 && progressData.formData && progressData.formData.meritType) {
+                await waitForMeritType(progressData.formData.meritType);
+            }
+            
             if (targetStep && targetStep >= 1 && targetStep <= 8) {
                 goToStep(targetStep);
                 updateStepUrl(targetStep);
@@ -155,17 +193,35 @@ function restoreFormData(formData) {
         }
     }
     
-    // Restore meritType after a delay to ensure options are populated
+    // Restore meritType - need to wait for displayMeritTypesHierarchical to populate options
     if (formData.meritType) {
-        setTimeout(() => {
+        // Wait for options to be populated
+        const waitForOptions = setInterval(() => {
             const meritTypeSelect = document.getElementById('meritType');
-            if (meritTypeSelect) {
+            if (meritTypeSelect && meritTypeSelect.options.length > 1) {
+                clearInterval(waitForOptions);
                 meritTypeSelect.value = formData.meritType;
                 // Trigger the change handler to update UI
                 handleMeritTypeChange();
             }
-        }, 600);
+        }, 100);
+        
+        // Timeout after 3 seconds
+        setTimeout(() => clearInterval(waitForOptions), 3000);
     }
+}
+
+// Helper function to wait for merit type to be set
+async function waitForMeritType(expectedValue, maxWaitMs = 2000) {
+    const startTime = Date.now();
+    while (Date.now() - startTime < maxWaitMs) {
+        const meritTypeSelect = document.getElementById('meritType');
+        if (meritTypeSelect && meritTypeSelect.value === expectedValue) {
+            return true;
+        }
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    return false;
 }
 
 function getFormValue(elementId) {
@@ -224,7 +280,7 @@ function updateStepUrl(stepNumber) {
     window.history.replaceState({}, '', url);
 }
 
-function initializePage() {
+async function initializePage() {
     // Display user info
     const user = getCurrentUser();
     if (user) {
@@ -232,10 +288,11 @@ function initializePage() {
     }
 
     // Add a small delay to ensure Firebase is fully initialized
-    setTimeout(async () => {
-        await loadEvents();
-        await loadMeritValues();
-    }, 100);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Load essential data before anything else
+    await loadEvents();
+    await loadMeritValues();
     
     // Check for eventId and childActivityId in URL params (legacy support)
     const urlParams = new URLSearchParams(window.location.search);
@@ -315,18 +372,28 @@ function setupEventListeners() {
     addEventListenerSafely('backFromStep5', 'click', () => goToStep(4));
     addEventListenerSafely('nextFromStep5', 'click', proceedToRoleAssignment);
     addEventListenerSafely('backFromStep6', 'click', () => goToStep(5));
-    addEventListenerSafely('nextFromStep6', 'click', proceedToValidation);
+    // Step 6 now combines role assignment and validation
+    addEventListenerSafely('nextFromStep6', 'click', () => {
+        // Check if all "not found" records have been resolved
+        const unresolvedRecords = processedData.filter(r => 
+            r.validationStatus === 'not_found' && !r.selectedMatch && !r.addAsNew
+        );
+        
+        if (unresolvedRecords.length > 0) {
+            showToast(`Please resolve all student validation issues. ${unresolvedRecords.length} record(s) still need action.`, 'error');
+            return;
+        }
+        
+        updateUploadSummary();
+        goToStep(7);
+    });
     addEventListenerSafely('assignGeneralCommitteeBtn', 'click', assignGeneralCommitteeToUnassigned);
     addEventListenerSafely('backFromStep7', 'click', () => goToStep(6));
     addEventListenerSafely('nextFromStep7', 'click', () => {
-        updateUploadSummary();
         goToStep(8);
-    });
-    addEventListenerSafely('backFromStep8', 'click', () => goToStep(7));
-    addEventListenerSafely('nextFromStep8', 'click', () => {
-        goToStep(9);
         finalizeUpload();
     });
+    addEventListenerSafely('backFromStep8', 'click', () => goToStep(7));
     addEventListenerSafely('finishUploadBtn', 'click', () => window.location.href = 'events.html');
     
     // Role assignment will be handled in Step 6
@@ -2390,6 +2457,12 @@ function displayRoleAssignment() {
     const tableBody = document.getElementById('roleMappingTableBody');
     const recordCount = document.getElementById('recordCount');
     
+    // Ensure merit values are loaded
+    if (!meritValues) {
+        showToast('Loading merit values...', 'info');
+        return;
+    }
+    
     // Update record count
     recordCount.textContent = `${processedData.length} records to assign roles`;
     
@@ -2402,6 +2475,9 @@ function displayRoleAssignment() {
     // Use levelId for merit calculation, fallback to level if levelId doesn't exist
     const eventLevelId = selectedEvent.levelId || selectedEvent.level;
     
+    // Display validation summary
+    displayValidationSummary();
+    
     tableBody.innerHTML = processedData.map((record, index) => {
         const statusClass = record.assignedRole ? 'text-success' : 'text-warning';
         const statusIcon = record.assignedRole ? '✓' : '⚠';
@@ -2411,6 +2487,31 @@ function displayRoleAssignment() {
         const wasAutoMapped = record.autoMapped;
         const autoMappedClass = wasAutoMapped ? 'auto-mapped-role' : '';
         const autoMappedIndicator = wasAutoMapped ? '<small class="text-success auto-mapped-indicator">✓ Auto-mapped</small>' : '';
+        
+        // Validation status column
+        let validationStatusHTML = '';
+        if (record.validationStatus === 'verified') {
+            validationStatusHTML = `
+                <span class="badge badge-success">✓ Verified</span>
+                <small class="d-block text-muted">${sanitizeHTML(record.existingStudentName || '')}</small>
+            `;
+        } else if (record.validationStatus === 'not_found') {
+            // Show fuzzy matches dropdown
+            const fuzzyOptions = record.fuzzyMatches && record.fuzzyMatches.length > 0
+                ? record.fuzzyMatches.map(match => 
+                    `<option value="match:${match.id}">${sanitizeHTML(match.name)} (${sanitizeHTML(match.matricNumber)}) - ${match.score}% match</option>`
+                  ).join('')
+                : '';
+            
+            validationStatusHTML = `
+                <select class="form-control form-select form-select-sm" onchange="handleMatchSelection(${index}, this.value)">
+                    <option value="">Select action...</option>
+                    <option value="add_new">➕ Add as New Student</option>
+                    ${fuzzyOptions}
+                    <option value="manual_search">🔍 Search All Students</option>
+                </select>
+            `;
+        }
         
         return `
             <tr data-record-index="${index}">
@@ -2435,7 +2536,8 @@ function displayRoleAssignment() {
                     </div>
                 </td>
                 <td class="text-center" id="points_${index}">${points}</td>
-                <td class="text-center ${statusClass}" id="status_${index}">${statusIcon}</td>
+                <td><small class="text-muted">${sanitizeHTML(record.additionalNotes || '-')}</small></td>
+                <td>${validationStatusHTML}</td>
             </tr>
         `;
     }).join('');
@@ -2519,6 +2621,12 @@ function assignGeneralCommitteeToUnassigned() {
 function getAvailableRoles() {
     const meritType = document.getElementById('meritType').value;
     let roles = [];
+    
+    // Check if meritValues is loaded
+    if (!meritValues) {
+        console.error('Merit values not loaded yet');
+        return roles;
+    }
     
     if (meritType === 'committee' && meritValues.committeeRoles) {
         roles = Object.keys(meritValues.committeeRoles);
@@ -2984,36 +3092,12 @@ async function proceedToRoleAssignment() {
         // Process data with column mapping (without role assignment yet)
         processedData = await processExcelDataForRoleAssignment();
         
-        // Display role assignment interface
+        // Validate records (fuzzy matching for students)
+        await validateRecords();
+        
+        // Display role assignment interface with validation
         displayRoleAssignment();
         goToStep(6);
-        
-    } catch (error) {
-        console.error('Error processing data:', error);
-        showToast('Error processing data: ' + error.message, 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-async function proceedToValidation() {
-    try {
-        showLoading();
-        
-        // Validate that all roles are assigned
-        if (!validateRoleAssignments()) {
-            return;
-        }
-        
-        // Process final data with assigned roles
-        await processFinalDataWithRoles();
-        
-        // Validate records
-        validateRecords();
-        
-        // Display preview
-        displayPreview();
-        goToStep(7);
         
     } catch (error) {
         console.error('Error processing data:', error);
@@ -3079,11 +3163,29 @@ async function processFinalDataWithRoles() {
     });
 }
 
-function validateRecords() {
+// Store all existing students for validation
+let allStudentsCache = null;
+
+async function validateRecords() {
     validRecords = [];
     invalidRecords = [];
     
-    processedData.forEach(record => {
+    // Load all students from database for validation
+    if (!allStudentsCache) {
+        try {
+            const studentsSnapshot = await firestore.collection('students').get();
+            allStudentsCache = studentsSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+        } catch (error) {
+            console.error('Error loading students for validation:', error);
+            allStudentsCache = [];
+        }
+    }
+    
+    // Validate each record
+    for (const record of processedData) {
         const issues = [];
         
         // Validate required fields
@@ -3097,33 +3199,52 @@ function validateRecords() {
             issues.push('Invalid matric number format (expected: S12345, DP121234, GS12345, or 12345)');
         }
         
-        // For committee member type, role validation will be handled in preview
-        const selectedMeritType = document.getElementById('meritType').value;
-        if (selectedMeritType !== 'committee' && !record.role.trim()) {
-            issues.push('Role is required');
-        }
+        // Note: Role validation is not done here since roles are assigned in the same step
+        // Role validation will happen when user tries to proceed to next step
         
-        // Calculate merit points
-        const meritType = getMeritType();
+        // Check if student exists in database
+        const matricUpper = record.matricNumber.trim().toUpperCase();
+        const existingStudent = allStudentsCache.find(s => 
+            s.matricNumber && s.matricNumber.toUpperCase() === matricUpper
+        );
         
-        // Use levelId for merit calculation, fallback to level if levelId doesn't exist
-        const eventLevelId = selectedEvent.levelId || selectedEvent.level;
-        
-        if (selectedMeritType === 'committee') {
-            // For committee members, use their specific role if provided, otherwise default to 0
-            const roleToUse = record.role || 'Committee Member';
-            record.meritPoints = calculateMeritPointsForUpload(roleToUse, eventLevelId, record.additionalNotes, meritValues, selectedEvent);
+        if (existingStudent) {
+            // Student found - mark as verified
+            record.validationStatus = 'verified';
+            record.existingStudentId = existingStudent.id;
+            record.existingStudentName = existingStudent.name;
         } else {
-            const roleToUse = meritType || record.role;
-            record.meritPoints = calculateMeritPointsForUpload(roleToUse, eventLevelId, record.additionalNotes, meritValues, selectedEvent);
+            // Student not found - need fuzzy matching
+            record.validationStatus = 'not_found';
+            record.fuzzyMatches = findFuzzyMatches(record.name, record.matricNumber, allStudentsCache);
+            record.selectedMatch = null; // User hasn't selected a match yet
+            issues.push('Student not found in database - requires action');
         }
         
-        // Apply override if set
-        if (document.getElementById('overrideMeritValue').checked) {
-            const customValue = parseInt(document.getElementById('customMeritValue').value);
-            if (!isNaN(customValue)) {
-                record.meritPoints = customValue;
+        // Calculate merit points (if role is already assigned)
+        const meritType = getMeritType();
+        const eventLevelId = selectedEvent.levelId || selectedEvent.level;
+        const selectedMeritType = document.getElementById('meritType').value;
+        
+        if (record.assignedRole) {
+            // If role is already assigned (e.g., from previous validation), calculate points
+            if (selectedMeritType === 'committee') {
+                record.meritPoints = calculateMeritPointsForUpload(record.assignedRole, eventLevelId, record.additionalNotes, meritValues, selectedEvent);
+            } else {
+                const roleToUse = record.assignedRole || meritType;
+                record.meritPoints = calculateMeritPointsForUpload(roleToUse, eventLevelId, record.additionalNotes, meritValues, selectedEvent);
             }
+            
+            // Apply override if set
+            if (document.getElementById('overrideMeritValue').checked) {
+                const customValue = parseInt(document.getElementById('customMeritValue').value);
+                if (!isNaN(customValue)) {
+                    record.meritPoints = customValue;
+                }
+            }
+        } else {
+            // Role not assigned yet, points will be calculated when role is assigned
+            record.meritPoints = 0;
         }
         
         record.issues = issues;
@@ -3133,7 +3254,92 @@ function validateRecords() {
         } else {
             invalidRecords.push(record);
         }
+    }
+}
+
+// Fuzzy matching function - returns top matches based on name OR matric similarity
+function findFuzzyMatches(name, matricNumber, studentsList) {
+    const matches = [];
+    const nameLower = name.toLowerCase().trim();
+    const matricLower = matricNumber.toLowerCase().trim();
+    
+    studentsList.forEach(student => {
+        let score = 0;
+        const studentNameLower = (student.name || '').toLowerCase().trim();
+        const studentMatricLower = (student.matricNumber || '').toLowerCase().trim();
+        
+        // Matric number similarity (higher weight)
+        const matricSimilarity = calculateStringSimilarity(matricLower, studentMatricLower);
+        score += matricSimilarity * 60;
+        
+        // Name similarity
+        const nameSimilarity = calculateStringSimilarity(nameLower, studentNameLower);
+        score += nameSimilarity * 40;
+        
+        // Bonus for partial matches
+        if (studentMatricLower.includes(matricLower) || matricLower.includes(studentMatricLower)) {
+            score += 20;
+        }
+        if (studentNameLower.includes(nameLower) || nameLower.includes(studentNameLower)) {
+            score += 10;
+        }
+        
+        // Only include matches with reasonable similarity
+        if (score > 30) {
+            matches.push({
+                id: student.id,
+                name: student.name,
+                matricNumber: student.matricNumber,
+                score: Math.round(score)
+            });
+        }
     });
+    
+    // Sort by score descending and return top 5
+    return matches.sort((a, b) => b.score - a.score).slice(0, 5);
+}
+
+// Simple string similarity calculation (Levenshtein-based)
+function calculateStringSimilarity(str1, str2) {
+    if (str1 === str2) return 100;
+    if (!str1 || !str2) return 0;
+    
+    const longer = str1.length > str2.length ? str1 : str2;
+    const shorter = str1.length > str2.length ? str2 : str1;
+    
+    if (longer.length === 0) return 100;
+    
+    const editDistance = levenshteinDistance(longer, shorter);
+    return ((longer.length - editDistance) / longer.length) * 100;
+}
+
+// Levenshtein distance algorithm
+function levenshteinDistance(str1, str2) {
+    const matrix = [];
+    
+    for (let i = 0; i <= str2.length; i++) {
+        matrix[i] = [i];
+    }
+    
+    for (let j = 0; j <= str1.length; j++) {
+        matrix[0][j] = j;
+    }
+    
+    for (let i = 1; i <= str2.length; i++) {
+        for (let j = 1; j <= str1.length; j++) {
+            if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1,
+                    matrix[i][j - 1] + 1,
+                    matrix[i - 1][j] + 1
+                );
+            }
+        }
+    }
+    
+    return matrix[str2.length][str1.length];
 }
 
 function getMeritType() {
@@ -3163,21 +3369,31 @@ function displayPreview() {
 function displayValidationSummary() {
     const summaryContainer = document.getElementById('validationSummary');
     
+    const verifiedCount = processedData.filter(r => r.validationStatus === 'verified').length;
+    const notFoundCount = processedData.filter(r => r.validationStatus === 'not_found').length;
+    const resolvedCount = processedData.filter(r => r.validationStatus === 'not_found' && (r.selectedMatch || r.addAsNew)).length;
+    const needsActionCount = notFoundCount - resolvedCount;
+    
     summaryContainer.innerHTML = `
-        <div class="validation-summary">
-            <div class="validation-card success">
-                <div class="text-2xl font-bold text-success">${validRecords.length}</div>
-                <div class="text-sm">Valid Records</div>
+        <div class="validation-summary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+            <div class="validation-card" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 1rem; text-align: center;">
+                <div style="font-size: 2rem; font-weight: bold; color: #155724;">${verifiedCount}</div>
+                <div style="font-size: 0.875rem; color: #155724;">✓ Verified Students</div>
             </div>
-            <div class="validation-card ${invalidRecords.length > 0 ? 'error' : 'success'}">
-                <div class="text-2xl font-bold ${invalidRecords.length > 0 ? 'text-danger' : 'text-success'}">${invalidRecords.length}</div>
-                <div class="text-sm">Records with Issues</div>
+            <div class="validation-card" style="background: ${needsActionCount > 0 ? '#fff3cd' : '#d4edda'}; border: 1px solid ${needsActionCount > 0 ? '#ffeeba' : '#c3e6cb'}; border-radius: 8px; padding: 1rem; text-align: center;">
+                <div style="font-size: 2rem; font-weight: bold; color: ${needsActionCount > 0 ? '#856404' : '#155724'};">${needsActionCount}</div>
+                <div style="font-size: 0.875rem; color: ${needsActionCount > 0 ? '#856404' : '#155724'};">⚠ Needs Action</div>
             </div>
-            <div class="validation-card success">
-                <div class="text-2xl font-bold text-primary">${validRecords.reduce((sum, record) => sum + record.meritPoints, 0)}</div>
-                <div class="text-sm">Total Merit Points</div>
+            <div class="validation-card" style="background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 8px; padding: 1rem; text-align: center;">
+                <div style="font-size: 2rem; font-weight: bold; color: #0c5460;">${validRecords.reduce((sum, record) => sum + record.meritPoints, 0)}</div>
+                <div style="font-size: 0.875rem; color: #0c5460;">Total Merit Points</div>
             </div>
         </div>
+        ${needsActionCount > 0 ? `
+            <div class="alert alert-warning" style="background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                <strong>⚠ Action Required:</strong> ${needsActionCount} student${needsActionCount > 1 ? 's' : ''} not found in database. Please match with existing students or add as new.
+            </div>
+        ` : ''}
     `;
 }
 
@@ -3189,8 +3405,30 @@ function displayPreviewTable() {
     const selectedMeritType = document.getElementById('meritType').value;
     
     tableBody.innerHTML = allRecords.map((record, index) => {
-        const statusClass = record.issues.length === 0 ? 'status-valid' : 'status-error';
-        const statusIcon = record.issues.length === 0 ? '✓' : '✗';
+        // Determine status based on validation
+        let statusClass, statusIcon, statusBg;
+        
+        if (record.validationStatus === 'verified') {
+            statusClass = 'status-valid';
+            statusIcon = '✓';
+            statusBg = '';
+        } else if (record.validationStatus === 'not_found') {
+            if (record.selectedMatch || record.addAsNew) {
+                // User has taken action
+                statusClass = 'status-resolved';
+                statusIcon = '⚠';
+                statusBg = 'background: #fff3cd;';
+            } else {
+                // Needs action
+                statusClass = 'status-warning';
+                statusIcon = '⚠';
+                statusBg = 'background: #fff3cd;';
+            }
+        } else {
+            statusClass = 'status-error';
+            statusIcon = '✗';
+            statusBg = 'background: #f8d7da;';
+        }
         
         // Handle role display based on merit type and assignment method
         let roleCell = '';
@@ -3198,7 +3436,6 @@ function displayPreviewTable() {
         const meritType = document.getElementById('meritType').value;
         
         if (meritType === 'committee' && roleAssignmentMethod === 'manual') {
-            // Show dropdown for manual committee role assignment
             roleCell = `
                 <select class="form-control form-select role-select" data-record-index="${index}" onchange="updateRecordRole(${index}, this.value)">
                     <option value="">Select Committee Role...</option>
@@ -3209,25 +3446,265 @@ function displayPreviewTable() {
             roleCell = sanitizeHTML(record.role);
         }
         
+        // Build validation action cell
+        let validationCell = '';
+        if (record.validationStatus === 'verified') {
+            validationCell = `
+                <span class="text-success text-sm">
+                    ✓ Verified<br>
+                    <small class="text-muted">${sanitizeHTML(record.existingStudentName)}</small>
+                </span>
+            `;
+        } else if (record.validationStatus === 'not_found') {
+            validationCell = `
+                <div class="validation-actions" style="min-width: 300px;">
+                    <select class="form-control form-select mb-2" id="matchSelect_${index}" onchange="handleMatchSelection(${index}, this.value)" style="font-size: 0.875rem;">
+                        <option value="">-- Select Action --</option>
+                        <option value="add_new" ${record.addAsNew ? 'selected' : ''}>➕ Add as New Student</option>
+                        ${record.fuzzyMatches && record.fuzzyMatches.length > 0 ? '<optgroup label="Possible Matches:">' : ''}
+                        ${record.fuzzyMatches ? record.fuzzyMatches.map(match => `
+                            <option value="${match.id}" ${record.selectedMatch === match.id ? 'selected' : ''}>
+                                ${sanitizeHTML(match.name)} (${sanitizeHTML(match.matricNumber)}) - ${match.score}% match
+                            </option>
+                        `).join('') : ''}
+                        ${record.fuzzyMatches && record.fuzzyMatches.length > 0 ? '</optgroup>' : ''}
+                        <optgroup label="Manual Selection:">
+                            <option value="manual">🔍 Search All Students...</option>
+                        </optgroup>
+                    </select>
+                    ${record.selectedMatch ? `
+                        <small class="text-success">✓ Will link to existing student</small>
+                    ` : record.addAsNew ? `
+                        <small class="text-info">✓ Will create new student</small>
+                    ` : `
+                        <small class="text-warning">⚠ Please select an action</small>
+                    `}
+                </div>
+            `;
+        } else {
+            validationCell = `
+                <ul class="text-sm text-danger">${record.issues.map(issue => `<li>• ${issue}</li>`).join('')}</ul>
+            `;
+        }
+        
         return `
-            <tr class="${record.issues.length > 0 ? 'bg-red-50' : ''}">
-                <td>
-                    <span class="status-icon ${statusClass}">${statusIcon}</span>
+            <tr style="${statusBg}">
+                <td style="text-align: center;">
+                    <span class="status-icon ${statusClass}" style="font-size: 1.5rem;">${statusIcon}</span>
                 </td>
                 <td>${sanitizeHTML(record.name)}</td>
                 <td>${sanitizeHTML(record.matricNumber)}</td>
                 <td>${roleCell}</td>
                 <td class="font-medium">${record.meritPoints}</td>
                 <td>${sanitizeHTML(record.additionalNotes)}</td>
-                <td>
-                    ${record.issues.length > 0 ? 
-                        `<ul class="text-sm text-danger">${record.issues.map(issue => `<li>• ${issue}</li>`).join('')}</ul>` : 
-                        '<span class="text-success text-sm">No issues</span>'
-                    }
-                </td>
+                <td>${validationCell}</td>
             </tr>
         `;
     }).join('');
+}
+
+// Handle match selection for student validation
+function handleMatchSelection(recordIndex, value) {
+    const allRecords = [...validRecords, ...invalidRecords];
+    const record = allRecords[recordIndex];
+    
+    if (!record) return;
+    
+    if (value === 'add_new') {
+        // Mark to add as new student
+        record.addAsNew = true;
+        record.selectedMatch = null;
+        
+        // Remove "not found" issue since user has taken action
+        record.issues = record.issues.filter(issue => !issue.includes('Student not found'));
+        
+        // Move to valid if no other issues
+        if (record.issues.length === 0) {
+            const invalidIndex = invalidRecords.indexOf(record);
+            if (invalidIndex > -1) {
+                invalidRecords.splice(invalidIndex, 1);
+                validRecords.push(record);
+            }
+        }
+        
+    } else if (value === 'manual') {
+        // Open manual search modal
+        openManualStudentSearch(recordIndex);
+        return;
+        
+    } else if (value) {
+        // Selected an existing student match
+        record.selectedMatch = value;
+        record.addAsNew = false;
+        
+        // Find the matched student details
+        const matchedStudent = record.fuzzyMatches.find(m => m.id === value);
+        if (matchedStudent) {
+            record.existingStudentId = matchedStudent.id;
+            record.existingStudentName = matchedStudent.name;
+        }
+        
+        // Remove "not found" issue since user has taken action
+        record.issues = record.issues.filter(issue => !issue.includes('Student not found'));
+        
+        // Move to valid if no other issues
+        if (record.issues.length === 0) {
+            const invalidIndex = invalidRecords.indexOf(record);
+            if (invalidIndex > -1) {
+                invalidRecords.splice(invalidIndex, 1);
+                validRecords.push(record);
+            }
+        }
+        
+    } else {
+        // User cleared selection
+        record.selectedMatch = null;
+        record.addAsNew = false;
+        
+        // Add back "not found" issue if not present
+        if (!record.issues.some(issue => issue.includes('Student not found'))) {
+            record.issues.push('Student not found in database - requires action');
+        }
+        
+        // Move to invalid if now has issues
+        if (record.issues.length > 0) {
+            const validIndex = validRecords.indexOf(record);
+            if (validIndex > -1) {
+                validRecords.splice(validIndex, 1);
+                invalidRecords.push(record);
+            }
+        }
+    }
+    
+    // Refresh display
+    displayValidationSummary();
+    displayPreviewTable();
+}
+
+// Open manual student search modal
+let currentManualSearchRecordIndex = null;
+
+function openManualStudentSearch(recordIndex) {
+    currentManualSearchRecordIndex = recordIndex;
+    
+    // Create modal HTML
+    const modalHTML = `
+        <div id="manualStudentSearchModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; border-radius: 8px; padding: 2rem; width: 90%; max-width: 800px; max-height: 80vh; overflow-y: auto;">
+                <div style="display: flex; justify-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3 style="margin: 0;">Search All Students</h3>
+                    <button onclick="closeManualStudentSearch()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+                
+                <input type="text" id="manualStudentSearchInput" placeholder="Search by name or matric number..." 
+                    class="form-control mb-3" style="padding: 0.75rem;" onkeyup="filterManualStudentList()">
+                
+                <div id="manualStudentList" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="padding: 2rem; text-align: center; color: #666;">
+                        Loading students...
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Load and display all students
+    displayManualStudentList();
+}
+
+function closeManualStudentSearch() {
+    const modal = document.getElementById('manualStudentSearchModal');
+    if (modal) {
+        modal.remove();
+    }
+    currentManualSearchRecordIndex = null;
+}
+
+async function displayManualStudentList() {
+    const listContainer = document.getElementById('manualStudentList');
+    
+    if (!allStudentsCache || allStudentsCache.length === 0) {
+        listContainer.innerHTML = '<div style="padding: 2rem; text-align: center; color: #666;">No students found in database</div>';
+        return;
+    }
+    
+    // Sort students by name
+    const sortedStudents = [...allStudentsCache].sort((a, b) => 
+        (a.name || '').localeCompare(b.name || '')
+    );
+    
+    listContainer.innerHTML = sortedStudents.map(student => `
+        <div class="manual-student-item" data-student-id="${student.id}" 
+            style="padding: 0.75rem 1rem; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s;"
+            onmouseover="this.style.background='#f8f9fa'" 
+            onmouseout="this.style.background='white'"
+            onclick="selectManualStudent('${student.id}', '${sanitizeHTML(student.name)}')">
+            <div style="font-weight: 500;">${sanitizeHTML(student.name)}</div>
+            <div style="font-size: 0.875rem; color: #666;">${sanitizeHTML(student.matricNumber || 'No matric')}</div>
+        </div>
+    `).join('');
+}
+
+function filterManualStudentList() {
+    const searchInput = document.getElementById('manualStudentSearchInput');
+    const query = searchInput.value.toLowerCase();
+    const items = document.querySelectorAll('.manual-student-item');
+    
+    items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(query) ? 'block' : 'none';
+    });
+}
+
+function selectManualStudent(studentId, studentName) {
+    if (currentManualSearchRecordIndex === null) return;
+    
+    const allRecords = [...validRecords, ...invalidRecords];
+    const record = allRecords[currentManualSearchRecordIndex];
+    
+    if (record) {
+        // Set the selected match
+        record.selectedMatch = studentId;
+        record.addAsNew = false;
+        record.existingStudentId = studentId;
+        record.existingStudentName = studentName;
+        
+        // Remove "not found" issue
+        record.issues = record.issues.filter(issue => !issue.includes('Student not found'));
+        
+        // Move to valid if no other issues
+        if (record.issues.length === 0) {
+            const invalidIndex = invalidRecords.indexOf(record);
+            if (invalidIndex > -1) {
+                invalidRecords.splice(invalidIndex, 1);
+                validRecords.push(record);
+            }
+        }
+        
+        // Update dropdown to show selection
+        const dropdown = document.getElementById(`matchSelect_${currentManualSearchRecordIndex}`);
+        if (dropdown) {
+            // Add option if not in fuzzy matches
+            if (!record.fuzzyMatches.some(m => m.id === studentId)) {
+                const option = document.createElement('option');
+                option.value = studentId;
+                option.textContent = `${studentName} (manually selected)`;
+                option.selected = true;
+                dropdown.appendChild(option);
+            } else {
+                dropdown.value = studentId;
+            }
+        }
+        
+        // Refresh display
+        displayValidationSummary();
+        displayPreviewTable();
+    }
+    
+    closeManualStudentSearch();
 }
 
 // Helper function to get committee role options
@@ -3400,24 +3877,24 @@ async function finalizeUpload() {
     if (!confirmed) return;
     
     try {
-        // Hide all steps and show Step 9 (Upload Progress)
-        hideSteps([1, 2, 3, 4, 5, 6, 7, 8]);
-        goToStep(9);
+        // Hide all steps and show Step 8 (Upload Progress)
+        hideSteps([1, 2, 3, 4, 5, 6, 7]);
+        goToStep(8);
         
-        // Update step indicator to show Step 9
-        document.getElementById('currentStep').textContent = '9';
+        // Update step indicator to show Step 8
+        document.getElementById('currentStep').textContent = '8';
         document.getElementById('progressIndicator').style.width = '100%';
         
-        console.log('Now showing Step 9 (Upload Progress)');
+        console.log('Now showing Step 8 (Upload Progress)');
         
         await uploadMeritRecords();
         
-        // Show completion message in Step 9
-        const step9Element = document.getElementById('step9');
-        step9Element.innerHTML = `
+        // Show completion message in Step 8
+        const step8Element = document.getElementById('step8');
+        step8Element.innerHTML = `
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">Step 9: Upload Complete</h3>
+                    <h3 class="card-title">Step 8: Upload Complete</h3>
                 </div>
                 <div class="card-body text-center">
                     <div class="text-success mb-4">
@@ -3556,24 +4033,58 @@ async function uploadMeritRecords() {
 
 async function findOrCreateStudent(record) {
     try {
-        // Search for existing student by matric number (using matric as document ID)
-        const matricNumber = record.matricNumber.toUpperCase();
-        const studentDoc = await firestore.collection('students').doc(matricNumber).get();
+        // Check validation results first
+        if (record.selectedMatch) {
+            // User selected an existing student - use that student's ID
+            return record.selectedMatch;
+        }
         
-        if (studentDoc.exists) {
-            // Student exists, return the matric number (document ID)
-            return matricNumber;
-        } else {
-            // Create new student record
+        if (record.addAsNew) {
+            // User chose to add as new student
+            const matricNumber = record.matricNumber.toUpperCase();
             const studentData = {
+                name: record.name,
+                matricNumber: matricNumber,
                 displayName: record.name,
                 role: 'student',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 createdBy: getCurrentUser().uid,
                 isImported: true
             };
-            await firestore.collection('students').doc(matricNumber).set(studentData);
-            return matricNumber;
+            
+            // Create new student document
+            const newStudentRef = await firestore.collection('students').add(studentData);
+            return newStudentRef.id;
+        }
+        
+        // If verified (student exists), use existing student ID
+        if (record.validationStatus === 'verified' && record.existingStudentId) {
+            return record.existingStudentId;
+        }
+        
+        // Fallback: Search for existing student by matric number
+        const matricNumber = record.matricNumber.toUpperCase();
+        const studentsSnapshot = await firestore.collection('students')
+            .where('matricNumber', '==', matricNumber)
+            .limit(1)
+            .get();
+        
+        if (!studentsSnapshot.empty) {
+            // Student exists, return the document ID
+            return studentsSnapshot.docs[0].id;
+        } else {
+            // Create new student record
+            const studentData = {
+                name: record.name,
+                matricNumber: matricNumber,
+                displayName: record.name,
+                role: 'student',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdBy: getCurrentUser().uid,
+                isImported: true
+            };
+            const newStudentRef = await firestore.collection('students').add(studentData);
+            return newStudentRef.id;
         }
     } catch (error) {
         console.error('Error finding/creating student:', error);
@@ -3638,7 +4149,7 @@ function hideSteps(stepNumbers) {
 // Page-based navigation functions
 let currentStepNumber = 1;
 
-function goToStep(stepNumber) {
+async function goToStep(stepNumber) {
     // Hide current step
     hideSteps([currentStepNumber]);
     
@@ -3657,13 +4168,73 @@ function goToStep(stepNumber) {
     // Save progress to localStorage
     saveProgressToStorage();
     
-    // Step-specific actions
-    if (stepNumber === 7) {
-        // Update validation when entering preview step
-        validateRecords();
+    // Step-specific actions and data refresh
+    if (stepNumber === 3) {
+        // Refresh merit type display if event is selected
+        if (selectedEvent) {
+            await displayMeritTypesHierarchical();
+        }
     }
     
-    if (stepNumber === 8) {
+    if (stepNumber === 4) {
+        // Show restored data status if workbook exists
+        if (window.currentWorkbook) {
+            const sheetNames = Object.keys(window.currentWorkbook.Sheets);
+            if (sheetNames.length > 1) {
+                setupMultipleSheetSelection(sheetNames);
+                // Re-select the previously selected sheet
+                const savedSheet = getFormValue('sheetSelect');
+                if (savedSheet) {
+                    const sheetSelect = document.getElementById('sheetSelect');
+                    if (sheetSelect) {
+                        sheetSelect.value = savedSheet;
+                        window.selectedSheet = savedSheet;
+                        // Enable next button
+                        const nextBtn = document.getElementById('nextFromStep4');
+                        if (nextBtn) nextBtn.disabled = false;
+                    }
+                }
+            } else if (sheetNames.length === 1) {
+                // Single sheet - show data is loaded
+                const sheetName = sheetNames[0];
+                window.selectedSheet = sheetName;
+                
+                // Calculate row count if possible
+                let rowCount = 0;
+                if (excelData && excelData.length > 0) {
+                    rowCount = excelData.length - 1; // Subtract header
+                } else {
+                    // Try to get from workbook
+                    const sheet = window.currentWorkbook.Sheets[sheetName];
+                    const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                    if (sheetData && Array.isArray(sheetData)) {
+                        const filteredData = filterEmptyRows(sheetData);
+                        rowCount = filteredData.length - 1; // Subtract header
+                    }
+                }
+                
+                setupSingleSheetSelection(sheetName, rowCount);
+            }
+        }
+    }
+    
+    if (stepNumber === 5) {
+        // Refresh column mapping display
+        if (columnHeaders && columnHeaders.length > 0) {
+            populateColumnMappingDropdowns();
+            displayFilePreview();
+        }
+    }
+    
+    if (stepNumber === 6) {
+        // Step 6 now combines role assignment AND validation
+        if (processedData && processedData.length > 0) {
+            await validateRecords();
+            displayRoleAssignment(); // This will now show both roles and validation
+        }
+    }
+    
+    if (stepNumber === 7) {
         // Update upload summary when entering final confirmation step
         updateUploadSummary();
     }
@@ -3677,7 +4248,7 @@ function updateProgressIndicator(stepNumber) {
     const currentStepSpan = document.getElementById('currentStep');
     
     if (progressBar) {
-        const percentage = (stepNumber / 9) * 100;
+        const percentage = (stepNumber / 8) * 100; // Now 8 steps total
         progressBar.style.width = `${percentage}%`;
     }
     

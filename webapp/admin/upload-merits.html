@@ -416,12 +416,12 @@
                 </div>
             </div>
 
-            <!-- Step 6: Role Assignment -->
+            <!-- Step 6: Role Assignment & Validation -->
             <div id="step6" class="upload-step d-none">
                 <div class="card">
                     <div class="card-header">
                         <div class="flex justify-between items-center">
-                            <h3 class="card-title">Step 6: Role Assignment</h3>
+                            <h3 class="card-title">Step 6: Role Assignment & Validation</h3>
                             <div class="flex gap-2">
                                 <span id="recordCount" class="text-sm text-secondary"></span>
                                 <button id="exportPreviewBtn" class="btn btn-outline btn-sm">Export Preview</button>
@@ -440,7 +440,7 @@
                                     <h5 class="font-medium text-warning mb-2">Role Assignment Required</h5>
                                     <p class="text-sm text-secondary mb-2">
                                         Assign specific roles to each student. Type to search and select from available roles. 
-                                        The original role from Excel (if any) is shown on the left for reference.
+                                        The original role from Excel (if any) is shown for reference. Student validation happens automatically.
                                     </p>
                                     <div class="flex gap-2 mt-3">
                                         <button id="assignGeneralCommitteeBtn" class="btn btn-outline btn-sm">
@@ -456,18 +456,22 @@
                         </div>
                     </div>
                     
-                    <!-- Role Mapping Table -->
-                    <div class="table-container" style="max-height: 500px; overflow-y: auto;">
+                    <!-- Validation Summary -->
+                    <div id="validationSummary" class="mb-4"></div>
+                    
+                    <!-- Combined Role Assignment & Validation Table -->
+                    <div class="table-container">
                         <table class="table">
                             <thead>
                                 <tr>
                                     <th width="5%">#</th>
-                                    <th width="20%">Name</th>
-                                    <th width="15%">Matric Number</th>
-                                    <th width="20%">Original Role</th>
-                                    <th width="25%">Assign Role</th>
-                                    <th width="10%">Points</th>
-                                    <th width="5%">Status</th>
+                                    <th width="15%">Name</th>
+                                    <th width="12%">Matric Number</th>
+                                    <th width="15%">Original Role</th>
+                                    <th width="18%">Assign Role</th>
+                                    <th width="8%">Value</th>
+                                    <th width="12%">Notes</th>
+                                    <th width="15%">Validation Status</th>
                                 </tr>
                             </thead>
                             <tbody id="roleMappingTableBody">
@@ -485,61 +489,6 @@
                                 Back: Column Mapping
                             </button>
                             <button id="nextFromStep6" class="btn btn-primary">
-                                Next: Preview & Validate
-                                <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 7: Preview and Validation -->
-            <div id="step7" class="upload-step d-none">
-                <div class="card">
-                    <div class="card-header">
-                        <div class="flex justify-between items-center">
-                            <h3 class="card-title">Step 7: Preview and Validation</h3>
-                            <div class="flex gap-2">
-                                <span id="validationRecordCount" class="text-sm text-secondary"></span>
-                                <button id="exportValidationPreviewBtn" class="btn btn-outline btn-sm">Export Preview</button>
-                            </div>
-                        </div>
-                    </div>
-                <div class="card-body">
-                    <!-- Validation Summary -->
-                    <div id="validationSummary" class="mb-4"></div>
-                    
-                    <!-- Preview Table -->
-                    <div class="table-container" style="max-height: 400px; overflow-y: auto;">
-                        <table class="table">
-                            <thead id="previewTableHead">
-                                <tr>
-                                    <th>Status</th>
-                                    <th>Name</th>
-                                    <th>Matric Number</th>
-                                    <th>Role</th>
-                                    <th>Merit Points</th>
-                                    <th>Additional Notes</th>
-                                    <th>Issues</th>
-                                </tr>
-                            </thead>
-                            <tbody id="previewTableBody">
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                
-                <div class="card-footer">
-                        <div class="flex justify-between">
-                            <button id="backFromStep7" class="btn btn-outline">
-                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                                </svg>
-                                Back: Role Assignment
-                            </button>
-                            <button id="nextFromStep7" class="btn btn-primary">
                                 Next: Final Confirmation
                                 <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -550,24 +499,24 @@
                 </div>
             </div>
 
-                        <!-- Step 8: Final Confirmation -->
-            <div id="step8" class="upload-step d-none">
+                        <!-- Step 7: Final Confirmation -->
+            <div id="step7" class="upload-step d-none">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Step 8: Final Confirmation</h3>
+                        <h3 class="card-title">Step 7: Final Confirmation</h3>
                     </div>
                     <div class="card-body">
                         <div id="uploadSummary" class="mb-4"></div>
                     </div>
                     <div class="card-footer">
                         <div class="flex justify-between">
-                            <button id="backFromStep8" class="btn btn-outline">
+                            <button id="backFromStep7" class="btn btn-outline">
                                 <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                                 </svg>
-                                Back: Preview & Validation
+                                Back: Role Assignment & Validation
                             </button>
-                            <button id="nextFromStep8" class="btn btn-primary">
+                            <button id="nextFromStep7" class="btn btn-primary">
                                 Complete Upload
                                 <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
@@ -578,11 +527,11 @@
                 </div>
             </div>
 
-            <!-- Step 9: Upload Progress -->
-            <div id="step9" class="upload-step d-none">
+            <!-- Step 8: Upload Progress -->
+            <div id="step8" class="upload-step d-none">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Step 9: Uploading Merit Records</h3>
+                        <h3 class="card-title">Step 8: Uploading Merit Records</h3>
                     </div>
                     <div class="card-body text-center">
                         <div class="spinner-border text-primary mb-4" role="status">
@@ -602,7 +551,7 @@
                     </div>
                     <div class="card-footer">
                         <div class="flex justify-between">
-                            <button id="backFromStep9" class="btn btn-outline" disabled>
+                            <button id="backFromStep8" class="btn btn-outline" disabled>
                                 <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                                 </svg>
